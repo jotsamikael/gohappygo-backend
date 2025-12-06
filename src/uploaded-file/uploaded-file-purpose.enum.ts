@@ -1,0 +1,14 @@
+export enum FilePurpose {
+  'SELFIE',
+  'ID_FRONT',
+  'ID_BACK',
+  'PARCEL',
+  'PROFILE_PICTURE',
+  'TRAVEL_IMAGE_1',
+  'TRAVEL_IMAGE_2',
+  'DEMAND_IMAGE_1',
+  'DEMAND_IMAGE_2', 
+  'DEMAND_IMAGE_3',
+  'REQUEST_IMAGE_1',
+  'REQUEST_IMAGE_2',
+}

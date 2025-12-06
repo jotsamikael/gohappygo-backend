@@ -1,0 +1,4058 @@
+[
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Algiers",
+      "airportname": "Houari Boumediene Airport",
+      "iata_code": "ALG",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Annaba",
+      "airportname": "Rabah Bitat Airport",
+      "iata_code": "AAE",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Batna",
+      "airportname": "Batna Airport",
+      "iata_code": "BLJ",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Béjaïa",
+      "airportname": "Soummam Airport",
+      "iata_code": "BJA",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Chlef",
+      "airportname": "Chlef International Airport",
+      "iata_code": "CFK",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Constantine",
+      "airportname": "Mohamed Boudiaf International Airport",
+      "iata_code": "CZL",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Jijel",
+      "airportname": "Jijel Ferhat Abbas Airport",
+      "iata_code": "GJL",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Oran",
+      "airportname": "Oran Es Sénia Airport",
+      "iata_code": "ORN",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Oum El Bouaghi",
+      "airportname": "Biskra Airport",
+      "iata_code": "BSK",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Sétif",
+      "airportname": "Ain Arnat Airport",
+      "iata_code": "QSF",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Algeria",
+      "location": "Tlemcen",
+      "airportname": "Zenata – Messali El Hadj Airport",
+      "iata_code": "TLM",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Alexandria",
+      "airportname": "Borg El Arab International Airport",
+      "iata_code": "HBE",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Alexandria",
+      "airportname": "El Nouzha Airport",
+      "iata_code": "ALY",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Asyut",
+      "airportname": "Assiut Airport",
+      "iata_code": "ATZ",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Aswan",
+      "airportname": "Aswan International Airport",
+      "iata_code": "ASW",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Cairo",
+      "airportname": "Cairo International Airport",
+      "iata_code": "CAI",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Cairo",
+      "airportname": "Sphinx International Airport",
+      "iata_code": "SPX",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "El Arish",
+      "airportname": "El Arish International Airport",
+      "iata_code": "AAC",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "El Dabaa",
+      "airportname": "El Alamein International Airport",
+      "iata_code": "DBB",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Hurghada",
+      "airportname": "Hurghada International Airport",
+      "iata_code": "HRG",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Luxor",
+      "airportname": "Luxor International Airport",
+      "iata_code": "LXR",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Marsa Alam",
+      "airportname": "Marsa Alam International Airport",
+      "iata_code": "RMF",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Mersa Matruh",
+      "airportname": "Mersa Matruh International Airport",
+      "iata_code": "MUH",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Saint Catherine",
+      "airportname": "St. Catherine International Airport",
+      "iata_code": "SKV",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Sharm El Sheikh",
+      "airportname": "Sharm El Sheikh International Airport",
+      "iata_code": "SSH",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Sohag",
+      "airportname": "Sohag International Airport",
+      "iata_code": "HMB",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Egypt",
+      "location": "Taba",
+      "airportname": "Taba International Airport",
+      "iata_code": "TCP",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Libya",
+      "location": "Benghazi",
+      "airportname": "Benina International Airport",
+      "iata_code": "BEN",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Libya",
+      "location": "Sabha",
+      "airportname": "Sabha Airport",
+      "iata_code": "SEB",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Libya",
+      "location": "Tripoli",
+      "airportname": "Tripoli International Airport",
+      "iata_code": "TIP",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Libya",
+      "location": "Tajoura",
+      "airportname": "Mitiga International Airport",
+      "iata_code": "MJI",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Agadir",
+      "airportname": "Agadir–Al Massira Airport",
+      "iata_code": "AGA",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Beni Mellal",
+      "airportname": "Beni Mellal Airport",
+      "iata_code": "BEM",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Casablanca",
+      "airportname": "Mohammed V International Airport",
+      "iata_code": "CMN",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Fes",
+      "airportname": "Fes–Saïs Airport",
+      "iata_code": "FEZ",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Marrakesh",
+      "airportname": "Marrakesh Menara Airport",
+      "iata_code": "RAK",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Nador",
+      "airportname": "Nador International Airport",
+      "iata_code": "NDR",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Ouarzazate",
+      "airportname": "Ouarzazate Airport",
+      "iata_code": "OZZ",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Oujda",
+      "airportname": "Angads Airport",
+      "iata_code": "OUD",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Rabat",
+      "airportname": "Rabat–Salé Airport",
+      "iata_code": "RBA",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Tangier",
+      "airportname": "Tangier Ibn Battouta Airport",
+      "iata_code": "TNG",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Tétouan",
+      "airportname": "Sania Ramel Airport",
+      "iata_code": "TTU",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Dakhla",
+      "airportname": "Dakhla Airport",
+      "iata_code": "VIL",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Morocco",
+      "location": "Laayoune",
+      "airportname": "Hassan I Airport",
+      "iata_code": "EUN",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Sudan",
+      "location": "Khartoum",
+      "airportname": "Khartoum International Airport",
+      "iata_code": "KRT",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Sudan",
+      "location": "Port Sudan",
+      "airportname": "Port Sudan New International Airport",
+      "iata_code": "PZU",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Djerba",
+      "airportname": "Djerba–Zarzis International Airport",
+      "iata_code": "DJE",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Enfidha",
+      "airportname": "Enfidha–Hammamet International Airport",
+      "iata_code": "NBE",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Monastir",
+      "airportname": "Monastir Habib Bourguiba International Airport",
+      "iata_code": "MIR",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Sfax",
+      "airportname": "Sfax–Thyna International Airport",
+      "iata_code": "SFA",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Tabarka",
+      "airportname": "Tabarka–Ain Draham International Airport",
+      "iata_code": "TBJ",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Tozeur",
+      "airportname": "Tozeur–Nefta International Airport",
+      "iata_code": "TOE",
+      "state": ""
+    },
+    {
+      "region": "Northern Africa",
+      "country": "Tunisia",
+      "location": "Tunis",
+      "airportname": "Tunis–Carthage International Airport",
+      "iata_code": "TUN",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Benin",
+      "location": "Cotonou",
+      "airportname": "Cadjehoun Airport",
+      "iata_code": "COO",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Burkina Faso",
+      "location": "Bobo-Dioulasso",
+      "airportname": "Bobo Dioulasso Airport",
+      "iata_code": "BOY",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Burkina Faso",
+      "location": "Ouagadougou",
+      "airportname": "Thomas Sankara International Airport",
+      "iata_code": "OUA",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Cape Verde",
+      "location": "Boa Vista",
+      "airportname": "Aristides Pereira International Airport",
+      "iata_code": "BVC",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Cape Verde",
+      "location": "Sal Island",
+      "airportname": "Amílcar Cabral International Airport",
+      "iata_code": "SID",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Cape Verde",
+      "location": "Praia, Santiago Island",
+      "airportname": "Nelson Mandela International Airport",
+      "iata_code": "RAI",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Cape Verde",
+      "location": "São Vicente",
+      "airportname": "Cesária Évora Airport",
+      "iata_code": "VXE",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "The Gambia",
+      "location": "Banjul",
+      "airportname": "Banjul International Airport",
+      "iata_code": "BJL",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Accra",
+      "airportname": "Kotoka International Airport",
+      "iata_code": "ACC",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Kumasi",
+      "airportname": "Kumasi International Airport",
+      "iata_code": "KMS",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Takoradi",
+      "airportname": "Takoradi Airport",
+      "iata_code": "TKD",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Sunyani",
+      "airportname": "Sunyani Airport",
+      "iata_code": "NYI",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Ho",
+      "airportname": "Ho Airport",
+      "iata_code": "HZO",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Wa",
+      "airportname": "Wa Airport",
+      "iata_code": "WZA",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ghana",
+      "location": "Tamale",
+      "airportname": "Tamale Airport",
+      "iata_code": "TML",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Guinea",
+      "location": "Conakry",
+      "airportname": "Conakry International Airport",
+      "iata_code": "CKY",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Guinea-Bissau",
+      "location": "Bissau",
+      "airportname": "Osvaldo Vieira International Airport",
+      "iata_code": "OXB",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Ivory Coast",
+      "location": "Abidjan",
+      "airportname": "Félix-Houphouët-Boigny International Airport",
+      "iata_code": "ABJ",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Liberia",
+      "location": "Monrovia",
+      "airportname": "Roberts International Airport",
+      "iata_code": "ROB",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Mali",
+      "location": "Bamako",
+      "airportname": "Modibo Keita International Airport",
+      "iata_code": "BKO",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Mauritania",
+      "location": "Nouakchott",
+      "airportname": "Nouakchott–Oumtounsy International Airport",
+      "iata_code": "NKC",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Mauritania",
+      "location": "Nouadhibou",
+      "airportname": "Nouadhibou International Airport",
+      "iata_code": "NDB",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Mauritania",
+      "location": "Atar",
+      "airportname": "Atar International Airport",
+      "iata_code": "ATR",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Niger",
+      "location": "Niamey",
+      "airportname": "Diori Hamani International Airport",
+      "iata_code": "NIM",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Abuja",
+      "airportname": "Nnamdi Azikiwe International Airport",
+      "iata_code": "ABV",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Calabar",
+      "airportname": "Margaret Ekpo International Airport",
+      "iata_code": "CBQ",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Asaba, Delta",
+      "airportname": "Asaba International Airport",
+      "iata_code": "ABB",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Kano",
+      "airportname": "Mallam Aminu Kano International Airport",
+      "iata_code": "KAN",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Lagos",
+      "airportname": "Murtala Muhammed International Airport",
+      "iata_code": "LOS",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Port Harcourt",
+      "airportname": "Port Harcourt International Airport",
+      "iata_code": "PHC",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Enugu",
+      "airportname": "Akanu Ibiam International Airport",
+      "iata_code": "ENU",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Nigeria",
+      "location": "Sokoto",
+      "airportname": "Sadiq Abubakar III International Airport",
+      "iata_code": "SKO",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Senegal",
+      "location": "Dakar",
+      "airportname": "Blaise Diagne International Airport",
+      "iata_code": "DSS",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Sierra Leone",
+      "location": "Freetown",
+      "airportname": "Lungi International Airport",
+      "iata_code": "FNA",
+      "state": ""
+    },
+    {
+      "region": "Western Africa",
+      "country": "Togo",
+      "location": "Lomé",
+      "airportname": "Lomé–Tokoin International Airport",
+      "iata_code": "LFW",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Angola",
+      "location": "Luanda",
+      "airportname": "Quatro de Fevereiro Airport",
+      "iata_code": "LAD",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Angola",
+      "location": "Lubango",
+      "airportname": "Lubango Airport",
+      "iata_code": "SDD",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Cameroon",
+      "location": "Douala",
+      "airportname": "Douala International Airport",
+      "iata_code": "DLA",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Cameroon",
+      "location": "Yaoundé",
+      "airportname": "Yaoundé Nsimalen International Airport",
+      "iata_code": "NSI",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Central African Republic",
+      "location": "Bangui",
+      "airportname": "Bangui M'Poko International Airport",
+      "iata_code": "BGF",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Chad",
+      "location": "N'Djamena",
+      "airportname": "N'Djamena International Airport",
+      "iata_code": "NDJ",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Democratic Republic of the Congo",
+      "location": "Goma",
+      "airportname": "Goma International Airport",
+      "iata_code": "GOM",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Democratic Republic of the Congo",
+      "location": "Kinshasa",
+      "airportname": "N'djili Airport",
+      "iata_code": "FIH",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Democratic Republic of the Congo",
+      "location": "Kisangani",
+      "airportname": "Kisangani Bangoka International Airport",
+      "iata_code": "FKI",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Democratic Republic of the Congo",
+      "location": "Lubumbashi",
+      "airportname": "Lubumbashi International Airport",
+      "iata_code": "FBM",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Equatorial Guinea",
+      "location": "Malabo",
+      "airportname": "Malabo International Airport",
+      "iata_code": "SSG",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Gabon",
+      "location": "Franceville",
+      "airportname": "M'Vengue El Hadj Omar Bongo Ondimba International Airport",
+      "iata_code": "MVB",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Gabon",
+      "location": "Libreville",
+      "airportname": "Léon-Mba International Airport",
+      "iata_code": "LBV",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Gabon",
+      "location": "Port-Gentil",
+      "airportname": "Port-Gentil International Airport",
+      "iata_code": "POG",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Republic of the Congo",
+      "location": "Brazzaville",
+      "airportname": "Maya-Maya Airport",
+      "iata_code": "BZV",
+      "state": ""
+    },
+    {
+      "region": "Central Africa",
+      "country": "Republic of the Congo",
+      "location": "Pointe-Noire",
+      "airportname": "Agostinho-Neto International Airport",
+      "iata_code": "PNR",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Botswana",
+      "location": "Gaborone",
+      "airportname": "Sir Seretse Khama International Airport",
+      "iata_code": "GBE",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Botswana",
+      "location": "Maun",
+      "airportname": "Maun Airport",
+      "iata_code": "MUB",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Eswatini",
+      "location": "Manzini",
+      "airportname": "King Mswati III International Airport",
+      "iata_code": "SHO",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Lesotho",
+      "location": "Maseru",
+      "airportname": "Moshoeshoe I International Airport",
+      "iata_code": "MSU",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Madagascar",
+      "location": "Antananarivo",
+      "airportname": "Ivato International Airport",
+      "iata_code": "TNR",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Malawi",
+      "location": "Lilongwe",
+      "airportname": "Lilongwe International Airport",
+      "iata_code": "LLW",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Malawi",
+      "location": "Blantyre",
+      "airportname": "Chileka International Airport",
+      "iata_code": "BLZ",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Mauritius",
+      "location": "Plaine Magnien",
+      "airportname": "Sir Seewoosagur Ramgoolam International Airport",
+      "iata_code": "MRU",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Mozambique",
+      "location": "Maputo",
+      "airportname": "Maputo International Airport",
+      "iata_code": "MPM",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Mozambique",
+      "location": "Beira",
+      "airportname": "Beira International Airport",
+      "iata_code": "BEW",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Mozambique",
+      "location": "Nampula",
+      "airportname": "Nampula International Airport",
+      "iata_code": "APL",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Namibia",
+      "location": "Windhoek",
+      "airportname": "Hosea Kutako International Airport",
+      "iata_code": "WDH",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Namibia",
+      "location": "Walvis Bay",
+      "airportname": "Walvis Bay Airport",
+      "iata_code": "WVB",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "South Africa",
+      "location": "Johannesburg",
+      "airportname": "O.R. Tambo International Airport",
+      "iata_code": "JNB",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "South Africa",
+      "location": "Cape Town",
+      "airportname": "Cape Town International Airport",
+      "iata_code": "CPT",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "South Africa",
+      "location": "Durban",
+      "airportname": "King Shaka International Airport",
+      "iata_code": "DUR",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Zambia",
+      "location": "Lusaka",
+      "airportname": "Kenneth Kaunda International Airport",
+      "iata_code": "LUN",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Zambia",
+      "location": "Livingstone",
+      "airportname": "Harry Mwanga Nkumbula International Airport",
+      "iata_code": "LVI",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Zimbabwe",
+      "location": "Harare",
+      "airportname": "Robert Gabriel Mugabe International Airport",
+      "iata_code": "HRE",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Zimbabwe",
+      "location": "Victoria Falls",
+      "airportname": "Victoria Falls International Airport",
+      "iata_code": "VFA",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Comoros",
+      "location": "Moroni",
+      "airportname": "Prince Said Ibrahim International Airport",
+      "iata_code": "HAH",
+      "state": ""
+    },
+    {
+      "region": "Southern Africa",
+      "country": "Seychelles",
+      "location": "Mahé",
+      "airportname": "Seychelles International Airport",
+      "iata_code": "SEZ",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Burundi",
+      "location": "Bujumbura",
+      "airportname": "Bujumbura International Airport",
+      "iata_code": "BJM",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Comoros",
+      "location": "Moroni",
+      "airportname": "Prince Said Ibrahim International Airport",
+      "iata_code": "HAH",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Djibouti",
+      "location": "Djibouti City",
+      "airportname": "Djibouti-Ambouli International Airport",
+      "iata_code": "JIB",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Eritrea",
+      "location": "Asmara",
+      "airportname": "Asmara International Airport",
+      "iata_code": "ASM",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Ethiopia",
+      "location": "Addis Ababa",
+      "airportname": "Addis Ababa Bole International Airport",
+      "iata_code": "ADD",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Ethiopia",
+      "location": "Dire Dawa",
+      "airportname": "Dire Dawa International Airport",
+      "iata_code": "DIR",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Kenya",
+      "location": "Nairobi",
+      "airportname": "Jomo Kenyatta International Airport",
+      "iata_code": "NBO",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Kenya",
+      "location": "Mombasa",
+      "airportname": "Moi International Airport",
+      "iata_code": "MBA",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Rwanda",
+      "location": "Kigali",
+      "airportname": "Kigali International Airport",
+      "iata_code": "KGL",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Seychelles",
+      "location": "Mahé",
+      "airportname": "Seychelles International Airport",
+      "iata_code": "SEZ",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Somalia",
+      "location": "Mogadishu",
+      "airportname": "Aden Adde International Airport",
+      "iata_code": "MGQ",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "South Sudan",
+      "location": "Juba",
+      "airportname": "Juba International Airport",
+      "iata_code": "JUB",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Tanzania",
+      "location": "Dar es Salaam",
+      "airportname": "Julius Nyerere International Airport",
+      "iata_code": "DAR",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Tanzania",
+      "location": "Kilimanjaro",
+      "airportname": "Kilimanjaro International Airport",
+      "iata_code": "JRO",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Tanzania",
+      "location": "Zanzibar",
+      "airportname": "Abeid Amani Karume International Airport",
+      "iata_code": "ZNZ",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Uganda",
+      "location": "Entebbe",
+      "airportname": "Entebbe International Airport",
+      "iata_code": "EBB",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Zanzibar",
+      "location": "Zanzibar",
+      "airportname": "Zanzibar International Airport",
+      "iata_code": "ZNZ",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Mayotte",
+      "location": "Dzaoudzi",
+      "airportname": "Dzaoudzi–Pamandzi International Airport",
+      "iata_code": "DZA",
+      "state": ""
+    },
+    {
+      "region": "Eastern Africa",
+      "country": "Réunion",
+      "location": "Saint-Denis",
+      "airportname": "Roland Garros Airport",
+      "iata_code": "RUN",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Antigua and Barbuda",
+      "location": "St. John's",
+      "airportname": "V.C. Bird International Airport",
+      "iata_code": "ANU",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Bahamas",
+      "location": "Nassau",
+      "airportname": "Lynden Pindling International Airport",
+      "iata_code": "NAS",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Barbados",
+      "location": "Bridgetown",
+      "airportname": "Grantley Adams International Airport",
+      "iata_code": "BGI",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Cayman Islands",
+      "location": "Grand Cayman",
+      "airportname": "Owen Roberts International Airport",
+      "iata_code": "GCM",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Cuba",
+      "location": "Havana",
+      "airportname": "José Martí International Airport",
+      "iata_code": "HAV",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Dominica",
+      "location": "Roseau",
+      "airportname": "Douglas-Charles Airport",
+      "iata_code": "DOM",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Dominican Republic",
+      "location": "Punta Cana",
+      "airportname": "Punta Cana International Airport",
+      "iata_code": "PUJ",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Dominican Republic",
+      "location": "Santo Domingo",
+      "airportname": "Las Américas International Airport",
+      "iata_code": "SDQ",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Grenada",
+      "location": "St. George's",
+      "airportname": "Maurice Bishop International Airport",
+      "iata_code": "GND",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Haiti",
+      "location": "Port-au-Prince",
+      "airportname": "Toussaint Louverture International Airport",
+      "iata_code": "PAP",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Jamaica",
+      "location": "Kingston",
+      "airportname": "Norman Manley International Airport",
+      "iata_code": "KIN",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Jamaica",
+      "location": "Montego Bay",
+      "airportname": "Sangster International Airport",
+      "iata_code": "MBJ",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Puerto Rico",
+      "location": "San Juan",
+      "airportname": "Luis Muñoz Marín International Airport",
+      "iata_code": "SJU",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Saint Kitts and Nevis",
+      "location": "Basseterre",
+      "airportname": "Robert L. Bradshaw International Airport",
+      "iata_code": "SKB",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Saint Lucia",
+      "location": "Castries",
+      "airportname": "Hewanorra International Airport",
+      "iata_code": "UVF",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Saint Vincent and the Grenadines",
+      "location": "Kingstown",
+      "airportname": "Argyle International Airport",
+      "iata_code": "SVD",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Trinidad and Tobago",
+      "location": "Port of Spain",
+      "airportname": "Piarco International Airport",
+      "iata_code": "POS",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "U.S. Virgin Islands",
+      "location": "St. Thomas",
+      "airportname": "Cyril E. King Airport",
+      "iata_code": "STT",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "British Virgin Islands",
+      "location": "Tortola",
+      "airportname": "Terrance B. Lettsome International Airport",
+      "iata_code": "EIS",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Aruba",
+      "location": "Oranjestad",
+      "airportname": "Queen Beatrix International Airport",
+      "iata_code": "AUA",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Curaçao",
+      "location": "Willemstad",
+      "airportname": "Curaçao International Airport",
+      "iata_code": "CUR",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Bonaire",
+      "location": "Kralendijk",
+      "airportname": "Flamingo International Airport",
+      "iata_code": "BON",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Saint Martin",
+      "location": "Saint Martin",
+      "airportname": "Princess Juliana International Airport",
+      "iata_code": "SXM",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Guadeloupe",
+      "location": "Pointe-à-Pitre",
+      "airportname": "Pointe-à-Pitre International Airport",
+      "iata_code": "PTP",
+      "state": ""
+    },
+    {
+      "region": "Caribbean",
+      "country": "Martinique",
+      "location": "Fort-de-France",
+      "airportname": "Martinique Aimé Césaire International Airport",
+      "iata_code": "FDF",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Belize",
+      "location": "Belize City",
+      "airportname": "Philip S. W. Goldson International Airport",
+      "iata_code": "BZE",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Costa Rica",
+      "location": "San José",
+      "airportname": "Juan Santamaría International Airport",
+      "iata_code": "SJO",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Costa Rica",
+      "location": "Liberia",
+      "airportname": "Daniel Oduber Quirós International Airport",
+      "iata_code": "LIR",
+      "state": "Guanacaste"
+    },
+    {
+      "region": "Central America",
+      "country": "El Salvador",
+      "location": "San Salvador",
+      "airportname": "Monseñor Óscar Arnulfo Romero International Airport",
+      "iata_code": "SAL",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Guatemala",
+      "location": "Guatemala City",
+      "airportname": "La Aurora International Airport",
+      "iata_code": "GUA",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Guatemala",
+      "location": "Flores",
+      "airportname": "Mundo Maya International Airport",
+      "iata_code": "FRS",
+      "state": "Petén"
+    },
+    {
+      "region": "Central America",
+      "country": "Honduras",
+      "location": "Tegucigalpa",
+      "airportname": "Toncontín International Airport",
+      "iata_code": "TGU",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Honduras",
+      "location": "San Pedro Sula",
+      "airportname": "Ramón Villeda Morales International Airport",
+      "iata_code": "SAP",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Honduras",
+      "location": "Roatán",
+      "airportname": "Juan Manuel Gálvez International Airport",
+      "iata_code": "RTB",
+      "state": "Bay Islands"
+    },
+    {
+      "region": "Central America",
+      "country": "Nicaragua",
+      "location": "Managua",
+      "airportname": "Augusto C. Sandino International Airport",
+      "iata_code": "MGA",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Nicaragua",
+      "location": "Corn Island",
+      "airportname": "Corn Island International Airport",
+      "iata_code": "RNI",
+      "state": "South Caribbean Coast"
+    },
+    {
+      "region": "Central America",
+      "country": "Panama",
+      "location": "Panama City",
+      "airportname": "Tocumen International Airport",
+      "iata_code": "PTY",
+      "state": ""
+    },
+    {
+      "region": "Central America",
+      "country": "Panama",
+      "location": "David",
+      "airportname": "Enrique Malek International Airport",
+      "iata_code": "DAV",
+      "state": "Chiriquí"
+    },
+    {
+      "region": "Central America",
+      "country": "Panama",
+      "location": "Bocas del Toro",
+      "airportname": "Bocas del Toro International Airport",
+      "iata_code": "BOC",
+      "state": "Bocas del Toro"
+    },
+    {
+      "region": "Central America",
+      "country": "Panama",
+      "location": "Changuinola",
+      "airportname": "Changuinola 'Capitán Manuel Niño' International Airport",
+      "iata_code": "CHX",
+      "state": "Bocas del Toro"
+    },  
+    {
+      "region": "North America",
+      "country": "Canada",
+      "location": "Toronto",
+      "airportname": "Toronto Pearson International Airport",
+      "iata_code": "YYZ",
+      "state": "Ontario"
+    },
+    {
+      "region": "North America",
+      "country": "Canada",
+      "location": "Vancouver",
+      "airportname": "Vancouver International Airport",
+      "iata_code": "YVR",
+      "state": "British Columbia"
+    },
+    {
+      "region": "North America",
+      "country": "Canada",
+      "location": "Montréal",
+      "airportname": "Montréal-Trudeau International Airport",
+      "iata_code": "YUL",
+      "state": "Québec"
+    },
+    {
+      "region": "North America",
+      "country": "Canada",
+      "location": "Calgary",
+      "airportname": "Calgary International Airport",
+      "iata_code": "YYC",
+      "state": "Alberta"
+    },
+    {
+      "region": "North America",
+      "country": "Canada",
+      "location": "Halifax",
+      "airportname": "Halifax Stanfield International Airport",
+      "iata_code": "YHZ",
+      "state": "Nova Scotia"
+    },
+    {
+      "region": "North America",
+      "country": "United States",
+      "location": "New York",
+      "airportname": "John F. Kennedy International Airport",
+      "iata_code": "JFK",
+      "state": "New York"
+    },
+    {
+      "region": "North America",
+      "country": "United States",
+      "location": "Los Angeles",
+      "airportname": "Los Angeles International Airport",
+      "iata_code": "LAX",
+      "state": "California"
+    },
+    {
+      "region": "North America",
+      "country": "United States",
+      "location": "Chicago",
+      "airportname": "O'Hare International Airport",
+      "iata_code": "ORD",
+      "state": "Illinois"
+    },
+    {
+      "region": "North America",
+      "country": "United States",
+      "location": "Atlanta",
+      "airportname": "Hartsfield-Jackson Atlanta International Airport",
+      "iata_code": "ATL",
+      "state": "Georgia"
+    },
+    {
+      "region": "North America",
+      "country": "United States",
+      "location": "Dallas",
+      "airportname": "Dallas/Fort Worth International Airport",
+      "iata_code": "DFW",
+      "state": "Texas"
+    },
+  
+    {
+      "region": "North America",
+      "country": "Mexico",
+      "location": "Mexico City",
+      "airportname": "Benito Juárez International Airport",
+      "iata_code": "MEX",
+      "state": "Ciudad de México"
+    },
+    {
+      "region": "North America",
+      "country": "Mexico",
+      "location": "Cancún",
+      "airportname": "Cancún International Airport",
+      "iata_code": "CUN",
+      "state": "Quintana Roo"
+    },
+    {
+      "region": "North America",
+      "country": "Mexico",
+      "location": "Guadalajara",
+      "airportname": "Miguel Hidalgo y Costilla International Airport",
+      "iata_code": "GDL",
+      "state": "Jalisco"
+    },
+    {
+      "region": "North America",
+      "country": "Mexico",
+      "location": "Monterrey",
+      "airportname": "General Mariano Escobedo International Airport",
+      "iata_code": "MTY",
+      "state": "Nuevo León"
+    },
+    {
+      "region": "North America",
+      "country": "Mexico",
+      "location": "Tijuana",
+      "airportname": "General Abelardo L. Rodríguez International Airport",
+      "iata_code": "TIJ",
+      "state": "Baja California"
+    },
+    
+    {
+      "region": "South America",
+      "country": "Argentina",
+      "location": "Buenos Aires",
+      "airportname": "Ministro Pistarini International Airport (Ezeiza)",
+      "iata_code": "EZE",
+      "state": "Buenos Aires Province"
+    },
+    {
+      "region": "South America",
+      "country": "Argentina",
+      "location": "Buenos Aires",
+      "airportname": "Aeroparque Jorge Newbery",
+      "iata_code": "AEP",
+      "state": "Buenos Aires"
+    },
+    {
+      "region": "South America",
+      "country": "Argentina",
+      "location": "Córdoba",
+      "airportname": "Ingeniero Aeronáutico Ambrosio L.V. Taravella International Airport",
+      "iata_code": "COR",
+      "state": "Córdoba Province"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Bolivia",
+      "location": "La Paz",
+      "airportname": "El Alto International Airport",
+      "iata_code": "LPB",
+      "state": "La Paz Department"
+    },
+    {
+      "region": "South America",
+      "country": "Bolivia",
+      "location": "Santa Cruz de la Sierra",
+      "airportname": "Viru Viru International Airport",
+      "iata_code": "VVI",
+      "state": "Santa Cruz Department"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Brazil",
+      "location": "São Paulo",
+      "airportname": "São Paulo-Guarulhos International Airport",
+      "iata_code": "GRU",
+      "state": "São Paulo"
+    },
+    {
+      "region": "South America",
+      "country": "Brazil",
+      "location": "Rio de Janeiro",
+      "airportname": "Rio de Janeiro-Galeão International Airport",
+      "iata_code": "GIG",
+      "state": "Rio de Janeiro"
+    },
+    {
+      "region": "South America",
+      "country": "Brazil",
+      "location": "Brasília",
+      "airportname": "Presidente Juscelino Kubitschek International Airport",
+      "iata_code": "BSB",
+      "state": "Federal District"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Chile",
+      "location": "Santiago",
+      "airportname": "Comodoro Arturo Merino Benítez International Airport",
+      "iata_code": "SCL",
+      "state": "Santiago Metropolitan Region"
+    },
+  
+   
+    {
+      "region": "South America",
+      "country": "Colombia",
+      "location": "Bogotá",
+      "airportname": "El Dorado International Airport",
+      "iata_code": "BOG",
+      "state": "Cundinamarca"
+    },
+    {
+      "region": "South America",
+      "country": "Colombia",
+      "location": "Medellín",
+      "airportname": "José María Córdova International Airport",
+      "iata_code": "MDE",
+      "state": "Antioquia"
+    },
+  
+   
+    {
+      "region": "South America",
+      "country": "Ecuador",
+      "location": "Quito",
+      "airportname": "Mariscal Sucre International Airport",
+      "iata_code": "UIO",
+      "state": "Pichincha"
+    },
+    {
+      "region": "South America",
+      "country": "Ecuador",
+      "location": "Guayaquil",
+      "airportname": "José Joaquín de Olmedo International Airport",
+      "iata_code": "GYE",
+      "state": "Guayas"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Falkland Islands",
+      "location": "Mount Pleasant",
+      "airportname": "Mount Pleasant Airport",
+      "iata_code": "MPN",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "South America",
+      "country": "French Guiana",
+      "location": "Cayenne",
+      "airportname": "Cayenne-Rochambeau Airport",
+      "iata_code": "CAY",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "South America",
+      "country": "Guyana",
+      "location": "Georgetown",
+      "airportname": "Cheddi Jagan International Airport",
+      "iata_code": "GEO",
+      "state": "Demerara-Mahaica"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Paraguay",
+      "location": "Asunción",
+      "airportname": "Silvio Pettirossi International Airport",
+      "iata_code": "ASU",
+      "state": "Central Department"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Peru",
+      "location": "Lima",
+      "airportname": "Jorge Chávez International Airport",
+      "iata_code": "LIM",
+      "state": "Callao"
+    },
+    {
+      "region": "South America",
+      "country": "Peru",
+      "location": "Cusco",
+      "airportname": "Alejandro Velasco Astete International Airport",
+      "iata_code": "CUZ",
+      "state": "Cusco Region"
+    },
+  
+  
+    {
+      "region": "South America",
+      "country": "Suriname",
+      "location": "Paramaribo",
+      "airportname": "Johan Adolf Pengel International Airport",
+      "iata_code": "PBM",
+      "state": "Para District"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Uruguay",
+      "location": "Montevideo",
+      "airportname": "Carrasco International Airport",
+      "iata_code": "MVD",
+      "state": "Canelones Department"
+    },
+  
+    
+    {
+      "region": "South America",
+      "country": "Venezuela",
+      "location": "Caracas",
+      "airportname": "Simón Bolívar International Airport",
+      "iata_code": "CCS",
+      "state": "Vargas"
+    },
+    {
+      "region": "South America",
+      "country": "Venezuela",
+      "location": "Maracaibo",
+      "airportname": "La Chinita International Airport",
+      "iata_code": "MAR",
+      "state": "Zulia"
+    },
+    
+    {
+      "region": "Central Asia",
+      "country": "Kazakhstan",
+      "location": "Almaty",
+      "airportname": "Almaty International Airport",
+      "iata_code": "ALA",
+      "state": "Almaty Region"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Kazakhstan",
+      "location": "Nur-Sultan",
+      "airportname": "Nursultan Nazarbayev International Airport",
+      "iata_code": "NQZ",
+      "state": "Akmola Region"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Kazakhstan",
+      "location": "Shymkent",
+      "airportname": "Shymkent International Airport",
+      "iata_code": "CIT",
+      "state": "Turkistan Region"
+    },
+  
+   
+    {
+      "region": "Central Asia",
+      "country": "Kyrgyzstan",
+      "location": "Bishkek",
+      "airportname": "Manas International Airport",
+      "iata_code": "FRU",
+      "state": "Chuy Region"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Kyrgyzstan",
+      "location": "Osh",
+      "airportname": "Osh International Airport",
+      "iata_code": "OSS",
+      "state": "Osh Region"
+    },
+  
+   
+    {
+      "region": "Central Asia",
+      "country": "Tajikistan",
+      "location": "Dushanbe",
+      "airportname": "Dushanbe International Airport",
+      "iata_code": "DYU",
+      "state": "Districts of Republican Subordination"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Tajikistan",
+      "location": "Khujand",
+      "airportname": "Khujand International Airport",
+      "iata_code": "LBD",
+      "state": "Sughd Region"
+    },
+  
+   
+    {
+      "region": "Central Asia",
+      "country": "Turkmenistan",
+      "location": "Ashgabat",
+      "airportname": "Ashgabat International Airport",
+      "iata_code": "ASB",
+      "state": "Ahal Province"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Turkmenistan",
+      "location": "Turkmenabat",
+      "airportname": "Turkmenabat International Airport",
+      "iata_code": "CRZ",
+      "state": "Lebap Province"
+    },
+  
+  
+    {
+      "region": "Central Asia",
+      "country": "Uzbekistan",
+      "location": "Tashkent",
+      "airportname": "Tashkent International Airport",
+      "iata_code": "TAS",
+      "state": "Tashkent Region"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Uzbekistan",
+      "location": "Samarkand",
+      "airportname": "Samarkand International Airport",
+      "iata_code": "SKD",
+      "state": "Samarkand Region"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Uzbekistan",
+      "location": "Bukhara",
+      "airportname": "Bukhara International Airport",
+      "iata_code": "BHK",
+      "state": "Bukhara Region"
+    },
+  
+   
+    {
+      "region": "Central Asia",
+      "country": "Afghanistan",
+      "location": "Kabul",
+      "airportname": "Hamid Karzai International Airport",
+      "iata_code": "KBL",
+      "state": "Kabul Province"
+    },
+    {
+      "region": "Central Asia",
+      "country": "Afghanistan",
+      "location": "Kandahar",
+      "airportname": "Kandahar International Airport",
+      "iata_code": "KDH",
+      "state": "Kandahar Province"
+    },
+ 
+    {
+      "region": "Eastern Asia",
+      "country": "China",
+      "location": "Beijing",
+      "airportname": "Beijing Capital International Airport",
+      "iata_code": "PEK",
+      "state": "Beijing"
+    },
+    {
+      "region": "Eastern Asia",
+      "country": "China",
+      "location": "Shanghai",
+      "airportname": "Shanghai Pudong International Airport",
+      "iata_code": "PVG",
+      "state": "Shanghai"
+    },
+    {
+      "region": "Eastern Asia",
+      "country": "China",
+      "location": "Guangzhou",
+      "airportname": "Guangzhou Baiyun International Airport",
+      "iata_code": "CAN",
+      "state": "Guangdong"
+    },
+    {
+      "region": "Eastern Asia",
+      "country": "China",
+      "location": "Chengdu",
+      "airportname": "Chengdu Shuangliu International Airport",
+      "iata_code": "CTU",
+      "state": "Sichuan"
+    },
+  
+    
+    {
+      "region": "Eastern Asia",
+      "country": "Hong Kong (China)",
+      "location": "Hong Kong",
+      "airportname": "Hong Kong International Airport",
+      "iata_code": "HKG",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Eastern Asia",
+      "country": "Macau (China)",
+      "location": "Macau",
+      "airportname": "Macau International Airport",
+      "iata_code": "MFM",
+      "state": ""
+    },
+  
+
+    {
+      "region": "Eastern Asia",
+      "country": "Taiwan (China)",
+      "location": "Taipei",
+      "airportname": "Taoyuan International Airport",
+      "iata_code": "TPE",
+      "state": "Taiwan"
+    },
+  
+   
+    {
+      "region": "Eastern Asia",
+      "country": "Japan",
+      "location": "Tokyo",
+      "airportname": "Narita International Airport",
+      "iata_code": "NRT",
+      "state": "Chiba"
+    },
+    {
+      "region": "Eastern Asia",
+      "country": "Japan",
+      "location": "Osaka",
+      "airportname": "Kansai International Airport",
+      "iata_code": "KIX",
+      "state": "Osaka"
+    },
+  
+    
+    {
+      "region": "Eastern Asia",
+      "country": "South Korea",
+      "location": "Seoul",
+      "airportname": "Incheon International Airport",
+      "iata_code": "ICN",
+      "state": "Incheon"
+    },
+    {
+      "region": "Eastern Asia",
+      "country": "South Korea",
+      "location": "Busan",
+      "airportname": "Gimhae International Airport",
+      "iata_code": "PUS",
+      "state": "Busan"
+    },
+  
+  
+    {
+      "region": "Eastern Asia",
+      "country": "North Korea",
+      "location": "Pyongyang",
+      "airportname": "Pyongyang Sunan International Airport",
+      "iata_code": "FNJ",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Eastern Asia",
+      "country": "Mongolia",
+      "location": "Ulaanbaatar",
+      "airportname": "Chinggis Khaan International Airport",
+      "iata_code": "ULN",
+      "state": ""
+    },
+  
+    {
+      "region": "Southern Asia",
+      "country": "Afghanistan",
+      "location": "Kabul",
+      "airportname": "Hamid Karzai International Airport",
+      "iata_code": "KBL",
+      "state": "Kabul Province"
+    },
+    {
+      "region": "Southern Asia",
+      "country": "Afghanistan",
+      "location": "Kandahar",
+      "airportname": "Kandahar International Airport",
+      "iata_code": "KDH",
+      "state": "Kandahar Province"
+    },
+  
+   
+    {
+      "region": "Southern Asia",
+      "country": "Bangladesh",
+      "location": "Dhaka",
+      "airportname": "Hazrat Shahjalal International Airport",
+      "iata_code": "DAC",
+      "state": "Dhaka Division"
+    },
+    {
+      "region": "Southern Asia",
+      "country": "Bangladesh",
+      "location": "Chittagong",
+      "airportname": "Shah Amanat International Airport",
+      "iata_code": "CGP",
+      "state": "Chittagong Division"
+    },
+  
+    
+    {
+      "region": "Southern Asia",
+      "country": "Bhutan",
+      "location": "Paro",
+      "airportname": "Paro International Airport",
+      "iata_code": "PBH",
+      "state": "Paro District"
+    },
+  
+  
+    {
+      "region": "Southern Asia",
+      "country": "India",
+      "location": "Delhi",
+      "airportname": "Indira Gandhi International Airport",
+      "iata_code": "DEL",
+      "state": "Delhi"
+    },
+    {
+      "region": "Southern Asia",
+      "country": "India",
+      "location": "Mumbai",
+      "airportname": "Chhatrapati Shivaji Maharaj International Airport",
+      "iata_code": "BOM",
+      "state": "Maharashtra"
+    },
+    {
+      "region": "Southern Asia",
+      "country": "India",
+      "location": "Bangalore",
+      "airportname": "Kempegowda International Airport",
+      "iata_code": "BLR",
+      "state": "Karnataka"
+    },
+  
+   
+    {
+      "region": "Southern Asia",
+      "country": "Maldives",
+      "location": "Malé",
+      "airportname": "Velana International Airport",
+      "iata_code": "MLE",
+      "state": "Kaafu Atoll"
+    },
+  
+  
+    {
+      "region": "Southern Asia",
+      "country": "Nepal",
+      "location": "Kathmandu",
+      "airportname": "Tribhuvan International Airport",
+      "iata_code": "KTM",
+      "state": "Bagmati Province"
+    },
+  
+   
+    {
+      "region": "Southern Asia",
+      "country": "Pakistan",
+      "location": "Islamabad",
+      "airportname": "Islamabad International Airport",
+      "iata_code": "ISB",
+      "state": "Islamabad Capital Territory"
+    },
+    {
+      "region": "Southern Asia",
+      "country": "Pakistan",
+      "location": "Karachi",
+      "airportname": "Jinnah International Airport",
+      "iata_code": "KHI",
+      "state": "Sindh"
+    },
+  
+  
+    {
+      "region": "Southern Asia",
+      "country": "Sri Lanka",
+      "location": "Colombo",
+      "airportname": "Bandaranaike International Airport",
+      "iata_code": "CMB",
+      "state": "Western Province"
+    },
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Brunei",
+      "location": "Bandar Seri Begawan",
+      "airportname": "Brunei International Airport",
+      "iata_code": "BWN",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Cambodia",
+      "location": "Phnom Penh",
+      "airportname": "Phnom Penh International Airport",
+      "iata_code": "PNH",
+      "state": ""
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Cambodia",
+      "location": "Siem Reap",
+      "airportname": "Siem Reap International Airport",
+      "iata_code": "REP",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Indonesia",
+      "location": "Jakarta",
+      "airportname": "Soekarno-Hatta International Airport",
+      "iata_code": "CGK",
+      "state": "Banten"
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Indonesia",
+      "location": "Denpasar",
+      "airportname": "Ngurah Rai International Airport",
+      "iata_code": "DPS",
+      "state": "Bali"
+    },
+  
+ 
+    {
+      "region": "Southeast Asia",
+      "country": "Laos",
+      "location": "Vientiane",
+      "airportname": "Wattay International Airport",
+      "iata_code": "VTE",
+      "state": ""
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Laos",
+      "location": "Luang Prabang",
+      "airportname": "Luang Prabang International Airport",
+      "iata_code": "LPQ",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Malaysia",
+      "location": "Kuala Lumpur",
+      "airportname": "Kuala Lumpur International Airport",
+      "iata_code": "KUL",
+      "state": "Selangor"
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Malaysia",
+      "location": "Penang",
+      "airportname": "Penang International Airport",
+      "iata_code": "PEN",
+      "state": "Penang"
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Myanmar",
+      "location": "Yangon",
+      "airportname": "Yangon International Airport",
+      "iata_code": "RGN",
+      "state": "Yangon Region"
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Myanmar",
+      "location": "Mandalay",
+      "airportname": "Mandalay International Airport",
+      "iata_code": "MDL",
+      "state": "Mandalay Region"
+    },
+  
+    
+    {
+      "region": "Southeast Asia",
+      "country": "Philippines",
+      "location": "Manila",
+      "airportname": "Ninoy Aquino International Airport",
+      "iata_code": "MNL",
+      "state": "Metro Manila"
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Philippines",
+      "location": "Cebu",
+      "airportname": "Mactan-Cebu International Airport",
+      "iata_code": "CEB",
+      "state": "Cebu"
+    },
+  
+    
+    {
+      "region": "Southeast Asia",
+      "country": "Singapore",
+      "location": "Singapore",
+      "airportname": "Changi Airport",
+      "iata_code": "SIN",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Thailand",
+      "location": "Bangkok",
+      "airportname": "Suvarnabhumi Airport",
+      "iata_code": "BKK",
+      "state": "Samut Prakan"
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Thailand",
+      "location": "Phuket",
+      "airportname": "Phuket International Airport",
+      "iata_code": "HKT",
+      "state": "Phuket"
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Timor-Leste",
+      "location": "Dili",
+      "airportname": "Presidente Nicolau Lobato International Airport",
+      "iata_code": "DIL",
+      "state": ""
+    },
+  
+   
+    {
+      "region": "Southeast Asia",
+      "country": "Vietnam",
+      "location": "Hanoi",
+      "airportname": "Noi Bai International Airport",
+      "iata_code": "HAN",
+      "state": ""
+    },
+    {
+      "region": "Southeast Asia",
+      "country": "Vietnam",
+      "location": "Ho Chi Minh City",
+      "airportname": "Tan Son Nhat International Airport",
+      "iata_code": "SGN",
+      "state": ""
+    },
+    
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Bahrain",
+      "location": "Manama",
+      "airportname": "Bahrain International Airport",
+      "iata_code": "BAH",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Kuwait",
+      "location": "Kuwait City",
+      "airportname": "Kuwait International Airport",
+      "iata_code": "KWI",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Oman",
+      "location": "Muscat",
+      "airportname": "Muscat International Airport",
+      "iata_code": "MCT",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Qatar",
+      "location": "Doha",
+      "airportname": "Hamad International Airport",
+      "iata_code": "DOH",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Saudi Arabia",
+      "location": "Riyadh",
+      "airportname": "King Khalid International Airport",
+      "iata_code": "RUH",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Saudi Arabia",
+      "location": "Jeddah",
+      "airportname": "King Abdulaziz International Airport",
+      "iata_code": "JED",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "United Arab Emirates",
+      "location": "Dubai",
+      "airportname": "Dubai International Airport",
+      "iata_code": "DXB",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "United Arab Emirates",
+      "location": "Abu Dhabi",
+      "airportname": "Abu Dhabi International Airport",
+      "iata_code": "AUH",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Yemen",
+      "location": "Sana'a",
+      "airportname": "Sana'a International Airport",
+      "iata_code": "SAH",
+      "state": ""
+    },
+  
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Cyprus",
+      "location": "Larnaca",
+      "airportname": "Larnaca International Airport",
+      "iata_code": "LCA",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Iraq",
+      "location": "Baghdad",
+      "airportname": "Baghdad International Airport",
+      "iata_code": "BGW",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Israel",
+      "location": "Tel Aviv",
+      "airportname": "Ben Gurion Airport",
+      "iata_code": "TLV",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Jordan",
+      "location": "Amman",
+      "airportname": "Queen Alia International Airport",
+      "iata_code": "AMM",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Lebanon",
+      "location": "Beirut",
+      "airportname": "Rafic Hariri International Airport",
+      "iata_code": "BEY",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Palestine",
+      "location": "Jerusalem",
+      "airportname": "Atarot Airport (currently not operational)",
+      "iata_code": "JRS",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Syria",
+      "location": "Damascus",
+      "airportname": "Damascus International Airport",
+      "iata_code": "DAM",
+      "state": ""
+    },
+  
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Iran",
+      "location": "Tehran",
+      "airportname": "Imam Khomeini International Airport",
+      "iata_code": "IKA",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Iran",
+      "location": "Mashhad",
+      "airportname": "Mashhad International Airport",
+      "iata_code": "MHD",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Turkey",
+      "location": "Istanbul",
+      "airportname": "Istanbul Airport",
+      "iata_code": "IST",
+      "state": ""
+    },
+    {
+      "region": "Southwest Asia/Middle East",
+      "country": "Turkey",
+      "location": "Ankara",
+      "airportname": "Esenboğa International Airport",
+      "iata_code": "ESB",
+      "state": ""
+    },
+  {
+    "region": "Southern Europe",
+    "country": "Italy",
+    "location": "Rome",
+    "airportname": "Leonardo da Vinci-Fiumicino Airport",
+    "iata_code": "FCO",
+    "state": "Lazio",
+    "status": "Operational",
+    "runways": 4,
+    "passengers_2023": "40.5 million",
+    "notes": "Italy's busiest airport with new Terminal 1 renovations"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Italy",
+    "location": "Milan",
+    "airportname": "Malpensa Airport",
+    "iata_code": "MXP",
+    "state": "Lombardy",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "26.2 million",
+    "notes": "Main international hub for northern Italy"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Italy",
+    "location": "Venice",
+    "airportname": "Venice Marco Polo Airport",
+    "iata_code": "VCE",
+    "state": "Veneto",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "11.1 million",
+    "notes": "Gateway to the Adriatic with new water taxi docks"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Spain",
+    "location": "Madrid",
+    "airportname": "Adolfo Suárez Madrid-Barajas Airport",
+    "iata_code": "MAD",
+    "state": "Community of Madrid",
+    "status": "Operational",
+    "runways": 4,
+    "passengers_2023": "60.2 million",
+    "notes": "Iberia's hub with T4's bamboo-covered roof"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Spain",
+    "location": "Barcelona",
+    "airportname": "Josep Tarradellas Barcelona-El Prat Airport",
+    "iata_code": "BCN",
+    "state": "Catalonia",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "49.9 million",
+    "notes": "Vueling's primary base with new South Terminal"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Spain",
+    "location": "Palma de Mallorca",
+    "airportname": "Palma de Mallorca Airport",
+    "iata_code": "PMI",
+    "state": "Balearic Islands",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "31.1 million",
+    "notes": "Europe's 3rd busiest holiday airport (seasonal peaks)"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Portugal",
+    "location": "Lisbon",
+    "airportname": "Humberto Delgado Airport",
+    "iata_code": "LIS",
+    "state": "Lisbon District",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "33.6 million",
+    "notes": "New +1,000m runway extension completed 2023"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Portugal",
+    "location": "Porto",
+    "airportname": "Francisco Sá Carneiro Airport",
+    "iata_code": "OPO",
+    "state": "Porto District",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "13.1 million",
+    "notes": "Ryanair's Portuguese base with wine-themed lounges"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Greece",
+    "location": "Athens",
+    "airportname": "Athens International Airport",
+    "iata_code": "ATH",
+    "state": "Attica",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "28.2 million",
+    "notes": "New satellite terminal opened for Aegean Airlines"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Greece",
+    "location": "Heraklion",
+    "airportname": "Heraklion International Airport",
+    "iata_code": "HER",
+    "state": "Crete",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "8.9 million",
+    "notes": "Europe's busiest seasonal airport (April-October)"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Cyprus",
+    "location": "Larnaca",
+    "airportname": "Larnaca International Airport",
+    "iata_code": "LCA",
+    "state": "Larnaca District",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "8.2 million",
+    "notes": "New terminal opened 2022 with 11M passenger capacity"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Malta",
+    "location": "Valletta",
+    "airportname": "Malta International Airport",
+    "iata_code": "MLA",
+    "state": "Luqa",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "7.8 million",
+    "notes": "Only EU airport operating 24/7 with new ATC tower"
+  },
+
+  {
+    "region": "Southern Europe",
+    "country": "Italy",
+    "location": "Naples",
+    "airportname": "Naples International Airport",
+    "iata_code": "NAP",
+    "state": "Campania",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "12.4 million",
+    "notes": "Fast-growing gateway to Amalfi Coast and Pompeii"
+  },
+  {
+    "region": "Southern Europe",
+    "country": "Spain",
+    "location": "Málaga",
+    "airportname": "Málaga-Costa del Sol Airport",
+    "iata_code": "AGP",
+    "state": "Andalusia",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "22.3 million",
+    "notes": "Andalusia's main airport with new Terminal 3"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Dubai",
+    "airportname": "Dubai International Airport",
+    "iata_code": "DXB",
+    "state": "Dubai",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "86.9 million",
+    "notes": "World's busiest international hub with A380-capable facilities"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Abu Dhabi",
+    "airportname": "Abu Dhabi International Airport",
+    "iata_code": "AUH",
+    "state": "Abu Dhabi",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "22.5 million",
+    "notes": "Etihad Airways hub with US pre-clearance"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Dubai South",
+    "airportname": "Al Maktoum International Airport",
+    "iata_code": "DWC",
+    "state": "Dubai",
+    "status": "Phase 1 Operational",
+    "runways": 1,
+    "passengers_2023": "1.2 million",
+    "notes": "Future mega-hub designed for 260M passengers annually"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Sharjah",
+    "airportname": "Sharjah International Airport",
+    "iata_code": "SHJ",
+    "state": "Sharjah",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "13.1 million",
+    "notes": "Air Arabia's primary hub with extensive Asian routes"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Ras Al Khaimah",
+    "airportname": "Ras Al Khaimah International Airport",
+    "iata_code": "RKT",
+    "state": "Ras Al Khaimah",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.4 million",
+    "notes": "Focus on cargo and budget airlines"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Fujairah",
+    "airportname": "Fujairah International Airport",
+    "iata_code": "FJR",
+    "state": "Fujairah",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.1 million",
+    "notes": "Mainly serves oil/gas industry traffic"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "United Arab Emirates",
+    "location": "Al Ain",
+    "airportname": "Al Ain International Airport",
+    "iata_code": "AAN",
+    "state": "Abu Dhabi",
+    "status": "Limited Operations",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Primarily military with some charter flights"
+  },
+
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Sana'a",
+    "airportname": "Sana'a International Airport",
+    "iata_code": "SAH",
+    "state": "Sana'a Governorate",
+    "status": "Limited Operations (UN flights only)",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Closed to commercial flights since 2016 due to blockade"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Aden",
+    "airportname": "Aden International Airport",
+    "iata_code": "ADE",
+    "state": "Aden Governorate",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.5 million",
+    "notes": "Current international gateway for Yemen with Middle East destinations"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Al Hudaydah",
+    "airportname": "Hodeidah International Airport",
+    "iata_code": "HOD",
+    "state": "Al Hudaydah Governorate",
+    "status": "Intermittent Operations",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Humanitarian flights only due to frontline location"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Taiz",
+    "airportname": "Taiz International Airport",
+    "iata_code": "TAI",
+    "state": "Taiz Governorate",
+    "status": "Closed",
+    "runways": 1,
+    "passengers_2023": "0",
+    "notes": "Damaged in conflict, last operated 2015"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Mukalla",
+    "airportname": "Riyan International Airport",
+    "iata_code": "RIY",
+    "state": "Hadramaut Governorate",
+    "status": "Domestic Only",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Occasional charter flights to Saudi Arabia"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Seiyun",
+    "airportname": "Seiyun Airport",
+    "iata_code": "GXF",
+    "state": "Hadramaut Governorate",
+    "status": "Military/Domestic",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Saudi-operated during conflict"
+  },
+  {
+    "region": "Southwest Asia/Middle East",
+    "country": "Yemen",
+    "location": "Al Ghaydah",
+    "airportname": "Al Ghaydah Airport",
+    "iata_code": "AAY",
+    "state": "Al Mahrah Governorate",
+    "status": "Irregular Operations",
+    "runways": 1,
+    "passengers_2023": "N/A",
+    "notes": "Border area with Oman, limited civilian use"
+  },
+
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "London",
+    "airportname": "Heathrow Airport",
+    "iata_code": "LHR",
+    "state": "England",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "79.2 million",
+    "notes": "World's busiest two-runway airport; hub for British Airways"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "London",
+    "airportname": "Gatwick Airport",
+    "iata_code": "LGW",
+    "state": "England",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "40.9 million",
+    "notes": "World's most efficient single-runway airport"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Manchester",
+    "airportname": "Manchester Airport",
+    "iata_code": "MAN",
+    "state": "England",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "28.3 million",
+    "notes": "Third busiest UK airport; global hub outside London"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "London",
+    "airportname": "Stansted Airport",
+    "iata_code": "STN",
+    "state": "England",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "27.6 million",
+    "notes": "Ryanair's largest base"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "London",
+    "airportname": "Luton Airport",
+    "iata_code": "LTN",
+    "state": "England",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "16.2 million",
+    "notes": "EasyJet and Wizz Air focus city"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Birmingham",
+    "airportname": "Birmingham Airport",
+    "iata_code": "BHX",
+    "state": "England",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "12.5 million",
+    "notes": "Primary Midlands hub with US pre-clearance"
+  },
+
+  
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Edinburgh",
+    "airportname": "Edinburgh Airport",
+    "iata_code": "EDI",
+    "state": "Scotland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "14.4 million",
+    "notes": "Scotland's busiest airport"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Glasgow",
+    "airportname": "Glasgow Airport",
+    "iata_code": "GLA",
+    "state": "Scotland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "8.8 million",
+    "notes": "Transatlantic services to North America"
+  },
+
+  
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Cardiff",
+    "airportname": "Cardiff Airport",
+    "iata_code": "CWL",
+    "state": "Wales",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.1 million",
+    "notes": "Wales' only international airport"
+  },
+
+ 
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Belfast",
+    "airportname": "Belfast International Airport",
+    "iata_code": "BFS",
+    "state": "Northern Ireland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "5.6 million",
+    "notes": "Northern Ireland's main airport"
+  },
+  {
+    "region": "United Kingdom",
+    "country": "United Kingdom",
+    "location": "Belfast",
+    "airportname": "George Best Belfast City Airport",
+    "iata_code": "BHD",
+    "state": "Northern Ireland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "2.3 million",
+    "notes": "Convenient city-center location"
+  },
+
+  {
+    "region": "British Isles",
+    "country": "Jersey",
+    "location": "Saint Helier",
+    "airportname": "Jersey Airport",
+    "iata_code": "JER",
+    "state": "Channel Islands",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.6 million",
+    "notes": "Connects to UK and European destinations"
+  },
+  {
+    "region": "British Isles",
+    "country": "Guernsey",
+    "location": "Saint Peter Port",
+    "airportname": "Guernsey Airport",
+    "iata_code": "GCI",
+    "state": "Channel Islands",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.8 million",
+    "notes": "Serves Channel Islands"
+  },
+  {
+    "region": "British Isles",
+    "country": "Isle of Man",
+    "location": "Douglas",
+    "airportname": "Isle of Man Airport",
+    "iata_code": "IOM",
+    "state": "Isle of Man",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.7 million",
+    "notes": "Important regional connector"
+  },
+  {
+    "region": "Western Europe",
+    "country": "Austria",
+    "location": "Vienna",
+    "airportname": "Vienna International Airport",
+    "iata_code": "VIE",
+    "state": "Vienna",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "29.5 million",
+    "notes": "Austrian Airlines hub with extensive Eastern European connections"
+  },
+
+  
+  {
+    "region": "Western Europe",
+    "country": "Belgium",
+    "location": "Brussels",
+    "airportname": "Brussels Airport",
+    "iata_code": "BRU",
+    "state": "Flemish Brabant",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "21.9 million",
+    "notes": "Primary hub for Brussels Airlines and EU institution flights"
+  },
+
+  
+  {
+    "region": "Western Europe",
+    "country": "France",
+    "location": "Paris",
+    "airportname": "Charles de Gaulle Airport",
+    "iata_code": "CDG",
+    "state": "Île-de-France",
+    "status": "Operational",
+    "runways": 4,
+    "passengers_2023": "67.4 million",
+    "notes": "Air France hub and Europe's second busiest airport"
+  },
+  {
+    "region": "Western Europe",
+    "country": "France",
+    "location": "Paris",
+    "airportname": "Orly Airport",
+    "iata_code": "ORY",
+    "state": "Île-de-France",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "33.1 million",
+    "notes": "Main domestic and European leisure destination hub"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Germany",
+    "location": "Frankfurt",
+    "airportname": "Frankfurt Airport",
+    "iata_code": "FRA",
+    "state": "Hesse",
+    "status": "Operational",
+    "runways": 4,
+    "passengers_2023": "59.4 million",
+    "notes": "Lufthansa's primary hub and Europe's busiest cargo airport"
+  },
+  {
+    "region": "Western Europe",
+    "country": "Germany",
+    "location": "Munich",
+    "airportname": "Munich Airport",
+    "iata_code": "MUC",
+    "state": "Bavaria",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "37.0 million",
+    "notes": "Lufthansa's secondary hub with premium passenger facilities"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Ireland",
+    "location": "Dublin",
+    "airportname": "Dublin Airport",
+    "iata_code": "DUB",
+    "state": "Leinster",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "31.9 million",
+    "notes": "Main transatlantic gateway with US pre-clearance"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Luxembourg",
+    "location": "Luxembourg City",
+    "airportname": "Luxembourg Airport",
+    "iata_code": "LUX",
+    "state": "Luxembourg",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "4.3 million",
+    "notes": "Cargolux hub with strong freight operations"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Netherlands",
+    "location": "Amsterdam",
+    "airportname": "Amsterdam Airport Schiphol",
+    "iata_code": "AMS",
+    "state": "North Holland",
+    "status": "Operational",
+    "runways": 6,
+    "passengers_2023": "61.7 million",
+    "notes": "KLM hub with Europe's best-connected flight network"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Switzerland",
+    "location": "Zurich",
+    "airportname": "Zurich Airport",
+    "iata_code": "ZRH",
+    "state": "Zurich",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "28.9 million",
+    "notes": "Swiss International Air Lines hub with Alpine views"
+  },
+  {
+    "region": "Western Europe",
+    "country": "Switzerland",
+    "location": "Geneva",
+    "airportname": "Geneva Airport",
+    "iata_code": "GVA",
+    "state": "Geneva",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "17.6 million",
+    "notes": "Important for UN and international organizations"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Belgium",
+    "location": "Charleroi",
+    "airportname": "Brussels South Charleroi Airport",
+    "iata_code": "CRL",
+    "state": "Hainaut",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "8.2 million",
+    "notes": "Ryanair's Belgian base"
+  },
+  {
+    "region": "Western Europe",
+    "country": "Netherlands",
+    "location": "Eindhoven",
+    "airportname": "Eindhoven Airport",
+    "iata_code": "EIN",
+    "state": "North Brabant",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "6.7 million",
+    "notes": "Military-civilian airport with many leisure routes"
+  },
+
+  {
+    "region": "Western Europe",
+    "country": "Germany",
+    "location": "Düsseldorf",
+    "airportname": "Düsseldorf Airport",
+    "iata_code": "DUS",
+    "state": "North Rhine-Westphalia",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "23.2 million",
+    "notes": "Important for business traffic to Ruhr area"
+  },
+  {
+    "region": "Western Europe",
+    "country": "Germany",
+    "location": "Berlin",
+    "airportname": "Berlin Brandenburg Airport",
+    "iata_code": "BER",
+    "state": "Brandenburg",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "22.9 million",
+    "notes": "Replaced Tegel and Schönefeld airports in 2020"
+  },
+  {
+    "region": "Central Europe",
+    "country": "Poland",
+    "location": "Warsaw",
+    "airportname": "Warsaw Chopin Airport",
+    "iata_code": "WAW",
+    "state": "Mazovia",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "18.9 million",
+    "notes": "LOT Polish Airlines hub with new central terminal"
+  },
+  {
+    "region": "Central Europe",
+    "country": "Poland",
+    "location": "Kraków",
+    "airportname": "Kraków John Paul II International Airport",
+    "iata_code": "KRK",
+    "state": "Lesser Poland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "8.7 million",
+    "notes": "Primary gateway to southern Poland and the Tatra Mountains"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Czech Republic",
+    "location": "Prague",
+    "airportname": "Václav Havel Airport Prague",
+    "iata_code": "PRG",
+    "state": "Central Bohemia",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "13.8 million",
+    "notes": "Smartwings hub with excellent public transport connections"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Hungary",
+    "location": "Budapest",
+    "airportname": "Budapest Ferenc Liszt International Airport",
+    "iata_code": "BUD",
+    "state": "Pest",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "14.7 million",
+    "notes": "Wizz Air's largest base with new SkyCourt terminal"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Slovakia",
+    "location": "Bratislava",
+    "airportname": "Bratislava Airport",
+    "iata_code": "BTS",
+    "state": "Bratislava Region",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.8 million",
+    "notes": "Serves both Bratislava and Vienna (60km away)"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Slovenia",
+    "location": "Ljubljana",
+    "airportname": "Ljubljana Jože Pučnik Airport",
+    "iata_code": "LJU",
+    "state": "Central Slovenia",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.6 million",
+    "notes": "Adria Airways' former hub, now served by various carriers"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Croatia",
+    "location": "Zagreb",
+    "airportname": "Zagreb Airport",
+    "iata_code": "ZAG",
+    "state": "Zagreb County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "3.4 million",
+    "notes": "New terminal opened in 2017 with capacity for 5M passengers"
+  },
+  {
+    "region": "Central Europe",
+    "country": "Croatia",
+    "location": "Split",
+    "airportname": "Split Airport",
+    "iata_code": "SPU",
+    "state": "Split-Dalmatia County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "3.8 million",
+    "notes": "Seasonal Mediterranean destination with summer traffic peaks"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Romania",
+    "location": "Bucharest",
+    "airportname": "Henri Coandă International Airport",
+    "iata_code": "OTP",
+    "state": "Ilfov",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "14.7 million",
+    "notes": "TAROM's hub with new boarding bridges and business lounge"
+  },
+
+
+  {
+    "region": "Central Europe",
+    "country": "Bulgaria",
+    "location": "Sofia",
+    "airportname": "Sofia Airport",
+    "iata_code": "SOF",
+    "state": "Sofia City",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "7.1 million",
+    "notes": "Undergoing terminal expansion for Schengen accession"
+  },
+
+  {
+    "region": "Central Europe",
+    "country": "Serbia",
+    "location": "Belgrade",
+    "airportname": "Belgrade Nikola Tesla Airport",
+    "iata_code": "BEG",
+    "state": "Belgrade",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "6.2 million",
+    "notes": "Air Serbia hub with new C concourse opened in 2023"
+  },
+
+ 
+  {
+    "region": "Central Europe",
+    "country": "Poland",
+    "location": "Gdańsk",
+    "airportname": "Gdańsk Lech Wałęsa Airport",
+    "iata_code": "GDN",
+    "state": "Pomerania",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "5.3 million",
+    "notes": "Primary Baltic coast airport with growing Scandinavian routes"
+  },
+  {
+    "region": "Central Europe",
+    "country": "Hungary",
+    "location": "Debrecen",
+    "airportname": "Debrecen International Airport",
+    "iata_code": "DEB",
+    "state": "Hajdú-Bihar",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.4 million",
+    "notes": "Eastern Hungary's gateway with Wizz Air base"
+  },
+ 
+  {
+    "region": "Eastern Europe",
+    "country": "Russia",
+    "location": "Moscow",
+    "airportname": "Sheremetyevo International Airport",
+    "iata_code": "SVO",
+    "state": "Moscow Oblast",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "49.4 million",
+    "notes": "Aeroflot's hub with new Terminal B (2023)",
+    "restrictions": "EU airspace sanctions in effect"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Russia",
+    "location": "Saint Petersburg",
+    "airportname": "Pulkovo Airport",
+    "iata_code": "LED",
+    "state": "Leningrad Oblast",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "18.2 million",
+    "notes": "Northern capital gateway with rail link",
+    "restrictions": "EU airspace sanctions in effect"
+  },
+
+  
+  {
+    "region": "Eastern Europe",
+    "country": "Belarus",
+    "location": "Minsk",
+    "airportname": "Minsk National Airport",
+    "iata_code": "MSQ",
+    "state": "Minsk Region",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "5.1 million",
+    "notes": "Belavia's hub with new runway (2022)",
+    "restrictions": "EU airspace sanctions in effect"
+  },
+
+  {
+    "region": "Eastern Europe",
+    "country": "Ukraine",
+    "location": "Kyiv",
+    "airportname": "Boryspil International Airport",
+    "iata_code": "KBP",
+    "state": "Kyiv Oblast",
+    "status": "Limited Operations",
+    "runways": 2,
+    "passengers_2023": "0.3 million",
+    "notes": "Humanitarian flights only since 2022 invasion",
+    "restrictions": "Closed to commercial traffic"
+  },
+
+  {
+    "region": "Eastern Europe",
+    "country": "Moldova",
+    "location": "Chișinău",
+    "airportname": "Chișinău International Airport",
+    "iata_code": "KIV",
+    "state": "Chișinău Municipality",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "2.9 million",
+    "notes": "Wizz Air expansion with new European routes"
+  },
+
+  {
+    "region": "Eastern Europe",
+    "country": "Estonia",
+    "location": "Tallinn",
+    "airportname": "Tallinn Airport",
+    "iata_code": "TLL",
+    "state": "Harju County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "3.2 million",
+    "notes": "Nordica's hub with Schengen border control"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Latvia",
+    "location": "Riga",
+    "airportname": "Riga International Airport",
+    "iata_code": "RIX",
+    "state": "Riga Region",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "7.5 million",
+    "notes": "AirBaltic's primary hub with new Airbus A220 fleet"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Lithuania",
+    "location": "Vilnius",
+    "airportname": "Vilnius Airport",
+    "iata_code": "VNO",
+    "state": "Vilnius County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "4.8 million",
+    "notes": "New cargo terminal opened 2023"
+  },
+
+  {
+    "region": "Eastern Europe",
+    "country": "Georgia",
+    "location": "Tbilisi",
+    "airportname": "Tbilisi International Airport",
+    "iata_code": "TBS",
+    "state": "Tbilisi",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "3.7 million",
+    "notes": "Georgian Airways hub with new west apron expansion"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Armenia",
+    "location": "Yerevan",
+    "airportname": "Zvartnots International Airport",
+    "iata_code": "EVN",
+    "state": "Armavir Province",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "3.1 million",
+    "notes": "Hub for Armenian Airlines with new VIP terminal"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Azerbaijan",
+    "location": "Baku",
+    "airportname": "Heydar Aliyev International Airport",
+    "iata_code": "GYD",
+    "state": "Baku",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "5.6 million",
+    "notes": "AZAL hub with space-age terminal design"
+  },
+
+  {
+    "region": "Eastern Europe",
+    "country": "Russia",
+    "location": "Sochi",
+    "airportname": "Sochi International Airport",
+    "iata_code": "AER",
+    "state": "Krasnodar Krai",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "6.9 million",
+    "notes": "Black Sea resort airport with Olympic legacy",
+    "restrictions": "Limited international service"
+  },
+  {
+    "region": "Eastern Europe",
+    "country": "Ukraine",
+    "location": "Lviv",
+    "airportname": "Lviv Danylo Halytskyi International Airport",
+    "iata_code": "LWO",
+    "state": "Lviv Oblast",
+    "status": "Irregular Operations",
+    "runways": 1,
+    "passengers_2023": "0.1 million",
+    "notes": "Occasional charter flights to EU destinations",
+    "restrictions": "No scheduled commercial service"
+  },
+  {
+    "region": "Nordic",
+    "country": "Denmark",
+    "location": "Copenhagen",
+    "airportname": "Copenhagen Airport",
+    "iata_code": "CPH",
+    "state": "Capital Region",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "26.5 million",
+    "notes": "Scandinavia's busiest hub with new sustainable terminal expansion",
+    "hub_for": ["SAS", "Norwegian"]
+  },
+  {
+    "region": "Nordic",
+    "country": "Denmark",
+    "location": "Billund",
+    "airportname": "Billund Airport",
+    "iata_code": "BLL",
+    "state": "Central Jutland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "3.6 million",
+    "notes": "Primary airport for LEGO Group headquarters",
+    "hub_for": ["Ryanair"]
+  },
+
+  {
+    "region": "Nordic",
+    "country": "Finland",
+    "location": "Helsinki",
+    "airportname": "Helsinki-Vantaa Airport",
+    "iata_code": "HEL",
+    "state": "Uusimaa",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "14.9 million",
+    "notes": "Finnair hub with Asian transfer traffic via polar route",
+    "hub_for": ["Finnair", "Norwegian"]
+  },
+  {
+    "region": "Nordic",
+    "country": "Finland",
+    "location": "Rovaniemi",
+    "airportname": "Rovaniemi Airport",
+    "iata_code": "RVN",
+    "state": "Lapland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.6 million",
+    "notes": "Official airport of Santa Claus Village",
+    "seasonal": true
+  },
+
+
+  {
+    "region": "Nordic",
+    "country": "Iceland",
+    "location": "Reykjavík",
+    "airportname": "Keflavík International Airport",
+    "iata_code": "KEF",
+    "state": "Southern Peninsula",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "7.8 million",
+    "notes": "Icelandair and PLAY hub with North Atlantic transfer traffic",
+    "hub_for": ["Icelandair", "PLAY"]
+  },
+
+  {
+    "region": "Nordic",
+    "country": "Norway",
+    "location": "Oslo",
+    "airportname": "Oslo Airport, Gardermoen",
+    "iata_code": "OSL",
+    "state": "Viken",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "24.4 million",
+    "notes": "SAS and Norwegian hub with world's first airport biodiesel heating",
+    "hub_for": ["SAS", "Norwegian", "Widerøe"]
+  },
+  {
+    "region": "Nordic",
+    "country": "Norway",
+    "location": "Bergen",
+    "airportname": "Bergen Airport, Flesland",
+    "iata_code": "BGO",
+    "state": "Vestland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "6.3 million",
+    "notes": "Gateway to fjord country with new domestic pier"
+  },
+
+
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Stockholm",
+    "airportname": "Stockholm Arlanda Airport",
+    "iata_code": "ARN",
+    "state": "Uppsala County",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "18.9 million",
+    "notes": "Sweden's largest airport with high-speed rail to city",
+    "hub_for": ["SAS", "Norwegian"]
+  },
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Gothenburg",
+    "airportname": "Göteborg Landvetter Airport",
+    "iata_code": "GOT",
+    "state": "Västra Götaland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "6.7 million",
+    "notes": "Western Sweden hub with new cargo facility"
+  },
+
+
+  {
+    "region": "Nordic",
+    "country": "Faroe Islands",
+    "location": "Vágar",
+    "airportname": "Vágar Airport",
+    "iata_code": "FAE",
+    "state": "Faroe Islands",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.4 million",
+    "notes": "Atlantic Airways hub with dramatic cliffside approach"
+  },
+  {
+    "region": "Nordic",
+    "country": "Greenland",
+    "location": "Nuuk",
+    "airportname": "Nuuk Airport",
+    "iata_code": "GOH",
+    "state": "Sermersooq",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.3 million",
+    "notes": "New international runway extension completed 2024",
+    "arctic": true
+  },
+  {
+    "region": "Nordic",
+    "country": "Åland Islands",
+    "location": "Mariehamn",
+    "airportname": "Mariehamn Airport",
+    "iata_code": "MHQ",
+    "state": "Åland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.1 million",
+    "notes": "Essential lifeline for autonomous archipelago"
+  },
+
+ 
+  {
+    "region": "Nordic",
+    "country": "Norway",
+    "location": "Longyearbyen",
+    "airportname": "Svalbard Airport",
+    "iata_code": "LYR",
+    "state": "Svalbard",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.2 million",
+    "notes": "World's northernmost commercial airport with permafrost runway",
+    "arctic": true,
+    "unique_restrictions": "No visa required but departure tax applies"
+  },
+  {
+    "region": "Nordic",
+    "country": "Iceland",
+    "location": "Akureyri",
+    "airportname": "Akureyri Airport",
+    "iata_code": "AEY",
+    "state": "Northeastern Region",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.4 million",
+    "notes": "Primary northern Iceland airport with international charter flights"
+  },
+
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Stockholm",
+    "airportname": "Stockholm Arlanda Airport",
+    "iata_code": "ARN",
+    "state": "Uppsala County",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "18.9 million",
+    "notes": "Scandinavia's second busiest airport with direct Arlanda Express rail link",
+    "hub_for": ["SAS", "Norwegian"],
+    "distance_to_city": "37 km",
+    "longest_runway": "3,300 m"
+  },
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Gothenburg",
+    "airportname": "Göteborg Landvetter Airport",
+    "iata_code": "GOT",
+    "state": "Västra Götaland",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "6.7 million",
+    "notes": "Western Sweden's main airport with new cargo terminal (2023)",
+    "hub_for": ["SAS"],
+    "distance_to_city": "20 km",
+    "longest_runway": "3,299 m"
+  },
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Malmö",
+    "airportname": "Malmö Airport",
+    "iata_code": "MMX",
+    "state": "Skåne",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "2.1 million",
+    "notes": "Connected to Copenhagen Airport via Øresund Bridge",
+    "distance_to_city": "28 km",
+    "longest_runway": "2,800 m"
+  },
+  {
+    "region": "Nordic",
+    "country": "Sweden",
+    "location": "Luleå",
+    "airportname": "Luleå Airport",
+    "iata_code": "LLA",
+    "state": "Norrbotten",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.2 million",
+    "notes": "Northern Sweden's largest airport with Arctic runway heating",
+    "distance_to_city": "7 km",
+    "longest_runway": "3,350 m"
+  },
+
+
+  {
+    "region": "Baltic",
+    "country": "Latvia",
+    "location": "Riga",
+    "airportname": "Riga International Airport",
+    "iata_code": "RIX",
+    "state": "Riga Region",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "7.5 million",
+    "notes": "AirBaltic's main hub with all-Airbus A220 fleet",
+    "hub_for": ["AirBaltic"],
+    "distance_to_city": "10 km",
+    "longest_runway": "3,200 m",
+    "awards": "Best Airport in Eastern Europe (2023)"
+  },
+  {
+    "region": "Baltic",
+    "country": "Latvia",
+    "location": "Liepāja",
+    "airportname": "Liepāja International Airport",
+    "iata_code": "LPX",
+    "state": "Kurzeme Region",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.1 million",
+    "notes": "Historic military airfield now serving Baltic coastal traffic",
+    "distance_to_city": "5 km",
+    "longest_runway": "2,000 m"
+  },
+
+  
+  {
+    "region": "Baltic",
+    "country": "Lithuania",
+    "location": "Vilnius",
+    "airportname": "Vilnius Airport",
+    "iata_code": "VNO",
+    "state": "Vilnius County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "4.8 million",
+    "notes": "New cargo terminal opened 2023 handling 50,000+ tons annually",
+    "hub_for": ["Avion Express"],
+    "distance_to_city": "5 km",
+    "longest_runway": "2,515 m"
+  },
+  {
+    "region": "Baltic",
+    "country": "Lithuania",
+    "location": "Kaunas",
+    "airportname": "Kaunas Airport",
+    "iata_code": "KUN",
+    "state": "Kaunas County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.2 million",
+    "notes": "Ryanair's Lithuanian base with MRO facilities",
+    "hub_for": ["Ryanair"],
+    "distance_to_city": "14 km",
+    "longest_runway": "3,250 m"
+  },
+  {
+    "region": "Baltic",
+    "country": "Lithuania",
+    "location": "Palanga",
+    "airportname": "Palanga International Airport",
+    "iata_code": "PLQ",
+    "state": "Klaipėda County",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.4 million",
+    "notes": "Seasonal Baltic resort airport with Norwegian routes",
+    "distance_to_city": "5 km",
+    "longest_runway": "2,280 m",
+    "seasonal": true
+  },
+
+
+  {
+    "region": "Nordic/Baltic",
+    "country": "Sweden/Latvia",
+    "location": "Stockholm/Riga",
+    "airportname": "Baltic Air Hub Initiative",
+    "iata_code": null,
+    "status": "Planned",
+    "notes": "Proposed joint airport on Gotland Island (feasibility study ongoing)",
+    "expected_completion": "2035"
+  }
+,
+ 
+  {
+    "region": "Oceania",
+    "country": "Australia",
+    "location": "Sydney",
+    "airportname": "Sydney Kingsford Smith Airport",
+    "iata_code": "SYD",
+    "state": "New South Wales",
+    "status": "Operational",
+    "runways": 3,
+    "passengers_2023": "36.7 million",
+    "notes": "Australia's busiest airport with new Western Sydney Airport under construction",
+    "hub_for": ["Qantas", "Virgin Australia"],
+    "unique_feature": "World's oldest continually operating commercial airport (since 1920)"
+  },
+  {
+    "region": "Oceania",
+    "country": "Australia",
+    "location": "Melbourne",
+    "airportname": "Melbourne Airport",
+    "iata_code": "MEL",
+    "state": "Victoria",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "33.7 million",
+    "notes": "24/7 operations with new runway planned for 2025",
+    "hub_for": ["Qantas", "Jetstar"]
+  },
+
+
+  {
+    "region": "Oceania",
+    "country": "New Zealand",
+    "location": "Auckland",
+    "airportname": "Auckland Airport",
+    "iata_code": "AKL",
+    "state": "Auckland Region",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "17.3 million",
+    "notes": "Only Pacific airport with direct flights to all inhabited continents",
+    "hub_for": ["Air New Zealand", "Qantas"]
+  },
+  {
+    "region": "Oceania",
+    "country": "New Zealand",
+    "location": "Christchurch",
+    "airportname": "Christchurch Airport",
+    "iata_code": "CHC",
+    "state": "Canterbury",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "6.1 million",
+    "notes": "Primary gateway to Antarctica with specialized cold weather operations"
+  },
+
+
+  {
+    "region": "Oceania",
+    "country": "Fiji",
+    "location": "Nadi",
+    "airportname": "Nadi International Airport",
+    "iata_code": "NAN",
+    "state": "Western Division",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "2.4 million",
+    "notes": "Fiji Airways hub with unique 'Bula' welcome ceremony",
+    "tropical_storm_protection": "Category 5 cyclone-rated infrastructure"
+  },
+  {
+    "region": "Oceania",
+    "country": "French Polynesia",
+    "location": "Papeete",
+    "airportname": "Faa'a International Airport",
+    "iata_code": "PPT",
+    "state": "Tahiti",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "1.6 million",
+    "notes": "Only international airport in French Polynesia with overwater runway approach"
+  },
+
+
+  {
+    "region": "Oceania",
+    "country": "Samoa",
+    "location": "Apia",
+    "airportname": "Faleolo International Airport",
+    "iata_code": "APW",
+    "state": "Upolu",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.7 million",
+    "notes": "Recently extended runway to accommodate 787 Dreamliners"
+  },
+  {
+    "region": "Oceania",
+    "country": "Papua New Guinea",
+    "location": "Port Moresby",
+    "airportname": "Jacksons International Airport",
+    "iata_code": "POM",
+    "state": "National Capital District",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "1.3 million",
+    "notes": "Air Niugini hub with challenging mountainous approaches"
+  },
+
+
+  {
+    "region": "Oceania",
+    "country": "New Caledonia",
+    "location": "Nouméa",
+    "airportname": "La Tontouta International Airport",
+    "iata_code": "NOU",
+    "state": "South Province",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.9 million",
+    "notes": "French territory hub with Aircalin as home carrier"
+  },
+  {
+    "region": "Oceania",
+    "country": "Guam",
+    "location": "Hagåtña",
+    "airportname": "Antonio B. Won Pat International Airport",
+    "iata_code": "GUM",
+    "state": "U.S. Territory",
+    "status": "Operational",
+    "runways": 2,
+    "passengers_2023": "2.8 million",
+    "notes": "Strategic transpacific stopover with U.S. military shared use"
+  },
+
+
+  {
+    "region": "Oceania",
+    "country": "Kiribati",
+    "location": "Tarawa",
+    "airportname": "Bonriki International Airport",
+    "iata_code": "TRW",
+    "state": "Gilbert Islands",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.2 million",
+    "notes": "Runway built on reclaimed coral atoll land",
+    "climate_concerns": "2m above sea level"
+  },
+  {
+    "region": "Oceania",
+    "country": "Cook Islands",
+    "location": "Rarotonga",
+    "airportname": "Rarotonga International Airport",
+    "iata_code": "RAR",
+    "state": "Cook Islands",
+    "status": "Operational",
+    "runways": 1,
+    "passengers_2023": "0.5 million",
+    "notes": "Night flights prohibited to preserve traditional fishing rights"
+  }
+]

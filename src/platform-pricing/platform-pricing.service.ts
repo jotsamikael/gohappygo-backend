@@ -1,0 +1,249 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
+import { CreatePlatformPricingDto } from './dto/create-platform-pricing.dto';
+import { UpdatePlatformPricingDto } from './dto/update-platform-pricing.dto';
+import { FindPlatformPricingQueryDto } from './dto/find-platform-pricing-query.dto';
+import { PlatformPricingEntity } from './entities/platform-pricing.entity';
+import { PlatformPricingResponseDto } from './dto/platform-pricing-response.dto';
+import { PaginatedPlatformPricingResponseDto } from './dto/paginated-platform-pricing-response.dto';
+import { PlatformPricingMapper } from './plateform-pricing.mapper';
+import { CustomNotFoundException, CustomBadRequestException } from '../common/exception/custom-exceptions';
+import { ErrorCode } from '../common/exception/error-codes';
+
+@Injectable()
+export class PlatformPricingService {
+  constructor(
+    @InjectRepository(PlatformPricingEntity)
+    private platformPricingRepository: Repository<PlatformPricingEntity>,
+    private platformPricingMapper: PlatformPricingMapper,
+  ) {}
+
+  /**
+   * Create a new platform pricing record
+   */
+  async create(
+    createPlatformPricingDto: CreatePlatformPricingDto,
+  ): Promise<PlatformPricingResponseDto> {
+    const { lowerBound, upperBound, fee } = createPlatformPricingDto;
+
+    // Validate that lowerBound < upperBound
+    if (lowerBound >= upperBound) {
+      throw new CustomBadRequestException(
+        'Lower bound must be less than upper bound',
+        ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+      );
+    }
+
+    // Check for overlapping ranges
+    // A range overlaps if:
+    // - new lowerBound is within an existing range, OR
+    // - new upperBound is within an existing range, OR
+    // - new range completely contains an existing range
+    const allPricings = await this.platformPricingRepository.find();
+    
+    const hasOverlap = allPricings.some((pricing) => {
+      return (
+        (lowerBound >= pricing.lowerBound && lowerBound <= pricing.upperBound) ||
+        (upperBound >= pricing.lowerBound && upperBound <= pricing.upperBound) ||
+        (lowerBound <= pricing.lowerBound && upperBound >= pricing.upperBound)
+      );
+    });
+
+    if (hasOverlap) {
+      throw new CustomBadRequestException(
+        'Pricing range overlaps with existing range',
+        ErrorCode.PLATFORM_PRICING_OVERLAP,
+      );
+    }
+
+    const pricing = this.platformPricingRepository.create({
+      lowerBound,
+      upperBound,
+      fee,
+    });
+
+    const savedPricing = await this.platformPricingRepository.save(pricing);
+    return this.platformPricingMapper.toPlatformPricingResponse(savedPricing);
+  }
+
+  /**
+   * Get all platform pricing records with pagination
+   */
+  async findAll(
+    query: FindPlatformPricingQueryDto,
+  ): Promise<PaginatedPlatformPricingResponseDto> {
+    const { page = 1, limit = 10 } = query;
+
+    const queryBuilder = this.platformPricingRepository
+      .createQueryBuilder('pricing')
+      .orderBy('pricing.lowerBound', 'ASC');
+
+    const total = await queryBuilder.getCount();
+
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const pricings = await queryBuilder.getMany();
+
+    const data = this.platformPricingMapper.toPlatformPricingResponseList(pricings);
+
+    return {
+      data,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Get a single platform pricing record by ID
+   */
+  async findOne(id: number): Promise<PlatformPricingResponseDto> {
+    const pricing = await this.platformPricingRepository.findOne({
+      where: { id },
+    });
+
+    if (!pricing) {
+      throw new CustomNotFoundException(
+        'Platform pricing not found',
+        ErrorCode.PLATFORM_PRICING_NOT_FOUND,
+      );
+    }
+
+    return this.platformPricingMapper.toPlatformPricingResponse(pricing);
+  }
+
+  /**
+   * Update a platform pricing record
+   */
+  async update(
+    id: number,
+    updatePlatformPricingDto: UpdatePlatformPricingDto,
+  ): Promise<PlatformPricingResponseDto> {
+    const pricing = await this.platformPricingRepository.findOne({
+      where: { id },
+    });
+
+    if (!pricing) {
+      throw new CustomNotFoundException(
+        'Platform pricing not found',
+        ErrorCode.PLATFORM_PRICING_NOT_FOUND,
+      );
+    }
+
+    const { lowerBound, upperBound, fee } = updatePlatformPricingDto;
+
+    // Validate bounds if both are provided
+    if (lowerBound !== undefined && upperBound !== undefined) {
+      if (lowerBound >= upperBound) {
+        throw new CustomBadRequestException(
+          'Lower bound must be less than upper bound',
+          ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+        );
+      }
+
+      // Check for overlapping ranges (excluding current record)
+      const allPricings = await this.platformPricingRepository.find({
+        where: { id: Not(id) },
+      });
+
+      const hasOverlap = allPricings.some((pricing) => {
+        return (
+          (lowerBound >= pricing.lowerBound && lowerBound <= pricing.upperBound) ||
+          (upperBound >= pricing.lowerBound && upperBound <= pricing.upperBound) ||
+          (lowerBound <= pricing.lowerBound && upperBound >= pricing.upperBound)
+        );
+      });
+
+      if (hasOverlap) {
+        throw new CustomBadRequestException(
+          'Pricing range overlaps with existing range',
+          ErrorCode.PLATFORM_PRICING_OVERLAP,
+        );
+      }
+    }
+
+    // Update fields
+    if (lowerBound !== undefined) pricing.lowerBound = lowerBound;
+    if (upperBound !== undefined) pricing.upperBound = upperBound;
+    if (fee !== undefined) pricing.fee = fee;
+
+    const updatedPricing = await this.platformPricingRepository.save(pricing);
+    return this.platformPricingMapper.toPlatformPricingResponse(updatedPricing);
+  }
+
+  /**
+   * Delete a platform pricing record
+   */
+  async remove(id: number): Promise<void> {
+    const pricing = await this.platformPricingRepository.findOne({
+      where: { id },
+    });
+
+    if (!pricing) {
+      throw new CustomNotFoundException(
+        'Platform pricing not found',
+        ErrorCode.PLATFORM_PRICING_NOT_FOUND,
+      );
+    }
+
+    await this.platformPricingRepository.remove(pricing);
+  }
+
+  /**
+   * Calculate platform fee based on traveler payment amount
+   * This method finds the appropriate pricing tier and returns the fee
+   */
+  async calculateFee(travelerPayment: number): Promise<number> {
+    if (travelerPayment <= 0) {
+      return 0;
+    }
+
+    // Get all pricing tiers ordered by lowerBound
+    const allPricings = await this.platformPricingRepository.find({
+      order: { lowerBound: 'ASC' },
+    });
+
+    // Find the pricing tier that contains the travelerPayment amount
+    const matchingPricing = allPricings.find(
+      (p) => travelerPayment >= Number(p.lowerBound) && travelerPayment <= Number(p.upperBound),
+    );
+
+    if (!matchingPricing) {
+      throw new CustomBadRequestException(
+        `No pricing tier found for amount ${travelerPayment} EUR`,
+        ErrorCode.PLATFORM_PRICING_TIER_NOT_FOUND,
+      );
+    }
+
+    return Number(matchingPricing.fee);
+  }
+
+  /**
+   * Calculate total amount requester needs to pay
+   * Formula: travelerPayment + fee + (TVA/100 * fee)
+   * TVA = 20%
+   */
+  async calculateTotalAmount(
+    travelerPayment: number,
+    tvaPercentage: number = 20,
+  ): Promise<{
+    travelerPayment: number;
+    fee: number;
+    tvaAmount: number;
+    totalAmount: number;
+  }> {
+    const fee = await this.calculateFee(travelerPayment);
+    const tvaAmount = (tvaPercentage / 100) * fee;
+    const totalAmount = travelerPayment + fee + tvaAmount;
+
+    return {
+      travelerPayment,
+      fee,
+      tvaAmount: Number(tvaAmount.toFixed(2)),
+      totalAmount: Number(totalAmount.toFixed(2)),
+    };
+  }
+}
