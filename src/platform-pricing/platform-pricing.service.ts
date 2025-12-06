@@ -17,7 +17,7 @@ export class PlatformPricingService {
     @InjectRepository(PlatformPricingEntity)
     private platformPricingRepository: Repository<PlatformPricingEntity>,
     private platformPricingMapper: PlatformPricingMapper,
-  ) {}
+  ) { }
 
   /**
    * Create a new platform pricing record
@@ -41,7 +41,7 @@ export class PlatformPricingService {
     // - new upperBound is within an existing range, OR
     // - new range completely contains an existing range
     const allPricings = await this.platformPricingRepository.find();
-    
+
     const hasOverlap = allPricings.some((pricing) => {
       return (
         (lowerBound >= pricing.lowerBound && lowerBound <= pricing.upperBound) ||
@@ -235,7 +235,14 @@ export class PlatformPricingService {
     tvaAmount: number;
     totalAmount: number;
   }> {
-    const fee = await this.calculateFee(travelerPayment);
+    let fee = 0;
+
+    if (travelerPayment <= 151) { //for traveler amount less than or equal 151, get the corresponding fee
+      fee = await this.calculateFee(travelerPayment);
+
+    }
+    fee = this.roundToNearestHalf(0.15 * travelerPayment) //for traveler amount greater than 151, a fee of 15% is automatically applied and rounded to 0.5€
+
     const tvaAmount = (tvaPercentage / 100) * fee;
     const totalAmount = travelerPayment + fee + tvaAmount;
 
@@ -246,4 +253,13 @@ export class PlatformPricingService {
       totalAmount: Number(totalAmount.toFixed(2)),
     };
   }
+
+  /**
+ * Rounds a number to the nearest 0.5 increment (e.g., 1.2 becomes 1.0, 1.3 becomes 1.5, 1.7 becomes 1.5, 1.8 becomes 2.0).
+ * @param value The number to round.
+ * @returns The number rounded to the nearest 0.5.
+ */
+ roundToNearestHalf(value: number): number {
+  return Math.round(value * 2) / 2;
+}
 }
