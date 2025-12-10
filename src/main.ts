@@ -13,6 +13,8 @@ import { AirlineEntity } from './airline/entities/airline.entity';
 import { ReviewEntity } from './review/review.entity';
 import { KycDiditModule } from './kyc-didit/kyc-didit.module';
 import { QuoteEntity } from './quote/entities/quote.entity';
+import { SupportModule } from './support/support.module';
+import { PlatformPricingEntity } from './platform-pricing/entities/platform-pricing.entity';
 
 //root file ->entry point of nest js application
 
@@ -107,6 +109,8 @@ async function bootstrap() {
     .addTag('transactions', 'Payment transaction endpoints')
     .addTag('kyc', 'KYC endpoints')
     .addTag('quotes', 'Quote endpoints')
+    .addTag('platform-pricing', 'Platform pricing endpoints')
+    .addTag('support', 'Support endpoints')
     .addBearerAuth(
       {
         type: 'http',
@@ -121,7 +125,7 @@ async function bootstrap() {
     .build();
   
   const document = SwaggerModule.createDocument(app, config,{
-    extraModels: [UserEntity, AirlineEntity, TravelEntity, RequestEntity, ReviewEntity, MessageEntity, TransactionEntity, QuoteEntity], //add entities to swagger
+    extraModels: [UserEntity, AirlineEntity, TravelEntity, RequestEntity, ReviewEntity, MessageEntity, TransactionEntity, QuoteEntity, PlatformPricingEntity, SupportModule], //add entities to swagger
   });
   
   SwaggerModule.setup('api', app, document, {

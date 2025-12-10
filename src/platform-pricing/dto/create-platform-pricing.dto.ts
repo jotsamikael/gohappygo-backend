@@ -11,6 +11,7 @@ export class CreatePlatformPricingDto {
   @IsNumber()
   @IsPositive()
   @Min(0)
+  @Max(150)
   @Type(() => Number)
   lowerBound: number;
 
@@ -22,6 +23,7 @@ export class CreatePlatformPricingDto {
   @IsNumber()
   @IsPositive()
   @Min(0)
+  @Max(150)
   @Type(() => Number)
   upperBound: number;
 

@@ -81,7 +81,7 @@ export class SupportController {
 
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get a support request by ID',
     description: 'Retrieve a single support request with all its logs. Non-admin/operator users can only view their own requests.',

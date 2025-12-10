@@ -26,6 +26,8 @@ import { RequestMapper } from './request.mapper';
 import { RequestStatusEntity } from 'src/request-status/requestStatus.entity';
 import { CustomBadRequestException, CustomForbiddenException, CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { AirlineService } from 'src/airline/airline.service';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class RequestService {
@@ -42,7 +44,9 @@ export class RequestService {
     private readonly fileUploadService: FileUploadService,
     private readonly userService: UserService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private readonly requestMapper: RequestMapper
+    private readonly requestMapper: RequestMapper,
+    private readonly airlineService: AirlineService,
+    private readonly commonService: CommonService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -538,8 +542,10 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
     // Get the actual data
     const items = await queryBuilder.getMany();
 
-    // Transform the data to include only relevant fields
-    const transformedItems = items.map(request => this.transformRequestToResponse(request));
+    // Transform the data to include only relevant fields (async transformation)
+    const transformedItems = await Promise.all(
+      items.map(request => this.transformRequestToResponse(request))
+    );
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -658,7 +664,48 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       relations: ['demand', 'travel', 'requestStatusHistory', 'transactions', 'messages'],
     });
   }
-  private transformRequestToResponse(request: RequestEntity): RequestResponseDto {
+  private async transformRequestToResponse(request: RequestEntity): Promise<RequestResponseDto> {
+    // Format requester fullName
+    const requesterFullName = request.requester 
+      ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
+      : '';
+
+    // Build requester object with fullName and profilePictureUrl
+    const requester: UserResponseDto = request.requester ? {
+      id: request.requester.id,
+      firstName: request.requester.firstName,
+      lastName: request.requester.lastName,
+      fullName: requesterFullName,
+      email: request.requester.email,
+      profilePictureUrl: request.requester.profilePictureUrl || null
+    } : {
+      id: request.requesterId,
+      firstName: '',
+      lastName: '',
+      fullName: '',
+      email: '',
+      profilePictureUrl: null
+    };
+
+    // Build travel object with airline information
+    let travel: any = request.travel ? { ...request.travel } : null;
+    
+    if (travel && travel.flightNumber) {
+      // Get airline from flight number
+      const airline = await this.airlineService.findByFlightNumber(travel.flightNumber);
+      
+      if (airline) {
+        travel.airline = {
+          airlineId: airline.id,
+          name: airline.name,
+          logoUrl: (airline.logoUrl as string | null) ?? null
+        };
+      } else {
+        // If airline not found, set airline to null
+        travel.airline = null;
+      }
+    }
+
     return {
       id: request.id,
       createdAt: request.createdAt,
@@ -669,17 +716,11 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       requestType: request.requestType,
       weight: request.weight,
       currentStatusId: request.currentStatusId,
-      requester: {
-        id: request.requester?.id,
-        firstName: request.requester?.firstName,
-        lastName: request.requester?.lastName,
-        email: request.requester?.email
-      } as UserResponseDto,
-     
+      requester: requester,
       currentStatus: {
         status: request.currentStatus?.status
       } as StatusResponseDto,
-      travel: request.travel || null,
+      travel: travel,
       demand: request.demand || null
     };
   }

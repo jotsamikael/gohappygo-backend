@@ -13,6 +13,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { EventsModule } from 'src/events/events.module';
 import { UserModule } from 'src/user/user.module';
 import { RequestMapper } from './request.mapper';
+import { AirlineModule } from 'src/airline/airline.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { RequestMapper } from './request.mapper';
     TransactionModule,
     CacheModule.register(),
     EventsModule,
-    UserModule
+    UserModule,
+    AirlineModule
   ],
   controllers: [RequestController],
   providers: [RequestService, RequestMapper],

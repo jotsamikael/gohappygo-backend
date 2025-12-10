@@ -11,11 +11,25 @@ export class UserResponseDto {
   @ApiProperty({ description: 'User last name', example: 'Doe' })
   lastName: string;
 
-  @ApiProperty({ description: 'Full name', example: 'John D.' })
+  @ApiProperty({ description: 'Full name formatted as "Firstname L."', example: 'John D.' })
   fullName: string;
 
   @ApiProperty({ description: 'User email', example: 'john.doe@example.com' })
   email: string;
+
+  @ApiProperty({ description: 'Profile picture URL', example: 'https://example.com/profile.jpg', required: false })
+  profilePictureUrl?: string | null;
+}
+
+export class AirlineResponseDto {
+  @ApiProperty({ description: 'Airline ID', example: 1 })
+  airlineId: number;
+
+  @ApiProperty({ description: 'Airline name', example: 'British Airways' })
+  name: string;
+
+  @ApiProperty({ description: 'Airline logo URL', example: 'https://example.com/logo.png', required: false })
+  logoUrl?: string | null;
 }
 
 
@@ -63,7 +77,7 @@ export class RequestResponseDto {
   currentStatus: StatusResponseDto;
 
   @ApiProperty({ description: 'Associated travel (if applicable)', required: false })
-  travel?: any;
+  travel?: any; // Travel object with airline information
 
   @ApiProperty({ description: 'Associated demand (if applicable)', required: false })
   demand?: any;

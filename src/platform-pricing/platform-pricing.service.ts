@@ -35,6 +35,22 @@ export class PlatformPricingService {
       );
     }
 
+    // Validate that lowerBound and upperBound are less than 151
+    // Amounts >= 151 use a fixed 15% fee instead of pricing tiers
+    if (lowerBound >= 151) {
+      throw new CustomBadRequestException(
+        'Lower bound must be less than 151. Amounts >= 151 use a fixed 15% fee.',
+        ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+      );
+    }
+
+    if (upperBound >= 151) {
+      throw new CustomBadRequestException(
+        'Upper bound must be less than 151. Amounts >= 151 use a fixed 15% fee.',
+        ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+      );
+    }
+
     // Check for overlapping ranges
     // A range overlaps if:
     // - new lowerBound is within an existing range, OR
@@ -69,15 +85,40 @@ export class PlatformPricingService {
 
   /**
    * Get all platform pricing records with pagination
+   * Filters by lowerBound and/or upperBound if provided.
+   * When filtering, finds pricing tiers that contain the specified values.
    */
   async findAll(
     query: FindPlatformPricingQueryDto,
   ): Promise<PaginatedPlatformPricingResponseDto> {
-    const { page = 1, limit = 10 } = query;
+    const { page = 1, limit = 10, lowerBound, upperBound } = query;
 
     const queryBuilder = this.platformPricingRepository
       .createQueryBuilder('pricing')
       .orderBy('pricing.lowerBound', 'ASC');
+
+    // Apply filters if provided
+    // Find pricing tiers that contain the specified lowerBound value
+    if (lowerBound !== undefined && upperBound === undefined) {
+      queryBuilder.andWhere(
+        'pricing.lowerBound <= :lowerBound AND pricing.upperBound >= :lowerBound',
+        { lowerBound },
+      );
+    }
+    // Find pricing tiers that contain the specified upperBound value
+    else if (upperBound !== undefined && lowerBound === undefined) {
+      queryBuilder.andWhere(
+        'pricing.lowerBound <= :upperBound AND pricing.upperBound >= :upperBound',
+        { upperBound },
+      );
+    }
+    // Find pricing tiers that overlap with the range [lowerBound, upperBound]
+    else if (lowerBound !== undefined && upperBound !== undefined) {
+      queryBuilder.andWhere(
+        '(pricing.lowerBound <= :upperBound AND pricing.upperBound >= :lowerBound)',
+        { lowerBound, upperBound },
+      );
+    }
 
     const total = await queryBuilder.getCount();
 
@@ -135,6 +176,26 @@ export class PlatformPricingService {
 
     const { lowerBound, upperBound, fee } = updatePlatformPricingDto;
 
+    // Get final values (use existing if not provided in update)
+    const finalLowerBound = lowerBound !== undefined ? lowerBound : pricing.lowerBound;
+    const finalUpperBound = upperBound !== undefined ? upperBound : pricing.upperBound;
+
+    // Validate that final lowerBound and upperBound are less than 151
+    // Amounts >= 151 use a fixed 15% fee instead of pricing tiers
+    if (finalLowerBound >= 151) {
+      throw new CustomBadRequestException(
+        'Lower bound must be less than 151. Amounts >= 151 use a fixed 15% fee.',
+        ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+      );
+    }
+
+    if (finalUpperBound >= 151) {
+      throw new CustomBadRequestException(
+        'Upper bound must be less than 151. Amounts >= 151 use a fixed 15% fee.',
+        ErrorCode.PLATFORM_PRICING_INVALID_RANGE,
+      );
+    }
+
     // Validate bounds if both are provided
     if (lowerBound !== undefined && upperBound !== undefined) {
       if (lowerBound >= upperBound) {
@@ -149,11 +210,11 @@ export class PlatformPricingService {
         where: { id: Not(id) },
       });
 
-      const hasOverlap = allPricings.some((pricing) => {
+      const hasOverlap = allPricings.some((existingPricing) => {
         return (
-          (lowerBound >= pricing.lowerBound && lowerBound <= pricing.upperBound) ||
-          (upperBound >= pricing.lowerBound && upperBound <= pricing.upperBound) ||
-          (lowerBound <= pricing.lowerBound && upperBound >= pricing.upperBound)
+          (finalLowerBound >= existingPricing.lowerBound && finalLowerBound <= existingPricing.upperBound) ||
+          (finalUpperBound >= existingPricing.lowerBound && finalUpperBound <= existingPricing.upperBound) ||
+          (finalLowerBound <= existingPricing.lowerBound && finalUpperBound >= existingPricing.upperBound)
         );
       });
 
