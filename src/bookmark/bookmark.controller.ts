@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { BookmarkService } from './bookmark.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
@@ -80,9 +81,13 @@ export class BookmarkController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   checkBookmark(
     @CurrentUser() user: any,
-    @Param('bookmarkType') bookmarkType: BookmarkType,
+    @Param('bookmarkType') bookmarkTypeParam: string,
     @Param('itemId', ParseIntPipe) itemId: number,
   ) {
+    const bookmarkType = bookmarkTypeParam.toUpperCase() as BookmarkType;
+    if (!Object.values(BookmarkType).includes(bookmarkType)) {
+      throw new BadRequestException(`Invalid bookmark type: ${bookmarkTypeParam}. Must be TRAVEL or DEMAND`);
+    }
     return this.bookmarkService.isBookmarked(user.id, bookmarkType, itemId);
   }
 
@@ -125,9 +130,13 @@ export class BookmarkController {
   @ApiResponse({ status: 404, description: 'Bookmark not found' })
   removeByItem(
     @CurrentUser() user: any,
-    @Param('bookmarkType') bookmarkType: BookmarkType,
+    @Param('bookmarkType') bookmarkTypeParam: string,
     @Param('itemId', ParseIntPipe) itemId: number,
   ) {
+    const bookmarkType = bookmarkTypeParam.toUpperCase() as BookmarkType;
+    if (!Object.values(BookmarkType).includes(bookmarkType)) {
+      throw new BadRequestException(`Invalid bookmark type: ${bookmarkTypeParam}. Must be TRAVEL or DEMAND`);
+    }
     return this.bookmarkService.removeByItem(user.id, bookmarkType, itemId);
   }
 }

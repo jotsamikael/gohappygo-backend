@@ -49,6 +49,26 @@ export class BookmarkMapper {
       demandImage: null,
     };
 
+    // Map travel with properly formatted user if it exists
+    if (bookmark.travel) {
+      const travelResponse = this.toTravelResponse(bookmark.travel);
+      if (travelResponse && bookmark.travel.user) {
+        // Override user with properly formatted user including fullName
+        travelResponse.user = this.toUserResponse(bookmark.travel.user);
+      }
+      bookmarkData.travel = travelResponse;
+    }
+
+    // Map demand with properly formatted user if it exists
+    if (bookmark.demand) {
+      const demandResponse = this.toDemandResponse(bookmark.demand);
+      if (demandResponse && bookmark.demand.user) {
+        // Override user with properly formatted user including fullName
+        demandResponse.user = this.toUserResponse(bookmark.demand.user);
+      }
+      bookmarkData.demand = demandResponse;
+    }
+
     // If bookmarkType is DEMAND and demand exists with images, get the first image URL
     if (bookmark.bookmarkType === BookmarkType.DEMAND && bookmark.demand?.images && bookmark.demand.images.length > 0) {
       // Sort images by purpose to get DEMAND_IMAGE_1 first, then DEMAND_IMAGE_2, etc.

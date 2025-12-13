@@ -215,6 +215,7 @@ export class UserController {
         firstName: { type: 'string', example: 'John' },
         lastName: { type: 'string', example: 'Doe' },
         bio: { type: 'string', example: 'Frequent traveler' },
+        phone: { type: 'string', example: '+237697942923', description: 'Phone number in international format' },
         profilePicture: {
           type: 'string',
           format: 'binary',

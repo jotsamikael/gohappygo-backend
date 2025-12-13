@@ -531,10 +531,10 @@ export class ReviewService implements OnModuleInit {
   async onModuleInit() {
     // Check if ratings need to be recalculated (one-time migration)
     const needsRecalculation = await this.checkIfRatingsNeedRecalculation();
-    if (needsRecalculation) {
+    /*if (needsRecalculation) {
       console.log('🔄 Recalculating user ratings for existing data...');
       await this.recalculateAllUserRatings();
-    }
+    }*/
   }
 
   private async checkIfRatingsNeedRecalculation(): Promise<boolean> {
