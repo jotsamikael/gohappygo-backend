@@ -67,6 +67,8 @@ export class TravelMapper {
             bio: travel.user.bio || null,
             isVerified: travel.user.isVerified,
             createdAt: travel.user.createdAt,
+            rating: travel.user.rating || null,
+            numberOfReviews: travel.user.numberOfReviews || 0
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true

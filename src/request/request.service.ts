@@ -135,8 +135,11 @@ export class RequestService {
       await transactionalEntityManager.save(RequestStatusHistoryEntity, statusHistoryRecord);
       console.log('reached4 - after status history');
 
-      // Clear cache
-      await this.clearRequestListCache();
+      // Clear cache for affected users (requester and travel owner)
+      await this.clearRequestListCacheForUsers([
+        user.id,        // Requester's cache
+        travel.userId    // Travel owner's cache
+      ]);
       console.log('reached5 - after cache clear');
 
       // If it's an instant travel, automatically process the acceptance
@@ -151,15 +154,18 @@ export class RequestService {
         
         await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager);
         console.log('reached8 - after instant processing');
+        
+        // Skip request created emails for instant travels - they'll get accepted emails instead
+      } else {
+        // Only emit request created events for non-instant travels
+        // emit request created event (non-blocking)
+        console.log('reached9 - emitting events');
+        this.userEventService.emitRequestCreated(user, savedRequest, false, travel.userId);
+
+        //also send email to the user who published the travel (non-blocking)
+        this.userEventService.emitRequestCreated(travel.user!, savedRequest, true, travel.userId);
+        console.log('reached10 - events emitted');
       }
-
-      // emit request created event (non-blocking)
-      console.log('reached9 - emitting events');
-      this.userEventService.emitRequestCreated(user, savedRequest, false, travel.userId);
-
-      //also send email to the user who published the travel (non-blocking)
-      this.userEventService.emitRequestCreated(travel.user!, savedRequest, true, travel.userId);
-      console.log('reached10 - events emitted');
 
       return savedRequest;
     });
@@ -171,11 +177,14 @@ export class RequestService {
       console.log('processInstantTravelAcceptance - start');
       
       // Update travel weight availability
-      const newAvailableWeight = travel.weightAvailable - (request.weight || 0);
+      // Convert to numbers to handle decimal/string type issues from TypeORM
+      const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+      const requestWeight = Number(request.weight) || 0;
+      const newAvailableWeight = travelWeightAvailable - requestWeight;
       travel.weightAvailable = newAvailableWeight;
 
-      // Check if travel is now filled
-      if (newAvailableWeight === 0) {
+      // Check if travel is now filled (use small epsilon for floating point comparison)
+      if (Math.abs(newAvailableWeight) < 0.01) {
         travel.status = 'filled';
       }
 
@@ -201,9 +210,13 @@ export class RequestService {
       console.log('processInstantTravelAcceptance - after transaction creation');
 
       // Emit request accepted event for instant travels (non-blocking)
+      // Pass travel info so email templates can detect instant travel
       console.log('processInstantTravelAcceptance - before event emission');
-      this.userEventService.emitRequestAccepted(travel.user!, request, false, travel.userId);
-      this.userEventService.emitRequestAccepted(request.requester!, request, true, travel.userId);
+      const requestWithTravel = { ...request, travel: travel, isInstant: true };
+      // Travel owner should get isForOwner = true (owner email template)
+      this.userEventService.emitRequestAccepted(travel.user!, requestWithTravel, true, travel.userId);
+      // Requester should get isForOwner = false (requester email template)
+      this.userEventService.emitRequestAccepted(request.requester!, requestWithTravel, false, travel.userId);
       console.log('processInstantTravelAcceptance - after event emission');
 
     } catch (error) {
@@ -286,7 +299,16 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
 
   await this.transactionService.createTransactionFromRequest(request, transactionAmount);
 
-  // 11. emit request accepted event (send email to traveler who published the travel)
+  // 11. Clear cache for affected users (requester and travel/demand owner)
+  const affectedUserIds = [request.requesterId];
+  if (request.travel) {
+    affectedUserIds.push(request.travel.userId);
+  } else if (request.demand) {
+    affectedUserIds.push(request.demand.userId);
+  }
+  await this.clearRequestListCacheForUsers(affectedUserIds);
+
+  // 12. emit request accepted event (send email to traveler who published the travel)
    this.userEventService.emitRequestAccepted(user, request, false, request.travel.userId);
 
    //get the requester
@@ -343,8 +365,16 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   // 3. Add status history record (IMPORTANT: This was missing!)
   await this.requestStatusHistoryService.record(requestId, completedStatus.id);
   
-  // 4. Clear cache to ensure fresh data on next query
-  await this.clearRequestListCache();
+  // 4. Clear cache for affected users (requester and travel/demand owner)
+  const affectedUserIds = [user.id]; // Requester
+  // getRequestById already loads travel and demand relations, so we can use them here
+  if (request.travel) {
+    affectedUserIds.push(request.travel.userId);
+  } else if (request.demand) {
+    affectedUserIds.push(request.demand.userId);
+  }
+  // Clear cache early so users see updated data
+  await this.clearRequestListCacheForUsers(affectedUserIds);
 
   //get transaction by request id
   const transaction = await this.transactionService.getTransactionByRequestId(requestId);
@@ -369,10 +399,10 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
     throw new CustomNotFoundException('Updated Request not found', ErrorCode.REQUEST_NOT_FOUND);
   }
 
-  // 7. Send email to the requester
+  // 8. Send email to the requester
   this.userEventService.emitRequestCompleted(user, updatedRequest, false);
 
-  //get user who published the travel or demand
+  // 9. Get user who published the travel or demand
   const travel = await this.userService.findOne({
     id: updatedRequest.travel!.userId,
   });
@@ -392,18 +422,25 @@ private async handleTravelRequestAcceptance(request: RequestEntity): Promise<voi
     throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
   }
 
+  // Convert to numbers to handle decimal/string type issues from TypeORM
+  const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+  const requestWeight = Number(request.weight) || 0;
+  
   // Subtract the request weight from available weight
-  const newAvailableWeight = travel.weightAvailable - (request.weight || 0);
+  const newAvailableWeight = travelWeightAvailable - requestWeight;
   
   if (newAvailableWeight < 0) {
-    throw new CustomBadRequestException('Insufficient weight available in travel', ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE_IN_TRAVEL);
+    throw new CustomBadRequestException(
+      `Insufficient weight available in travel. Only ${travelWeightAvailable}kg available, but ${requestWeight}kg requested.`, 
+      ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE_IN_TRAVEL
+    );
   }
 
   // Update travel weight
   travel.weightAvailable = newAvailableWeight;
 
-  // Check if travel is now filled
-  if (newAvailableWeight === 0) {
+  // Check if travel is now filled (use small epsilon for floating point comparison)
+  if (Math.abs(newAvailableWeight) < 0.01) {
     travel.status = 'filled';
   }
 
@@ -561,7 +598,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       }
     };
 
-    await this.cacheManager.set(cacheKey, responseResult, 30000);
+    await this.cacheManager.set(cacheKey, responseResult, 5000); // Reduced TTL to 5 seconds for faster invalidation
     return responseResult;
   }
 
@@ -586,8 +623,46 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
     return `requests_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_requester${requesterId || 'all'}_travel${travelId || 'all'}_demand${demandId || 'all'}_type${requestType || 'all'}_desc${packageDescription || 'all'}_minWeight${minWeight || 'all'}_maxWeight${maxWeight || 'all'}_date${limitDate || 'all'}_status${status || 'all'}_order${orderBy}`;
   }
 
-  // Add cache clearing method
+  // Enhanced cache clearing method with selective invalidation
+  // Clears cache for specific affected users and tracked keys
+  private async clearRequestListCacheForUsers(affectedUserIds: number[]): Promise<void> {
+    const cacheKeysToDelete: string[] = [];
+
+    // Common query combinations that users typically request
+    // We clear these to ensure affected users see fresh data
+    const commonQueryCombinations = [
+      { page: 1, limit: 10 }, // Most common - first page with default limit
+      { page: 1, limit: 20 },
+      { page: 1, limit: 50 },
+    ];
+
+    // Generate cache keys for affected users with common queries
+    for (const userId of affectedUserIds) {
+      for (const query of commonQueryCombinations) {
+        const cacheKey = this.generateRequestListCacheKey(query, userId);
+        cacheKeysToDelete.push(cacheKey);
+      }
+    }
+
+    // Also clear any tracked cache keys (from current instance)
+    const trackedKeys = Array.from(this.requestListCacheKeys);
+    cacheKeysToDelete.push(...trackedKeys);
+
+    // Delete all cache keys in parallel for better performance
+    if (cacheKeysToDelete.length > 0) {
+      await Promise.all(
+        cacheKeysToDelete.map(key => this.cacheManager.del(key))
+      );
+    }
+
+    // Clear the tracked keys set
+    this.requestListCacheKeys.clear();
+  }
+
+  // Legacy method for backward compatibility (can be removed if not used elsewhere)
   private async clearRequestListCache(): Promise<void> {
+    // This method now delegates to the new selective clearing
+    // If no specific users are known, we at least clear tracked keys
     const cacheKeys = Array.from(this.requestListCacheKeys);
     for (const key of cacheKeys) {
       await this.cacheManager.del(key);

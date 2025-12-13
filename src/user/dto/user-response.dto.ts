@@ -61,6 +61,14 @@ export class UserResponseDto {
 
   @ApiProperty({ example: '2024-01-01T00:00:00.000Z' })
   updatedAt: Date;
+
+  @ApiProperty({ example: 4.75, nullable: true })
+  @Expose()
+  rating: number | null;
+
+  @ApiProperty({ example: 15 })
+  @Expose()
+  numberOfReviews: number;
 }
 
 export class CreateUserResponseDto {    

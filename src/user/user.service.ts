@@ -271,7 +271,9 @@ private async mapToUserResponseDto(user: UserEntity): Promise<UserResponseDto> {
     isVerified: user.isVerified,
     isAwaitingVerification: isAwaitingVerification,
     createdAt: user.createdAt,
-    updatedAt: user.updatedAt
+    updatedAt: user.updatedAt,
+    rating: user.rating,
+    numberOfReviews: user.numberOfReviews
   };
 }
 
@@ -762,5 +764,21 @@ async updateUserProfile(
       await this.cacheManager.del(cacheKey);
     }
     this.userListCacheKeys.clear();
+  }
+
+  // Update user rating statistics (called by ReviewService)
+  async updateUserRatingStats(userId: number, rating: number | null, numberOfReviews: number): Promise<void> {
+    await this.userRepository.update(userId, {
+      rating,
+      numberOfReviews
+    });
+  }
+
+  // Add this method to UserService
+  async findAllUserIds(): Promise<number[]> {
+    const users = await this.userRepository.find({
+      select: ['id']
+    });
+    return users.map(user => user.id);
   }
 }

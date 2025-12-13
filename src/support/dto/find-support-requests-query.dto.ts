@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SupportCategory, SupportStatus } from '../entities/support-request.entity';
+import { SupportCategory, SupportRequesterType, SupportStatus } from '../entities/support-request.entity';
 
 export class FindSupportRequestsQueryDto {
   @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
@@ -31,6 +31,12 @@ export class FindSupportRequestsQueryDto {
   @IsOptional()
   @IsEnum(SupportCategory)
   category?: SupportCategory;
+
+
+  @ApiPropertyOptional({ description: 'Filter by requester type', enum: SupportRequesterType })
+  @IsOptional()
+  @IsEnum(SupportRequesterType)
+  requesterType?: SupportRequesterType; 
 
   @ApiPropertyOptional({ description: 'Filter by requester email' })
   @IsOptional()

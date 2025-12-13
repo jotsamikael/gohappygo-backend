@@ -93,9 +93,8 @@ export class SupportService {
     query: FindSupportRequestsQueryDto,
     user?: UserEntity,
   ): Promise<PaginatedSupportRequestsResponseDto> {
-    const { page = 1, limit = 10, status, category, email } = query;
+    const { page = 1, limit = 10, status, category, email, requesterType } = query;
     console.log('user', user);
-
 
     const queryBuilder = this.supportRequestRepository
       .createQueryBuilder('support')
@@ -134,6 +133,10 @@ export class SupportService {
 
     if (category) {
       queryBuilder.andWhere('support.supportCategory = :category', { category });
+    }
+
+    if (requesterType) {
+      queryBuilder.andWhere('support.supportRequesterType = :requesterType', { requesterType });
     }
 
     // Get total count
@@ -269,11 +272,11 @@ export class SupportService {
       console.log(`[SupportService] Duplicate log creation prevented - recent log found with ID: ${recentLogs[0].id}`);
     }
 
-    // Update support request status to RESOLVED if it was PENDING
+    // Update support request status to RESOLVING if it was PENDING
     // Use update() instead of save() to avoid relation management issues
     if (supportRequest.status === SupportStatus.PENDING) {
       await this.supportRequestRepository.update(id, {
-        status: SupportStatus.RESOLVED,
+        status: SupportStatus.RESOLVING,
         updatedAt: new Date(),
       });
     }
@@ -355,9 +358,9 @@ export class SupportService {
     
     await this.supportLogRepository.save(log);
 
-    // Update support request status back to PENDING if it was RESOLVED
+    // Update support request status back to PENDING if it was RESOLVING
     // Use update() instead of save() to avoid relation management issues
-    if (supportRequest.status === SupportStatus.RESOLVED) {
+    if (supportRequest.status === SupportStatus.RESOLVING) {
       await this.supportRequestRepository.update(id, {
         status: SupportStatus.PENDING,
         updatedAt: new Date(),
@@ -447,7 +450,7 @@ export class SupportService {
 
     await this.emailService.sendEmail({
       to: supportRequest.email,
-      subject: `Support Request #${supportRequest.id} Resolved`,
+      subject: `Support Request #${supportRequest.id} Closed`,
       html: closedTemplate,
     });
 

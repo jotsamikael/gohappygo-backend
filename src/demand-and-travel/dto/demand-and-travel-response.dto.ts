@@ -28,6 +28,14 @@ export class UserNameResponseDto {
   @ApiProperty({ description: 'Whether user is verified (KYC completed)' })
   @Expose()
   isVerified: boolean;
+
+  @ApiProperty({ description: 'Average rating received by user', example: 4.75, nullable: true })
+  @Expose()
+  rating: number | null;
+
+  @ApiProperty({ description: 'Total number of reviews received', example: 15 })
+  @Expose()
+  numberOfReviews: number;
 }
 
 export class ImageResponseDto {

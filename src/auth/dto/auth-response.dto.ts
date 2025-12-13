@@ -30,6 +30,12 @@ export class UserResponseDto {
 
   @ApiProperty({ example: false })
   isVerified: boolean;
+
+  @ApiProperty({ example: 4.75, nullable: true })
+  rating: number | null;
+
+  @ApiProperty({ example: 15 })
+  numberOfReviews: number;
 }
 
 export class RegisterResponseDto {

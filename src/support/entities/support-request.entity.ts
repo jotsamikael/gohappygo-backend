@@ -3,7 +3,7 @@ import { SupportLogEntity } from "./support-log.entity";
 
 export enum SupportStatus {
   PENDING = 'PENDING',
-  RESOLVED = 'RESOLVED',
+  RESOLVING = 'RESOLVING',
   CLOSED = 'CLOSED',
 }
 

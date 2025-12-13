@@ -85,6 +85,14 @@ export class TravelDetailUserDto {
     @ApiProperty({ example: '2025-10-09T19:07:14.516Z' })
     @Expose()
     createdAt: Date;
+
+    @ApiProperty({ example: 4.75, nullable: true })
+    @Expose()
+    rating: number | null;
+
+    @ApiProperty({ example: 15 })
+    @Expose()
+    numberOfReviews: number;
 }
 
 // Airline DTO for travel detail (only required fields)

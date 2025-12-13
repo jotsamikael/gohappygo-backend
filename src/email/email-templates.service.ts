@@ -377,7 +377,7 @@ export class EmailTemplatesService {
           </div>
           <div class="content">
             <h2>Hello ${userName},</h2>
-            <p>Great news! Your delivery request has been accepted and is ready to proceed.</p>
+            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The delivery process can now begin.</p>` : `<p>Great news! Your delivery request has been accepted and is ready to proceed.</p>`}
             
             <div class="highlight">
               <p><strong>✅ Status:</strong> <span class="success-badge">ACCEPTED</span></p>
@@ -443,7 +443,7 @@ export class EmailTemplatesService {
           </div>
           <div class="content">
             <h2>Hello ${userName},</h2>
-            <p>You have successfully accepted a delivery request. The requester has been notified.</p>
+            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase!</strong></p><p>${requestData.requesterName || 'A requester'} has purchased ${requestData.weight}kg in your instant travel. The request has been automatically accepted.</p>` : `<p>You have successfully accepted a delivery request. The requester has been notified.</p>`}
             
             <div class="highlight">
               <p><strong>✅ Status:</strong> <span class="success-badge">ACCEPTED</span></p>
@@ -452,8 +452,8 @@ export class EmailTemplatesService {
             
             <div class="requester-info">
               <h3>Requester Information:</h3>
-              <p><strong>Name:</strong> ${requestData.userFirstName}</p>
-              <p><strong>Email:</strong> ${requestData.userEmail}</p>
+              <p><strong>Name:</strong> ${requestData.requesterName || requestData.userFirstName || 'Unknown'}</p>
+              <p><strong>Email:</strong> ${requestData.userEmail || 'Not provided'}</p>
             </div>
             
             <div class="request-details">

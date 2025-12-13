@@ -128,4 +128,11 @@ kycUpdatedAt?: Date | null;
 
   @OneToMany(() => BookmarkEntity, (bookmark) => bookmark.user)
   bookmarks: BookmarkEntity[];
+
+  // Rating and review count (denormalized for performance)
+  @Column('decimal', { precision: 3, scale: 2, nullable: true, default: null })
+  rating: number | null; // Average rating (e.g., 4.75)
+
+  @Column({ type: 'int', default: 0 })
+  numberOfReviews: number; // Total count of reviews received
 }

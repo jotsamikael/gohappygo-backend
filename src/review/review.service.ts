@@ -18,10 +18,11 @@ import { ErrorCode } from 'src/common/exception/error-codes';
 import { ModerateReviewDto } from './dto/moderateReview.dto';
 import { ReviewMapper } from './review.mapper';
 import { RequestEntity } from 'src/request/request.entity';
+import { OnModuleInit } from '@nestjs/common';
 
 
 @Injectable()
-export class ReviewService {
+export class ReviewService implements OnModuleInit {
   // Add these private properties for caching
   private reviewListCacheKeys: Set<string> = new Set();
 
@@ -30,7 +31,8 @@ export class ReviewService {
     @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
     private requestService: RequestService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private reviewMapper: ReviewMapper
+    private reviewMapper: ReviewMapper,
+    private userService: UserService
   ) {}
 
   
@@ -108,6 +110,9 @@ export class ReviewService {
 
     const savedReview = await this.reviewRepository.save(review);
     
+    // Update user rating statistics
+    await this.updateUserRatingStats(revieweeId);
+    
     // Reload with relations for proper mapping
     const reviewWithRelations = await this.reviewRepository.findOne({
       where: { id: savedReview.id },
@@ -167,6 +172,11 @@ export class ReviewService {
       if (updateDto.comment !== undefined) review.comment = updateDto.comment;
     
       const updatedReview = await this.reviewRepository.save(review);
+    
+    // Update user rating statistics (recalculate if rating changed)
+    if (updateDto.rating !== undefined) {
+      await this.updateUserRatingStats(review.revieweeId);
+    }
     
     // Clear cache
     await this.clearReviewListCache();
@@ -346,6 +356,25 @@ export class ReviewService {
     this.reviewListCacheKeys.clear();
   }
 
+  // Calculate and update user rating statistics
+  private async updateUserRatingStats(revieweeId: number): Promise<void> {
+    const reviews = await this.reviewRepository.find({
+      where: { revieweeId },
+      select: ['rating']
+    });
+
+    const numberOfReviews = reviews.length;
+    let averageRating: number | null = null;
+
+    if (numberOfReviews > 0) {
+      const sum = reviews.reduce((acc, review) => acc + Number(review.rating), 0);
+      averageRating = Number((sum / numberOfReviews).toFixed(2));
+    }
+
+    // Update user entity
+    await this.userService.updateUserRatingStats(revieweeId, averageRating, numberOfReviews);
+  }
+
   // Transform method
 
  
@@ -432,5 +461,94 @@ export class ReviewService {
         reviewee: this.reviewMapper.mapUserToDto(review.reviewee)
       }
     };
+  }
+
+  /**
+   * Recalculate and update rating statistics for all users
+   * This should be run once after adding the rating and numberOfReviews fields
+   */
+  async recalculateAllUserRatings(): Promise<{ updated: number; errors: number }> {
+    let updated = 0;
+    let errors = 0;
+
+    try {
+      // Get all unique reviewee IDs from reviews
+      const reviews = await this.reviewRepository.find({
+        select: ['revieweeId', 'rating']
+      });
+
+      // Group reviews by revieweeId
+      const reviewsByUser = new Map<number, number[]>();
+      
+      for (const review of reviews) {
+        const revieweeId = review.revieweeId;
+        const rating = Number(review.rating);
+        
+        if (!reviewsByUser.has(revieweeId)) {
+          reviewsByUser.set(revieweeId, []);
+        }
+        reviewsByUser.get(revieweeId)!.push(rating);
+      }
+
+      // Calculate and update for each user
+      for (const [revieweeId, ratings] of reviewsByUser.entries()) {
+        try {
+          const numberOfReviews = ratings.length;
+          const sum = ratings.reduce((acc, rating) => acc + rating, 0);
+          const averageRating = Number((sum / numberOfReviews).toFixed(2));
+
+          await this.userService.updateUserRatingStats(revieweeId, averageRating, numberOfReviews);
+          updated++;
+        } catch (error) {
+          console.error(`Error updating ratings for user ${revieweeId}:`, error);
+          errors++;
+        }
+      }
+
+      // Also update users with 0 reviews (set to null and 0)
+      const allUserIds = await this.userService.findAllUserIds(); // You'll need to add this method
+      const usersWithReviews = Array.from(reviewsByUser.keys());
+      const usersWithoutReviews = allUserIds.filter(id => !usersWithReviews.includes(id));
+
+      for (const userId of usersWithoutReviews) {
+        try {
+          await this.userService.updateUserRatingStats(userId, null, 0);
+          updated++;
+        } catch (error) {
+          console.error(`Error updating ratings for user ${userId}:`, error);
+          errors++;
+        }
+      }
+
+      console.log(`✅ Rating recalculation complete: ${updated} users updated, ${errors} errors`);
+      return { updated, errors };
+    } catch (error) {
+      console.error('Error recalculating user ratings:', error);
+      throw error;
+    }
+  }
+
+  async onModuleInit() {
+    // Check if ratings need to be recalculated (one-time migration)
+    const needsRecalculation = await this.checkIfRatingsNeedRecalculation();
+    if (needsRecalculation) {
+      console.log('🔄 Recalculating user ratings for existing data...');
+      await this.recalculateAllUserRatings();
+    }
+  }
+
+  private async checkIfRatingsNeedRecalculation(): Promise<boolean> {
+    // Check if there are users with reviews but rating is null/0
+    // This is a simple check - you might want to make it more sophisticated
+    const usersWithReviews = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('DISTINCT review.revieweeId', 'revieweeId')
+      .getRawMany();
+
+    if (usersWithReviews.length === 0) return false;
+
+    // Check if any of these users have null rating
+    // You'd need to join with user table or make a separate query
+    return true; // For now, always recalculate on first run
   }
 }

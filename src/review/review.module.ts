@@ -14,6 +14,7 @@ import { ReviewMapper } from './review.mapper';
   imports: [
     TypeOrmModule.forFeature([ReviewEntity, RequestEntity]),
     RequestModule,
+    UserModule,
     CacheModule.register(),
   ],
   controllers: [ReviewController],

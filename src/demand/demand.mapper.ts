@@ -67,6 +67,8 @@ export class DemandMapper {
             isPhoneVerified: demand.user.isPhoneVerified,
             isVerified: demand.user.isVerified,
             createdAt: demand.user.createdAt,
+            rating: demand.user.rating || null,
+            numberOfReviews: demand.user.numberOfReviews || 0
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true

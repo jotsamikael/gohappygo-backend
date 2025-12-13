@@ -10,6 +10,8 @@ import { PaginatedPlatformPricingResponseDto } from './dto/paginated-platform-pr
 import { PlatformPricingMapper } from './plateform-pricing.mapper';
 import { CustomNotFoundException, CustomBadRequestException } from '../common/exception/custom-exceptions';
 import { ErrorCode } from '../common/exception/error-codes';
+import { TravelService } from '../travel/travel.service';
+import { CalculatePlatformPricingDto } from './dto/calculate-platform-pricing.dto';
 
 @Injectable()
 export class PlatformPricingService {
@@ -17,6 +19,7 @@ export class PlatformPricingService {
     @InjectRepository(PlatformPricingEntity)
     private platformPricingRepository: Repository<PlatformPricingEntity>,
     private platformPricingMapper: PlatformPricingMapper,
+    private travelService: TravelService,
   ) { }
 
   /**
@@ -323,4 +326,60 @@ export class PlatformPricingService {
  roundToNearestHalf(value: number): number {
   return Math.round(value * 2) / 2;
 }
+
+  /**
+   * Calculate platform pricing based on kilos and travel ID
+   * Fetches the travel to get pricePerKg, then calculates travelerPayment = kilos * pricePerKg
+   * and returns the total amount with fees and TVA
+   */
+  async calculateFromRequest(
+    calculateDto: CalculatePlatformPricingDto,
+    tvaPercentage: number = 20,
+  ): Promise<{
+    kilos: number;
+    pricePerKg: number;
+    travelerPayment: number;
+    fee: number;
+    tvaAmount: number;
+    totalAmount: number;
+  }> {
+    const { kilos, travelId } = calculateDto;
+
+    // Fetch the travel
+    const travel = await this.travelService.findOne({
+      where: { id: travelId },
+    });
+
+    if (!travel) {
+      throw new CustomNotFoundException(
+        `Travel with ID ${travelId} not found`,
+        ErrorCode.TRAVEL_NOT_FOUND,
+      );
+    }
+
+    // Get pricePerKg from travel
+    const pricePerKg = Number(travel.pricePerKg) || 0;
+
+    if (pricePerKg <= 0) {
+      throw new CustomBadRequestException(
+        'Travel price per kg is invalid or not set',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    // Calculate traveler payment: kilos * pricePerKg
+    const travelerPayment = kilos * pricePerKg;
+
+    // Calculate total amount using existing method
+    const calculation = await this.calculateTotalAmount(travelerPayment, tvaPercentage);
+
+    return {
+      kilos,
+      pricePerKg,
+      travelerPayment: Number(travelerPayment.toFixed(2)),
+      fee: calculation.fee,
+      tvaAmount: calculation.tvaAmount,
+      totalAmount: calculation.totalAmount,
+    };
+  }
 }

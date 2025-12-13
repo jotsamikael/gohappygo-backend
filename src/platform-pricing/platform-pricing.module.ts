@@ -6,9 +6,10 @@ import { PlatformPricingEntity } from './entities/platform-pricing.entity';
 import { PlatformPricingMapper } from './plateform-pricing.mapper';
 import { CommonModule } from 'src/common/common.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { TravelModule } from 'src/travel/travel.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PlatformPricingEntity]), CommonModule, CacheModule.register()],
+  imports: [TypeOrmModule.forFeature([PlatformPricingEntity]), CommonModule, CacheModule.register(), TravelModule],
   controllers: [PlatformPricingController],
   providers: [PlatformPricingService, PlatformPricingMapper],
   exports: [PlatformPricingService],

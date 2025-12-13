@@ -72,7 +72,9 @@ export class DemandAndTravelMapper {
       fullName: fullName,
       selfieImage: user.profilePictureUrl,
       createdAt: user.createdAt || new Date(),
-      isVerified: user.isVerified || false
+      isVerified: user.isVerified || false,
+      rating: user.rating || null,
+      numberOfReviews: user.numberOfReviews || 0
     }, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true,

@@ -24,6 +24,7 @@ import { UpdatePlatformPricingDto } from './dto/update-platform-pricing.dto';
 import { FindPlatformPricingQueryDto } from './dto/find-platform-pricing-query.dto';
 import { PlatformPricingResponseDto } from './dto/platform-pricing-response.dto';
 import { PaginatedPlatformPricingResponseDto } from './dto/paginated-platform-pricing-response.dto';
+import { CalculatePlatformPricingDto } from './dto/calculate-platform-pricing.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserRole } from '../user/user.entity';
 
@@ -128,33 +129,31 @@ export class PlatformPricingController {
     return { message: 'Platform pricing deleted successfully' };
   }
 
-  @Get('calculate/:amount')
+  @Post('calculate')
   @ApiOperation({
-    summary: 'Calculate fee and total amount for a given traveler payment',
-    description: 'Calculates the platform fee and total amount (including TVA) for a given traveler payment amount.',
+    summary: 'Calculate fee and total amount based on kilos and travel ID',
+    description: 'Fetches the travel to get pricePerKg, calculates travelerPayment = kilos * pricePerKg, then calculates the platform fee and total amount (including TVA).',
   })
-  @ApiParam({ name: 'amount', description: 'Traveler payment amount in EUR', type: Number })
   @ApiResponse({
     status: 200,
     description: 'Calculation successful',
     schema: {
       type: 'object',
       properties: {
-        travelerPayment: { type: 'number', example: 6 },
+        kilos: { type: 'number', example: 5.5 },
+        pricePerKg: { type: 'number', example: 2.5 },
+        travelerPayment: { type: 'number', example: 13.75 },
         fee: { type: 'number', example: 2 },
         tvaAmount: { type: 'number', example: 0.4 },
-        totalAmount: { type: 'number', example: 8.4 },
+        totalAmount: { type: 'number', example: 16.15 },
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'No pricing tier found for amount' })
+  @ApiResponse({ status: 400, description: 'Invalid request data or no pricing tier found' })
+  @ApiResponse({ status: 404, description: 'Travel not found' })
   async calculateAmount(
-    @Param('amount') amount: string,
+    @Body() calculateDto: CalculatePlatformPricingDto,
   ) {
-    const amountNumber = parseFloat(amount);
-    if (isNaN(amountNumber) || amountNumber < 0) {
-      throw new BadRequestException('Invalid amount. Must be a positive number.');
-    }
-    return this.platformPricingService.calculateTotalAmount(amountNumber);
+    return this.platformPricingService.calculateFromRequest(calculateDto);
   }
 }

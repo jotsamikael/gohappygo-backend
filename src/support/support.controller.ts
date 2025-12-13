@@ -31,7 +31,7 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { UserEntity } from '../user/user.entity';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 
-@ApiTags('Support')
+@ApiTags('Supports')
 @Controller('support')
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
