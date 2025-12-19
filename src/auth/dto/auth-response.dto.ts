@@ -1,4 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { CurrencyResponseDto } from 'src/currency/dto/currency-response.dto';
+import { ProfileStatsResponseDto } from './user-profile-response.dto';
 
 export class UserResponseDto {
   @ApiProperty({ example: 1 })
@@ -36,6 +39,14 @@ export class UserResponseDto {
 
   @ApiProperty({ example: 15 })
   numberOfReviews: number;
+
+  @ApiProperty({ type: CurrencyResponseDto, nullable: true })
+  @Type(() => CurrencyResponseDto)
+  recentCurrency: CurrencyResponseDto | null;
+
+  @ApiProperty({ type: ProfileStatsResponseDto })
+  @Type(() => ProfileStatsResponseDto)
+  profileStats: ProfileStatsResponseDto;
 }
 
 export class RegisterResponseDto {
@@ -53,7 +64,8 @@ export class LoginResponseDto {
   @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
   refresh_token: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: UserResponseDto })
+  @Type(() => UserResponseDto)
   user: UserResponseDto;
 }
 

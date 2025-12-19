@@ -450,8 +450,99 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     //generate
     const tokens = this.generateToken(user);
     const { password, ...result } = user;
+
+    // Get recent currency (only for USER role)
+    let recentCurrency: CurrencyResponseDto | null = null;
+    if (user.role?.code === UserRole.USER) {
+      const currencyData = await this.getMostRecentCurrencyForUser(user.id);
+      if (currencyData) {
+        // Fetch full currency entity to get all DTO fields
+        const currency = await this.currencyService.findOne(currencyData.id);
+        if (currency) {
+          recentCurrency = {
+            id: currency.id,
+            name: currency.name,
+            symbol: currency.symbol,
+            code: currency.code
+          };
+        }
+      }
+    }
+
+    // Get profile stats (only for USER role)
+    let profileStats: ProfileStatsResponseDto;
+    
+    if (user.role?.code === UserRole.USER) {
+      // Fetch all counts in parallel for maximum efficiency
+      const [
+        demandsCount,
+        travelsCount,
+        bookmarkStats,
+        requestStatusCounts,
+        reviewsReceivedCount,
+        reviewsGivenCount,
+        transactionsCompletedCount
+      ] = await Promise.all([
+        // Demands count
+        this.demandRepository.count({ where: { userId: user.id } }),
+        
+        // Travels count
+        this.travelRepository.count({ where: { userId: user.id } }),
+        
+        // Bookmark counts
+        this.getBookmarkCounts(user.id),
+        
+        // Request status counts
+        this.getRequestStatusCounts(user.id),
+        
+        // Reviews received (reviews where user is the reviewee)
+        this.getReviewsReceivedCount(user.id),
+        
+        // Reviews given (reviews where user is the reviewer)
+        this.getReviewsGivenCount(user.id),
+        
+        // Completed transactions
+        this.getCompletedTransactionsCount(user.id)
+      ]);
+
+      profileStats = {
+        demandsCount,
+        travelsCount,
+        bookMarkTravelCount: bookmarkStats.travelBookmarks,
+        bookMarkDemandCount: bookmarkStats.demandBookmarks,
+        requestsCompletedCount: requestStatusCounts.completed,
+        requestsNegotiatingCount: requestStatusCounts.negotiating,
+        requestsCancelledCount: requestStatusCounts.cancelled,
+        requestsAcceptedCount: requestStatusCounts.accepted,
+        requestsRejectedCount: requestStatusCounts.rejected,
+        reviewsReceivedCount,
+        reviewsGivenCount,
+        transactionsCompletedCount
+      };
+    } else {
+      // For non-USER roles (ADMIN, OPERATOR), return empty stats
+      profileStats = {
+        demandsCount: 0,
+        travelsCount: 0,
+        bookMarkTravelCount: 0,
+        bookMarkDemandCount: 0,
+        requestsCompletedCount: 0,
+        requestsNegotiatingCount: 0,
+        requestsCancelledCount: 0,
+        requestsAcceptedCount: 0,
+        requestsRejectedCount: 0,
+        reviewsReceivedCount: 0,
+        reviewsGivenCount: 0,
+        transactionsCompletedCount: 0
+      };
+    }
+
     return {
-      user: result,
+      user: {
+        ...result,
+        recentCurrency,
+        profileStats,
+      },
       ...tokens,
     };
   }
