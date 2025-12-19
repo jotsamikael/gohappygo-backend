@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { LoggingInterceptor } from './common/interceptors/loging.interceptor';
+import { DbRetryInterceptor } from './common/interceptors/db-retry.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { MessageEntity } from './message/message.entity';
@@ -84,7 +85,8 @@ async function bootstrap() {
     })
   );
   app.useGlobalInterceptors(
-    new LoggingInterceptor()
+    new LoggingInterceptor(),
+    new DbRetryInterceptor()
   )
 
   // Swagger configuration with HTTPS server URLs

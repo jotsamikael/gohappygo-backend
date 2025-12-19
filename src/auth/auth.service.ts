@@ -472,7 +472,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     };
     return this.jwtService.sign(payload, {
       secret: 'jwt_secret',
-      expiresIn: '60m',//1 hour
+      expiresIn: '1440m',//24 hours
     });
   }
 

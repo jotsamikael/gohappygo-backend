@@ -290,6 +290,7 @@ export class SupportService {
     });
 
     await this.emailService.sendEmail({
+      from: this.configService.get<string>('SUPPORT_EMAIL') || 'support@gohappygo.fr',
       to: supportRequest.email,
       subject: `Response to Support Request #${supportRequest.id}`,
       html: responseTemplate,

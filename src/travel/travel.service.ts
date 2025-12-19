@@ -243,6 +243,11 @@ export class TravelService {
       throw new BadRequestException('Your account is not verified')
     }
 
+    // Check if departure and arrival airports are the same
+    if (createTravelDto.departureAirportId === createTravelDto.arrivalAirportId) {
+      throw new BadRequestException('Departure and arrival airports cannot be the same')
+    }
+
     //check if the user has already published a travel that is not expired with the same flight number
     const existingTravel1 = await this.travelRepository.findOne({
       where: { flightNumber: createTravelDto.flightNumber, userId:user.id, status:'active' }
@@ -547,6 +552,11 @@ export class TravelService {
     if (updateTravelDto.departureAirportId || updateTravelDto.arrivalAirportId) {
       const departureAirportId = updateTravelDto.departureAirportId || travel.departureAirportId;
       const arrivalAirportId = updateTravelDto.arrivalAirportId || travel.arrivalAirportId;
+      
+      // Check if departure and arrival airports are the same
+      if (departureAirportId === arrivalAirportId) {
+        throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
+      }
       
       const existingTravel = await this.travelRepository.findOne({
         where: { 

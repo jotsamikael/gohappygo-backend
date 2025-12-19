@@ -9,6 +9,7 @@ export interface EmailOptions {
   subject: string;
   html?: string;
   text?: string;
+  from?: string;
   attachments?: Array<{
     filename: string;
     content: string | Buffer;
@@ -70,7 +71,7 @@ export class EmailService {
 
     try {
       const mailOptions = {
-        from: this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
+        from: options.from || this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
         to: options.to, // Recipient email address
         subject: options.subject,
         html: options.html,

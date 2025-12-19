@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber } from "class-validator";
+import { Type, Transform } from "class-transformer";
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber, IsBoolean } from "class-validator";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 
 export class FindReviewsQueryDto extends PaginationQueryDto {
@@ -85,6 +85,11 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
         required: false
     })
     @IsOptional()
-    @Type(() => Boolean)
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    })
+    @IsBoolean()
     asReviewer?: boolean;
 }

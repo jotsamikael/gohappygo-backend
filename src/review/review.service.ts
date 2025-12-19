@@ -185,14 +185,21 @@ export class ReviewService implements OnModuleInit {
     }
 
   async getAllReviews(query: FindReviewsQueryDto, user: UserEntity): Promise<PaginatedReviewsResponseDto> {
+    console.log('=== DEBUG: getAllReviews START ===');
+    console.log('DEBUG: Raw query object:', JSON.stringify(query, null, 2));
+    console.log('DEBUG: User ID:', user.id);
+    console.log('DEBUG: User role:', user.role?.code);
+    
     // Generate cache key
     const cacheKey = this.generateReviewListCacheKey(query, user.id);
+    console.log('DEBUG: Generated cache key:', cacheKey);
     this.reviewListCacheKeys.add(cacheKey);
 
     // Check cache first
     const cachedData = await this.cacheManager.get<PaginatedReviewsResponseDto>(cacheKey);
     if (cachedData) {
       console.log(`Cache Hit---------> Returning reviews list from Cache ${cacheKey}`);
+      console.log('=== DEBUG: getAllReviews END (CACHED) ===');
       return cachedData;
     }
 
@@ -212,6 +219,16 @@ export class ReviewService implements OnModuleInit {
       asReviewer = false
     } = query;
 
+    console.log('DEBUG: Extracted asReviewer value:', asReviewer);
+    console.log('DEBUG: Type of asReviewer:', typeof asReviewer);
+    
+    // Ensure asReviewer is properly converted to boolean (handle string "false" case)
+    // Query parameters can come as strings, so we need to handle both boolean and string types
+    const isAsReviewer = asReviewer === true || String(asReviewer) === 'true';
+    console.log('DEBUG: Converted isAsReviewer:', isAsReviewer);
+    console.log('DEBUG: isAsReviewer === true:', asReviewer === true);
+    console.log('DEBUG: String(asReviewer) === "true":', String(asReviewer) === 'true');
+
     const skip = (page - 1) * limit;
 
     // Build the query with complex logic for user permissions
@@ -224,21 +241,28 @@ export class ReviewService implements OnModuleInit {
     // Apply user-specific filtering logic
     const isAdmin = user.role?.code === UserRole.ADMIN;
     const isOperator = user.role?.code === UserRole.OPERATOR;
+    
+    console.log('DEBUG: isAdmin:', isAdmin);
+    console.log('DEBUG: isOperator:', isOperator);
+    console.log('DEBUG: !isAdmin && !isOperator:', !isAdmin && !isOperator);
 
     if (!isAdmin && !isOperator) {
-      if (asReviewer) {
+      console.log('DEBUG: Entering regular user branch');
+      if (isAsReviewer) {
+        console.log('DEBUG: Branch: isAsReviewer is TRUE - filtering by reviewerId');
         // Only show reviews where user is the reviewer
         queryBuilder.andWhere('review.reviewerId = :userId', { userId: user.id });
       } else {
-        // Default: show reviews where user is reviewer OR reviewee
-        queryBuilder.andWhere(
-          '(review.reviewerId = :userId OR review.revieweeId = :userId)',
-          { userId: user.id }
-        );
+        console.log('DEBUG: Branch: isAsReviewer is FALSE - filtering by revieweeId');
+        // Only show reviews where user is the reviewee (not the reviewer)
+        queryBuilder.andWhere('review.revieweeId = :userId', { userId: user.id });
       }
-    } else if (asReviewer) {
+    } else if (isAsReviewer) {
+      console.log('DEBUG: Branch: Admin/Operator with isAsReviewer TRUE - filtering by reviewerId');
       // For admins/operators, if asReviewer is true, filter by current user as reviewer
       queryBuilder.andWhere('review.reviewerId = :userId', { userId: user.id });
+    } else {
+      console.log('DEBUG: Branch: Admin/Operator with isAsReviewer FALSE - no user filter applied');
     }
 
     // Apply filters
@@ -283,11 +307,22 @@ export class ReviewService implements OnModuleInit {
       queryBuilder.orderBy('review.createdAt', 'DESC'); // default
     }
 
+    // Debug: Log the SQL query before execution
+    const sqlQuery = queryBuilder.getQuery();
+    const sqlParameters = queryBuilder.getParameters();
+    console.log('DEBUG: Generated SQL Query:', sqlQuery);
+    console.log('DEBUG: SQL Parameters:', JSON.stringify(sqlParameters, null, 2));
+
     // Get the count first
     const totalItems = await queryBuilder.getCount();
+    console.log('DEBUG: Total items count:', totalItems);
 
     // Get the actual data
     const items = await queryBuilder.getMany();
+    console.log('DEBUG: Number of items returned:', items.length);
+    console.log('DEBUG: Items reviewerIds:', items.map(item => item.reviewerId));
+    console.log('DEBUG: Items revieweeIds:', items.map(item => item.revieweeId));
+    console.log('DEBUG: Current user ID:', user.id);
 
     // Load requests with travel and demand for each review
     const reviewIds = items.map(review => review.requestId);
@@ -325,6 +360,15 @@ export class ReviewService implements OnModuleInit {
       }
     };
 
+    // Debug: Log response summary
+    console.log('DEBUG: Response summary -');
+    console.log('  - Total items in response:', responseResult.items.length);
+    if (responseResult.items.length > 0) {
+      console.log('  - First item reviewerId:', responseResult.items[0].reviewerId);
+      console.log('  - First item revieweeId:', responseResult.items[0].revieweeId);
+    }
+    console.log('=== DEBUG: getAllReviews END ===');
+
     await this.cacheManager.set(cacheKey, responseResult, 30000);
     return responseResult;
   }
@@ -341,10 +385,15 @@ export class ReviewService implements OnModuleInit {
       rating,
       comment,
       createdAt,
-      orderBy = 'createdAt:desc'
+      orderBy = 'createdAt:desc',
+      asReviewer = false
     } = query;
 
-    return `reviews_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}`;
+    // Ensure asReviewer is properly converted to boolean for cache key
+    // Query parameters can come as strings, so we need to handle both boolean and string types
+    const isAsReviewer = asReviewer === true || String(asReviewer) === 'true';
+
+    return `reviews_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}_asReviewer${isAsReviewer}`;
   }
 
   // Add cache clearing method

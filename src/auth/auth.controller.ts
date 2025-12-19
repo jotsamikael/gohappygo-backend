@@ -22,6 +22,7 @@ import { GetUserVerificationFilesResponseDto } from './dto/getUserVerificationFi
 import { VerifyUserAccountResponseDto } from './dto/verifyUserAccountResponse.dto';
 import { ResendEmailVerificationDto } from './dto/resendEmailVerificationDto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
+import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -77,6 +78,7 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
+  @UseGuards(LoginThrottlerGuard)
   @ApiResponse({ 
     status: 200, 
     description: 'Login successful',

@@ -199,7 +199,7 @@ export class UserController {
     return this.userService.deleteStaff(id);
   }
 
-  @Put('update-profile')
+  @Patch('update-profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @UseInterceptors(FileInterceptor('profilePicture'))

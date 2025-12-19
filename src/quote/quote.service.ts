@@ -85,8 +85,19 @@ export class QuoteService {
   }
 
   generateQuoteListCacheKey(query: FindQuoteQueryDto) {
-    const { page = 1, limit = 10, quote, author, fontFamily, fontSize } = query;
-    return `quotes_list_page${page}_limit${limit}_quote${quote || 'all'}_author${author || 'all'}_fontFamily${fontFamily || 'all'}_fontSize${fontSize || 'all'}`;
+    const { page = 1, limit = 10, quote, author, fontFamily, fontSize, orderBy = 'createdAt:desc' } = query;
+    return `quotes_list_page${page}_limit${limit}_quote${quote || 'all'}_author${author || 'all'}_fontFamily${fontFamily || 'all'}_fontSize${fontSize || 'all'}_order${orderBy}`;
+  }
+
+  /**
+   * Clear quote list cache
+   */
+  private async clearQuoteListCache(): Promise<void> {
+    const cacheKeys = Array.from(this.quoteListCacheKeys);
+    for (const key of cacheKeys) {
+      await this.cacheManager.del(key);
+    }
+    this.quoteListCacheKeys.clear();
   }
 
 
@@ -95,7 +106,12 @@ export class QuoteService {
     if (user) {
       quote.createdBy = user.id;
     }
-    return this.quoteRepository.save(quote);
+    const savedQuote = await this.quoteRepository.save(quote);
+    
+    // Clear cache after creating a new quote
+    await this.clearQuoteListCache();
+    
+    return savedQuote;
   }
 
   async getRandomQuotes(numberOfQuotes: number): Promise<QuoteEntity[]> {
@@ -119,11 +135,19 @@ export class QuoteService {
     updatedQuote.updatedBy = user.id;
 
     // Save and return
-    return this.quoteRepository.save(updatedQuote);
+    const savedQuote = await this.quoteRepository.save(updatedQuote);
+    
+    // Clear cache after updating a quote
+    await this.clearQuoteListCache();
+    
+    return savedQuote;
   }
 
   async remove(id: number): Promise<void> {
     await this.quoteRepository.delete(id);
+    
+    // Clear cache after deleting a quote
+    await this.clearQuoteListCache();
   }
 
   async seedTravelQuotes(): Promise<QuoteEntity[]> {

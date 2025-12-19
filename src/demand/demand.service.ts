@@ -195,6 +195,12 @@ async publishDemand(
       if(!user.isVerified){
         throw new BadRequestException('Your account is not verified')
       }
+
+      // Check if departure and arrival airports are the same
+      if (createDemandDto.departureAirportId === createDemandDto.arrivalAirportId) {
+        throw new BadRequestException('Departure and arrival airports cannot be the same')
+      }
+
       //check if the user has a demand no yet expired with the same flight number
       const existingDemand1 = await this.demandRepository.findOne({
         where:{flightNumber:createDemandDto.flightNumber, userId:user.id, status:'active'}
@@ -370,6 +376,11 @@ async publishDemand(
     if (updateDemandDto.departureAirportId || updateDemandDto.arrivalAirportId) {
       const departureAirportId = updateDemandDto.departureAirportId || demand.departureAirportId;
       const arrivalAirportId = updateDemandDto.arrivalAirportId || demand.arrivalAirportId;
+      
+      // Check if departure and arrival airports are the same
+      if (departureAirportId === arrivalAirportId) {
+        throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
+      }
       
       const existingDemand = await this.demandRepository.findOne({
         where: { 
