@@ -30,6 +30,7 @@ import { SmsModule } from 'src/sms/sms.module';
 import { CurrencyModule } from 'src/currency/currency.module';
 import { DemandModule } from 'src/demand/demand.module';
 import { TravelModule } from 'src/travel/travel.module';
+import { StripeModule } from 'src/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { TravelModule } from 'src/travel/travel.module';
     SmsModule,
     EmailModule,
     PhoneVerificationModule,
+    StripeModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard], //jwt strategy, roles guard

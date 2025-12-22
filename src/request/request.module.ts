@@ -14,6 +14,7 @@ import { EventsModule } from 'src/events/events.module';
 import { UserModule } from 'src/user/user.module';
 import { RequestMapper } from './request.mapper';
 import { AirlineModule } from 'src/airline/airline.module';
+import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.module';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { AirlineModule } from 'src/airline/airline.module';
     CacheModule.register(),
     EventsModule,
     UserModule,
-    AirlineModule
+    AirlineModule,
+    PlatformPricingModule
   ],
   controllers: [RequestController],
   providers: [RequestService, RequestMapper],

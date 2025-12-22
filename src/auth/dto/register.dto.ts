@@ -1,5 +1,6 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { StripeConnectCountry } from 'src/stripe/enums/stripe-connect-countries.enum';
 
 export class RegisterDto {
   @ApiProperty({
@@ -51,4 +52,14 @@ export class RegisterDto {
   @MinLength(6, { message: 'password must be atleast 6 charcters' })
   @MaxLength(32, { message: 'password can not exceed 40 charcters' })
   password: string;
+
+  @ApiProperty({
+    description: 'Country code for Stripe Connect account (ISO 3166-1 alpha-2)',
+    example: 'FR',
+    enum: StripeConnectCountry,
+    enumName: 'StripeConnectCountry',
+  })
+  @IsNotEmpty({ message: 'countryCode is required' })
+  @IsEnum(StripeConnectCountry, { message: 'countryCode must be a valid Stripe Connect eligible country code' })
+  countryCode: StripeConnectCountry;
 }

@@ -45,11 +45,14 @@ import { UserProfileResponseDto, ProfileStatsResponseDto } from './dto/user-prof
 import { CurrencyResponseDto } from 'src/currency/dto/currency-response.dto';
 import { CustomBadRequestException, CustomConflictException, CustomNotFoundException, CustomUnauthorizedException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { StripeService } from 'src/stripe/stripe.service';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
  
   private userListCacheKeys: Set<string> = new Set();
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     @InjectRepository(UserEntity)
@@ -81,6 +84,7 @@ export class AuthService {
     private smsService: SmsService,
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
+    private stripeService: StripeService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -138,9 +142,22 @@ export class AuthService {
       isEmailVerified: false,
       isPhoneVerified: false,
       isVerified: false,
+      stripeCountryCode: registerDto.countryCode, // Store country code for Stripe Connect
     });
 
     const saveUser = await this.usersRepository.save(newlyCreatedUser);
+
+    // Create deferred Stripe Connect account (non-blocking - don't fail registration if this fails)
+    // This allows users to receive payments immediately after registration
+    // They must complete KYC via onboarding-link to withdraw funds
+    try {
+      await this.stripeService.createConnectAccount(saveUser, registerDto.countryCode, '127.0.0.1'); // IP will be updated when we have request context
+      this.logger.log(`Stripe Connect account created for user ${saveUser.id} in country ${registerDto.countryCode}`);
+    } catch (error) {
+      // Log error but don't fail registration
+      // User can create account later via onboarding-link endpoint
+      this.logger.error(`Failed to create Stripe account during registration for user ${saveUser.id}: ${error.message}`, error.stack);
+    }
 
     // Generate verification codes
     const emailVerificationCode = this.generate6DigitCode();
@@ -952,7 +969,10 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       isAwaitingVerification,
       recentCurrency,
       createdAt: user.createdAt,
-      profileStats
+      profileStats,
+      stripeAccountId: user.stripeAccountId || null,
+      stripeAccountStatus: user.stripeAccountStatus || 'uninitiated',
+      stripeCountryCode: user.stripeCountryCode || null,
     };
   }
 

@@ -219,6 +219,15 @@ export class UserService implements OnModuleInit {
     });
   }
 
+  async findByStripeAccountId(stripeAccountId: string): Promise<UserEntity | null> {
+    return this.userRepository.findOne({
+      where: {
+        stripeAccountId,
+      },
+      relations: ['role'],
+    });
+  }
+
 /**
  * Toggle staff member activation status
  * @param id - The ID of the staff member

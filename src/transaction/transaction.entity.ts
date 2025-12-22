@@ -31,6 +31,22 @@ export class TransactionEntity extends BaseEntity{
   @Column({ length: 50 })
   paymentMethod: string; // e.g., 'stripe', 'paypal', 'mobile_money'
 
+  // Stripe-related fields
+  @Column({ nullable: true })
+  stripePaymentIntentId: string; // Stripe Payment Intent ID
+
+  @Column({ nullable: true })
+  stripeTransferId: string; // Stripe Transfer ID
+
+  @Column({ length: 3, default: 'USD' })
+  currencyCode: string; // Currency code (e.g., 'USD', 'EUR')
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  originalAmount: number; // Amount before conversion to USD
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  convertedAmount: number; // Amount in USD after conversion
+
   @ManyToOne(() => UserEntity, (user) => user.id)
   @JoinColumn({ name: 'payerId' })
   payer: UserEntity;

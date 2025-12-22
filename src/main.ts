@@ -22,7 +22,8 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
 async function bootstrap() {
   const logger = new Logger('Bootstrap')
   const app = await NestFactory.create(AppModule, {
-    logger:['error', 'warn','log','debug','verbose']
+    logger:['error', 'warn','log','debug','verbose'],
+    rawBody: true, // Enable raw body for Stripe webhook signature verification
   });
   
   // Get ConfigService instance
@@ -113,6 +114,7 @@ async function bootstrap() {
     .addTag('quotes', 'Quote endpoints')
     .addTag('platform-pricing', 'Platform pricing endpoints')
     .addTag('support', 'Support endpoints')
+    .addTag('Stripe', 'Stripe Connect endpoints')
     .addBearerAuth(
       {
         type: 'http',
@@ -129,6 +131,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config,{
     extraModels: [UserEntity, AirlineEntity, TravelEntity, RequestEntity, ReviewEntity, MessageEntity, TransactionEntity, QuoteEntity, PlatformPricingEntity, SupportModule], //add entities to swagger
   });
+  
+  // Add Stripe tag to Swagger
+  document.tags = document.tags || [];
+  if (!document.tags.find(t => t.name === 'stripe')) {
+    document.tags.push({ name: 'stripe', description: 'Stripe Connect endpoints' });
+  }
   
   SwaggerModule.setup('api', app, document, {
     swaggerOptions: {

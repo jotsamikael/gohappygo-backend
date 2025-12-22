@@ -43,6 +43,10 @@ export class RequestEntity extends BaseEntity {
   @Column('decimal', { precision: 10, scale: 2,nullable: true })
   weight: number|null;
 
+  // Stripe Payment Method ID (for non-instant travels, stored when request is created)
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  paymentMethodId: string | null;
+
   // Add current status property
   @Column({ nullable: true })
   currentStatusId: number;

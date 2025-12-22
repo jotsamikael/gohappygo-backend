@@ -11,7 +11,7 @@ import { Roles } from './decorators/role.decorators';
 import { UserRole } from 'src/user/user.entity';
 import { CurrentUser } from './decorators/current-user.decorattor';
 import { UserEntity } from 'src/user/user.entity';
-import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { RegisterResponseDto, LoginResponseDto, VerifyPhoneResponseDto, RefreshTokenResponseDto, UploadVerificationResponseDto, VerifyEmailResponseDto } from './dto/auth-response.dto';
 import { UploadVerificationDto } from './dto/upload-verification.dto';
@@ -32,7 +32,13 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @UseInterceptors(AnyFilesInterceptor()) // Add this line
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Register a new user' })
+  @ApiBody({
+    type: RegisterDto,
+    description: 'User registration data with country code for Stripe Connect',
+  })
   @ApiResponse({ 
     status: 201, 
     description: 'User successfully registered',

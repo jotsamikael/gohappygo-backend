@@ -36,39 +36,12 @@ export class CreateRequestToTravelDto {
   weight: number;
 
   @ApiProperty({
-    description: 'Card number',
-    example: '4111111111111111',
-    minLength: 13,
-    maxLength: 19
+    description: 'Stripe Payment Method ID (created on frontend using Stripe Elements)',
+    example: 'pm_1234567890abcdef',
+    required: false,
   })
-  @IsNotEmpty()
   @IsString()
-  @Matches(/^\d+$/, { message: 'Card number must contain only digits' })
-  @Length(13, 19, { message: 'Card number must be between 13 and 19 digits' })
-  cardNumber: string;
-
-  @ApiProperty({
-    description: 'Card expiry date in MM/YY format',
-    example: '12/25',
-    pattern: '^(0[1-9]|1[0-2])/\\d{2}$'
-  })
   @IsNotEmpty()
-  @IsString()
-  @Matches(/^(0[1-9]|1[0-2])\/\d{2}$/, { 
-    message: 'Expiry date must be in MM/YY format (e.g., 12/25)' 
-  })
-  expiryDate: string;
-
-  @ApiProperty({
-    description: 'Card Verification Code (CVC)',
-    example: '123',
-    minLength: 3,
-    maxLength: 4
-  })
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^\d+$/, { message: 'CVC must contain only digits' })
-  @Length(3, 4, { message: 'CVC must be 3 or 4 digits' })
-  cvc: string;
+  paymentMethodId: string;
 
 }
