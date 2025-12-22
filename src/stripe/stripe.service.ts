@@ -38,15 +38,22 @@ export class StripeService {
   async createConnectAccount(user: UserEntity, countryCode: string, ipAddress: string = '127.0.0.1'): Promise<Stripe.Account> {
     try {
       // For French platforms (and some other countries), Stripe requires using Account Tokens
-      // Create account token with only tos_shown_and_accepted (tos_acceptance is not allowed in token)
+      // Create account token with business_type and individual information
+      // Note: business_profile cannot be set in account token, must be set on account after creation
       const accountToken = await this.stripe.tokens.create({
         account: {
           tos_shown_and_accepted: true,
+          business_type: 'individual', // Must be in the token, not in account creation
+          individual: {
+            email: user.email,
+            first_name: user.firstName,
+            last_name: user.lastName,
+            phone: user.phone,
+          },
         },
       });
-
-      // Use the account token to create the account with all account details
-      // Note: tos_acceptance cannot be used with account_token - tos_shown_and_accepted in token is sufficient
+  
+      // Use the account token to create the account
       const account = await this.stripe.accounts.create({
         type: 'custom',
         country: countryCode.toUpperCase(),
@@ -57,12 +64,23 @@ export class StripeService {
           transfers: { requested: true },
         },
       });
-
+  
+      // Update business_profile after account creation (cannot be set in account token)
+      await this.stripe.accounts.update(account.id, {
+        business_profile: {
+          url: this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app',
+          mcc: '4215', // MCC code for Courier Services (shipping/forwarding)
+          // Alternative MCC codes:
+          // '4789' - Transportation Services - Not Elsewhere Classified
+          // '4722' - Travel Agencies and Tour Operators
+        },
+      });
+  
       // Update user with Stripe account ID
       user.stripeAccountId = account.id;
       user.stripeAccountStatus = 'pending';
       await this.userService.save(user);
-
+  
       return account;
     } catch (error) {
       this.logger.error(`Error creating Stripe Connect account: ${error.message}`, error.stack);
@@ -75,7 +93,7 @@ export class StripeService {
    */
   async createAccountLink(accountId: string): Promise<string> {
     try {
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app';
       
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
