@@ -234,4 +234,36 @@ export class CurrencyService {
     }
     this.currencyListCacheKeys.clear();
   }
+
+  /**
+   * Convert amount from a given currency to USD
+   * @param amount - Amount in the source currency
+   * @param fromCurrencyCode - Source currency code (e.g., 'EUR', 'GBP')
+   * @returns Amount in USD
+   */
+  async convertToUSD(amount: number, fromCurrencyCode: string): Promise<number> {
+    // Get USD currency (base currency with exchangeRate = 1.0)
+    const usdCurrency = await this.findByCode('USD');
+    if (!usdCurrency) {
+      throw new CustomNotFoundException('USD currency not found in database', ErrorCode.CURRENCY_NOT_FOUND);
+    }
+
+    // If already USD, return as is
+    if (fromCurrencyCode.toUpperCase() === 'USD') {
+      return amount;
+    }
+
+    // Get source currency
+    const sourceCurrency = await this.findByCode(fromCurrencyCode);
+    if (!sourceCurrency) {
+      throw new CustomNotFoundException(`Currency with code ${fromCurrencyCode} not found`, ErrorCode.CURRENCY_NOT_FOUND);
+    }
+
+    // Convert: amount * sourceCurrency.exchangeRate
+    // exchangeRate represents "1 [currency] = X USD", so multiply to get USD amount
+    const convertedAmount = amount * Number(sourceCurrency.exchangeRate);
+    
+    // Round to 2 decimal places
+    return Math.round(convertedAmount * 100) / 100;
+  }
 }

@@ -23,13 +23,32 @@ export class TransactionEntity extends BaseEntity{
 
   @Column({
     type: 'enum',
-    enum: ['pending', 'paid', 'refunded', 'cancelled'],
+    enum: ['pending', 'paid', 'awaiting_transfer', 'refunded', 'cancelled'],
     default: 'pending',
   })
-  status: 'pending' | 'paid' | 'refunded' | 'cancelled';
+  status: 'pending' | 'paid' | 'awaiting_transfer' | 'refunded' | 'cancelled';
 
   @Column({ length: 50 })
   paymentMethod: string; // e.g., 'stripe', 'paypal', 'mobile_money'
+
+  // Stripe-related fields
+  @Column({ nullable: true })
+  stripePaymentIntentId: string; // Stripe Payment Intent ID
+
+  @Column({ nullable: true })
+  stripeTransferId: string; // Stripe Transfer ID
+
+  @Column({ length: 3, default: 'USD' })
+  currencyCode: string; // Currency code (e.g., 'USD', 'EUR')
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  originalAmount: number; // Amount before conversion to USD
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  convertedAmount: number; // Amount in USD after conversion
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  travelerPayment: number | null; // The amount the traveler should receive (before fees and TVA)
 
   @ManyToOne(() => UserEntity, (user) => user.id)
   @JoinColumn({ name: 'payerId' })

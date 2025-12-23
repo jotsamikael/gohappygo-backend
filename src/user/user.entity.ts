@@ -135,4 +135,18 @@ kycUpdatedAt?: Date | null;
 
   @Column({ type: 'int', default: 0 })
   numberOfReviews: number; // Total count of reviews received
+
+  // Stripe Connect account fields
+  @Column({ nullable: true })
+  stripeAccountId: string; // Stripe Connect account ID
+
+  @Column({ 
+    type: 'enum', 
+    enum: ['uninitiated', 'pending', 'active', 'restricted'],
+    default: 'uninitiated'
+  })
+  stripeAccountStatus: 'uninitiated' | 'pending' | 'active' | 'restricted';
+
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  stripeCountryCode: string; // ISO 3166-1 alpha-2 country code for Stripe Connect account
 }

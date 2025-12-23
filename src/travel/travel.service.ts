@@ -239,13 +239,13 @@ export class TravelService {
 
   async publishTravel(user: UserEntity, createTravelDto: CreateTravelDto, image1: Express.Multer.File, image2: Express.Multer.File): Promise<TravelEntity> {
     //check if user account is verified
-    if (!user.isVerified) {
-      throw new BadRequestException('Your account is not verified')
-    }
+    /*if (!user.isVerified) {
+      throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
+    }*/
 
     // Check if departure and arrival airports are the same
     if (createTravelDto.departureAirportId === createTravelDto.arrivalAirportId) {
-      throw new BadRequestException('Departure and arrival airports cannot be the same')
+      throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
     }
 
     //check if the user has already published a travel that is not expired with the same flight number
@@ -253,7 +253,7 @@ export class TravelService {
       where: { flightNumber: createTravelDto.flightNumber, userId:user.id, status:'active' }
     })
     if (existingTravel1) {
-      throw new BadRequestException('You have already published a travel with the same flight number')
+      throw new CustomBadRequestException('You have already published a travel with the same flight number', ErrorCode.TRAVEL_ALREADY_EXISTS);
     } 
 
     //check if the user has already published a travel that is not expired with the same departure and arrival airports
@@ -261,7 +261,7 @@ export class TravelService {
       where: { departureAirportId: createTravelDto.departureAirportId, arrivalAirportId: createTravelDto.arrivalAirportId, userId:user.id, status:'active' }
     })
     if (existingTravel2) {
-      throw new BadRequestException('You have already published a travel with the same departure and arrival airports')
+      throw new CustomBadRequestException('You have already published a travel with the same departure and arrival airports', ErrorCode.TRAVEL_ALREADY_EXISTS);
     }
 
     // Get airline from flight number
@@ -321,17 +321,17 @@ export class TravelService {
           // Handle foreign key constraint errors
           if (error.code === 'ER_NO_REFERENCED_ROW_2' || error.errno === 1452) {
             if (error.sqlMessage.includes('departureAirportId')) {
-                throw new BadRequestException(`Departure airport with ID ${createTravelDto.departureAirportId} does not exist`);
+                throw new CustomBadRequestException(`Departure airport with ID ${createTravelDto.departureAirportId} does not exist`, ErrorCode.VALIDATION_ERROR);
             } else if (error.sqlMessage.includes('arrivalAirportId')) {
-                throw new BadRequestException(`Arrival airport with ID ${createTravelDto.arrivalAirportId} does not exist`);
+                throw new CustomBadRequestException(`Arrival airport with ID ${createTravelDto.arrivalAirportId} does not exist`, ErrorCode.VALIDATION_ERROR);
             } else {
-                throw new BadRequestException('Invalid airport reference. Please check airport IDs');
+                throw new CustomBadRequestException('Invalid airport reference. Please check airport IDs', ErrorCode.VALIDATION_ERROR);
             }
         }
         
         // Handle other database errors
         if (error.code === 'ER_DUP_ENTRY') {
-            throw new BadRequestException('A demand with this flight number already exists');
+            throw new CustomBadRequestException('A demand with this flight number already exists', ErrorCode.TRAVEL_ALREADY_EXISTS);
         }
         
         // Handle image upload errors
@@ -340,7 +340,7 @@ export class TravelService {
         }
       // If image upload fails, delete the created travel
       await this.travelRepository.remove(savedTravel);
-      throw new BadRequestException(`Failed to upload images: ${error.message}`);
+      throw new CustomBadRequestException(`Failed to upload images: ${error.message}`, ErrorCode.INTERNAL_ERROR);
     }
   }
 
@@ -370,7 +370,7 @@ export class TravelService {
 
     // 3. Check if travel is already cancelled
     if (travel.status === 'cancelled') {
-      throw new CustomBadRequestException('Travel is already cancelled', ErrorCode.TRAVEL_ALREADY_CANCELLED);
+      throw new CustomBadRequestException('Travel is already cancelled', ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
 
     // 4. Check for requests with blocking statuses (ACCEPTED, COMPLETED, DELIVERED, NEGOTIATING)
@@ -421,7 +421,7 @@ export class TravelService {
 
       return deletedTravel;
     } catch (error) {
-      throw new CustomBadRequestException(`Failed to delete travel: ${error.message}`, ErrorCode.INTERNAL_ERROR);
+      throw new CustomBadRequestException(`Failed to delete travel: ${error.message}`, ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
   }
 

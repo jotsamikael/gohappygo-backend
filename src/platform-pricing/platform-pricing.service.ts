@@ -277,7 +277,7 @@ export class PlatformPricingService {
 
     if (!matchingPricing) {
       throw new CustomBadRequestException(
-        `No pricing tier found for amount ${travelerPayment} EUR`,
+        `No pricing tier found for amount ${travelerPayment}`,
         ErrorCode.PLATFORM_PRICING_TIER_NOT_FOUND,
       );
     }

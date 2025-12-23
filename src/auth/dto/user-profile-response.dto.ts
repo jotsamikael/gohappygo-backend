@@ -112,5 +112,21 @@ export class UserProfileResponseDto {
     @Expose()
     @Type(() => ProfileStatsResponseDto)
     profileStats: ProfileStatsResponseDto;
+
+    @ApiProperty({ example: 'acct_1234567890', nullable: true, description: 'Stripe Connect account ID' })
+    @Expose()
+    stripeAccountId: string | null;
+
+    @ApiProperty({ 
+        example: 'pending', 
+        enum: ['uninitiated', 'pending', 'active', 'restricted'],
+        description: 'Stripe Connect account status' 
+    })
+    @Expose()
+    stripeAccountStatus: 'uninitiated' | 'pending' | 'active' | 'restricted';
+
+    @ApiProperty({ example: 'FR', nullable: true, description: 'ISO 3166-1 alpha-2 country code for Stripe Connect account' })
+    @Expose()
+    stripeCountryCode: string | null;
 }
 

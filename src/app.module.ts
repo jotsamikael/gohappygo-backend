@@ -72,6 +72,8 @@ import { SupportRequestEntity } from './support/entities/support-request.entity'
 import { SupportLogEntity } from './support/entities/support-log.entity';
 import { PlatformPricingModule } from './platform-pricing/platform-pricing.module';
 import { PlatformPricingEntity } from './platform-pricing/entities/platform-pricing.entity';
+import { StripeModule } from './stripe/stripe.module';
+import { StripeWebhookEventEntity } from './stripe/entities/stripe-webhook-event.entity';
 
 @Module({
   imports: [
@@ -93,6 +95,10 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
         PORT: joi.number().default(3000),
         BASE_URL: joi.string().optional(),
         NODE_ENV: joi.string().valid('development', 'production', 'test').default('development'),
+        STRIPE_SECRET_KEY: joi.string().optional(),
+        STRIPE_PUBLISHABLE_KEY: joi.string().optional(),
+        STRIPE_WEBHOOK_SECRET: joi.string().optional(),
+        FRONTEND_URL: joi.string().default('http://localhost:4200'),
       }),
       load: [appConfig]
     }),
@@ -147,7 +153,8 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
           NotificationEntity,
           SupportRequestEntity,
           SupportLogEntity,
-          PlatformPricingEntity
+          PlatformPricingEntity,
+          StripeWebhookEventEntity
         ],
         synchronize: configService.get<string>('NODE_ENV') === 'development', // Only in dev mode
         logging: configService.get<string>('NODE_ENV') === 'development',
@@ -208,7 +215,8 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
       BookmarkModule,
       NotificationModule,
       SupportModule,
-      PlatformPricingModule
+      PlatformPricingModule,
+      StripeModule
   ],
   controllers: [AppController, UserController],
   providers: [AppService],

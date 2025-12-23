@@ -28,6 +28,7 @@ import { CustomBadRequestException, CustomForbiddenException, CustomNotFoundExce
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { AirlineService } from 'src/airline/airline.service';
 import { CommonService } from 'src/common/service/common.service';
+import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.service';
 
 @Injectable()
 export class RequestService {
@@ -46,7 +47,8 @@ export class RequestService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly requestMapper: RequestMapper,
     private readonly airlineService: AirlineService,
-    private readonly commonService: CommonService
+    private readonly commonService: CommonService,
+    private readonly platformPricingService: PlatformPricingService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -98,6 +100,7 @@ export class RequestService {
         demandId: null,
         requestType: createRequestDto.requestType,
         weight: createRequestDto.weight,
+        paymentMethodId: createRequestDto.paymentMethodId || null, // Store for non-instant travels
         createdBy: user.id,
         requesterId: user.id, // Add this field
         requester: user
@@ -148,11 +151,11 @@ export class RequestService {
         // Load the request with all necessary relations for instant processing
         const requestWithRelations = await transactionalEntityManager.findOne(RequestEntity, {
           where: { id: savedRequest.id },
-          relations: ['travel', 'travel.user', 'demand', 'demand.user', 'requester']
+          relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'requester']
         });
         console.log('reached7 - loaded relations');
         
-        await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager);
+        await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager, createRequestDto.paymentMethodId);
         console.log('reached8 - after instant processing');
         
         // Skip request created emails for instant travels - they'll get accepted emails instead
@@ -172,7 +175,12 @@ export class RequestService {
   }
 
   // New method to handle instant travel acceptance
-  private async processInstantTravelAcceptance(request: RequestEntity, travel: any, transactionalEntityManager: any): Promise<void> {
+  private async processInstantTravelAcceptance(
+    request: RequestEntity, 
+    travel: any, 
+    transactionalEntityManager: any,
+    paymentMethodId?: string
+  ): Promise<void> {
     try {
       console.log('processInstantTravelAcceptance - start');
       
@@ -193,20 +201,27 @@ export class RequestService {
       await transactionalEntityManager.save('TravelEntity', travel);
       console.log('processInstantTravelAcceptance - after travel save');
 
-      // Create transaction automatically for instant travels
-      const transactionAmount = (request.weight || 0) * travel.pricePerKg * 1.24 + 10;
+      // Calculate transaction amount using Platform Pricing Service
+      const travelerPayment = (request.weight || 0) * travel.pricePerKg;
+      const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
+      const transactionAmount = pricing.totalAmount;
       
       console.log('processInstantTravelAcceptance - before transaction creation');
-      // Create transaction using the transactional entity manager
-      const transaction = transactionalEntityManager.create('TransactionEntity', {
-        requestId: request.id,
-        payerId: request.requesterId,
-        payeeId: travel.user.id, // Use the travel's user ID
-        status: 'pending',
-        paymentMethod: 'platform',
-        amount: transactionAmount
+      // Use transaction service to create transaction with Stripe integration
+      // Note: We need to reload request with relations after save
+      const requestWithRelations = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: request.id },
+        relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency']
       });
-      await transactionalEntityManager.save('TransactionEntity', transaction);
+      
+      // Create transaction using transaction service (handles Stripe if paymentMethodId provided)
+      // Pass transactionalEntityManager to ensure transaction is saved within the same DB transaction
+      await this.transactionService.createTransactionFromRequest(
+        requestWithRelations!,
+        transactionAmount,
+        paymentMethodId,
+        transactionalEntityManager
+      );
       console.log('processInstantTravelAcceptance - after transaction creation');
 
       // Emit request accepted event for instant travels (non-blocking)
@@ -279,7 +294,8 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
 
   // 7. Update request status
   request.currentStatusId = acceptedStatus.id;
-  await this.requestRepository.save(request);
+  request.currentStatus = acceptedStatus; // Also update the relation object
+  const savedRequest = await this.requestRepository.save(request);
 
   // 8. Add status history record
   await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
@@ -294,10 +310,22 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
   }
 
   // 10. Create transaction automatically
-  //calculate transaction amount based on request weight and travel price per kg + tva (24 %) + plateform fee (10 usd)
-  const transactionAmount = (request.weight || 0) * request.travel.pricePerKg * 1.24 + 10;
+  // Calculate transaction amount using Platform Pricing Service
+  const travelerPayment = (request.weight || 0) * request.travel.pricePerKg;
+  const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
+  const transactionAmount = pricing.totalAmount;
 
-  await this.transactionService.createTransactionFromRequest(request, transactionAmount);
+  // Reload request with currency relations for Stripe conversion (include currentStatus to verify it was saved)
+  const requestWithCurrency = await this.requestRepository.findOne({
+    where: { id: requestId },
+    relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
+  });
+
+  await this.transactionService.createTransactionFromRequest(
+    requestWithCurrency!,
+    transactionAmount,
+    request.paymentMethodId || undefined // Use stored paymentMethodId if available
+  );
 
   // 11. Clear cache for affected users (requester and travel/demand owner)
   const affectedUserIds = [request.requesterId];
@@ -318,10 +346,10 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
    //send email to the requester
    await this.userEventService.emitRequestAccepted(requester!, request, true, request.travel.userId);
 
-  // Reload request with all relations for mapping
+  // Reload request with all relations for mapping (include currentStatus)
   const updatedRequest = await this.requestRepository.findOne({
     where: { id: requestId },
-    relations: ['travel', 'travel.user', 'demand']
+    relations: ['travel', 'travel.user', 'demand', 'currentStatus']
   });
 
   return this.requestMapper.toAcceptResponseDto(updatedRequest!);
@@ -347,7 +375,48 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
     throw new CustomForbiddenException('Only the requester can complete this request', ErrorCode.REQUEST_UNAUTHORIZED);
   }
 
-  // 2. Update request status to completed
+  // 2. Get transaction and attempt fund release FIRST (before changing status)
+  // This ensures that if transfer fails, the request status remains ACCEPTED
+  const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+  if (!transaction) {
+    throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+  }
+
+  // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
+  // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
+  // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid' or 'awaiting_transfer')
+  if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer')) {
+    try {
+      await this.transactionService.releaseFundsFromStripe(transaction.id, user);
+      // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
+    } catch (error) {
+      // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
+      if (error.message.includes('transfers enabled') || 
+          error.message.includes('onboarding') || 
+          error.message.includes('capability')) {
+        // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
+        await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+        console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
+        // Allow request completion - funds are safely held by platform
+      } else {
+        // For other errors, don't allow completion
+        throw new CustomBadRequestException(
+          `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
+          ErrorCode.INTERNAL_ERROR
+        );
+      }
+    }
+  } else if (transaction.stripeTransferId) {
+    console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
+  } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
+    console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
+    throw new CustomBadRequestException(
+      `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+      ErrorCode.INTERNAL_ERROR
+    );
+  }
+
+  // 4. Only update request status to completed if transfer succeeded
   const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
   if (!completedStatus) {
     throw new NotFoundException('Completed status not found');
@@ -362,10 +431,10 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   console.log("updates request ->",savedRequest)
 
   
-  // 3. Add status history record (IMPORTANT: This was missing!)
+  // 5. Add status history record (IMPORTANT: This was missing!)
   await this.requestStatusHistoryService.record(requestId, completedStatus.id);
   
-  // 4. Clear cache for affected users (requester and travel/demand owner)
+  // 6. Clear cache for affected users (requester and travel/demand owner)
   const affectedUserIds = [user.id]; // Requester
   // getRequestById already loads travel and demand relations, so we can use them here
   if (request.travel) {
@@ -375,19 +444,6 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   }
   // Clear cache early so users see updated data
   await this.clearRequestListCacheForUsers(affectedUserIds);
-
-  //get transaction by request id
-  const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-  if (!transaction) {
-    throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
-  }
-
-  // 5. Release funds from stripe to payee (only if pending)
-  if (transaction.status === 'pending') {
-    await this.transactionService.releaseFundsFromStripe(transaction.id, user);
-  } else {
-    console.log(`Transaction ${transaction.id} is already ${transaction.status}, skipping fund release`);
-  }
 
   // 6. Fetch the request again with updated relations including currentStatus
   const updatedRequest = await this.requestRepository.findOne({
