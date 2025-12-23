@@ -4,9 +4,11 @@ import Stripe from 'stripe';
 import { UserEntity } from 'src/user/user.entity';
 import { UserService } from 'src/user/user.service';
 import { CurrencyService } from 'src/currency/currency.service';
+import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { StripeWebhookEventEntity } from './entities/stripe-webhook-event.entity';
+import { TransactionEntity } from 'src/transaction/transaction.entity';
 
 @Injectable()
 export class StripeService {
@@ -17,8 +19,11 @@ export class StripeService {
     private configService: ConfigService,
     private userService: UserService,
     private currencyService: CurrencyService,
+    private platformPricingService: PlatformPricingService,
     @InjectRepository(StripeWebhookEventEntity)
     private webhookEventRepository: Repository<StripeWebhookEventEntity>,
+    @InjectRepository(TransactionEntity)
+    private transactionRepository: Repository<TransactionEntity>,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!secretKey) {
@@ -110,6 +115,24 @@ export class StripeService {
   }
 
   /**
+   * Get account balance (available and pending)
+   */
+  async getAccountBalance(accountId: string): Promise<Stripe.Balance> {
+    try {
+      const balance = await this.stripe.balance.retrieve({
+        stripeAccount: accountId,
+      });
+      console.log(`Balance:`);
+      console.log(balance);
+
+      return balance;
+    } catch (error) {
+      this.logger.error(`Error retrieving account balance: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to retrieve account balance: ${error.message}`);
+    }
+  }
+
+  /**
    * Get account status
    */
   async getAccountStatus(accountId: string): Promise<{
@@ -126,9 +149,15 @@ export class StripeService {
       const detailsSubmitted = account.details_submitted || false;
       
       // Check if account has transfer capabilities
-      const hasTransferCapability = account.capabilities?.transfers === 'active';
+      // Capability can be:
+      // - 'active' (enabled - transfers allowed)
+      // - 'pending' (requested but not yet enabled - transfers NOT allowed)
+      // - 'inactive' (not enabled - transfers NOT allowed)
+      // Stripe requires capability to be 'active' before transfers are allowed
+      const transfersCapability = account.capabilities?.transfers;
+      const hasTransferCapability = transfersCapability === 'active';
       
-      if (chargesEnabled && hasTransferCapability) {
+      if (chargesEnabled && transfersCapability === 'active') {
         status = 'active';
       } else if (detailsSubmitted) {
         status = 'pending';
@@ -162,7 +191,7 @@ export class StripeService {
    * @param platformFeeUSD - Platform fee in USD (in dollars, will be converted to cents)
    * @param metadata - Additional metadata to attach
    */
-  async createPaymentIntent(
+  /*async createPaymentIntent(
     amountUSD: number,
     paymentMethodId: string,
     platformFeeUSD: number,
@@ -202,8 +231,55 @@ export class StripeService {
       this.logger.error(`Error creating Payment Intent: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to create Payment Intent: ${error.message}`);
     }
-  }
+  }*/
 
+    async createPaymentIntent(
+      amountUSD: number,
+      paymentMethodId: string,
+      platformFeeUSD: number,
+      metadata?: Record<string, string>,
+    ): Promise<Stripe.PaymentIntent> {
+      try {
+        // Convert dollars to cents (Stripe requires amounts in smallest currency unit)
+        const amountInCents = Math.round(amountUSD * 100);
+    
+        // Get frontend URL for return_url
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app';
+    
+        // Create Payment Intent without confirming
+        const paymentIntent = await this.stripe.paymentIntents.create({
+          amount: amountInCents,
+          currency: 'usd',
+          payment_method: paymentMethodId,
+          automatic_payment_methods: {
+            enabled: true,
+            allow_redirects: 'never', // Disable redirect-based payment methods
+          },
+          metadata: {
+            ...metadata,
+            platform: 'gohappygo',
+          },
+          // No application_fee_amount - funds stay on platform account (escrow model)
+          // Platform fee is calculated separately and stays on platform when we transfer
+        });
+    
+        // Confirm asynchronously (don't await - let it process in background)
+        // The webhook will handle the success/failure
+        // Add return_url even though allow_redirects is 'never' (Stripe requires it)
+        this.stripe.paymentIntents.confirm(paymentIntent.id, {
+          payment_method: paymentMethodId,
+          //return_url: `${frontendUrl}/payment/success?payment_intent=${paymentIntent.id}`,
+          return_url: `${frontendUrl}/?payment_status=success`,
+        }).catch(error => {
+          this.logger.error(`Error confirming Payment Intent ${paymentIntent.id}: ${error.message}`, error.stack);
+        });
+    
+        return paymentIntent;
+      } catch (error) {
+        this.logger.error(`Error creating Payment Intent: ${error.message}`, error.stack);
+        throw new BadRequestException(`Failed to create Payment Intent: ${error.message}`);
+      }
+    }
   /**
    * Create Transfer to connected account (release escrow funds)
    * @param amountUSD - Amount in USD (in dollars, will be converted to cents)
@@ -351,8 +427,25 @@ export class StripeService {
    */
   private async handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     this.logger.log(`Payment Intent succeeded: ${paymentIntent.id}`);
-    // Transaction status will be updated by the service that created it
-    // This is mainly for logging and event emission
+    
+    // Find transaction by stripePaymentIntentId and update status to 'paid'
+    try {
+      const transaction = await this.transactionRepository.findOne({
+        where: { stripePaymentIntentId: paymentIntent.id },
+      });
+
+      if (transaction) {
+        await this.transactionRepository.update(
+          { id: transaction.id },
+          { status: 'paid' }
+        );
+        this.logger.log(`Transaction ${transaction.id} status updated to 'paid' for Payment Intent ${paymentIntent.id}`);
+      } else {
+        this.logger.warn(`No transaction found for Payment Intent ${paymentIntent.id}`);
+      }
+    } catch (error) {
+      this.logger.error(`Error updating transaction status for Payment Intent ${paymentIntent.id}: ${error.message}`, error.stack);
+    }
   }
 
   /**
@@ -403,6 +496,22 @@ export class StripeService {
   private async handleAccountUpdated(account: Stripe.Account): Promise<void> {
     this.logger.log(`Account updated: ${account.id}`);
     
+    // Check if transfers capability is now active
+    const transfersCapability = account.capabilities?.transfers;
+    const previousTransfersCapability = (account as any).previous_attributes?.capabilities?.transfers;
+    
+    // If transfers capability just became active (either detected via previous_attributes or by checking current status)
+    // Release pending transfers for this account
+    if (transfersCapability === 'active') {
+      // Check if this is a new activation (previous was not active) or if we should check anyway
+      const shouldRelease = previousTransfersCapability !== 'active' || previousTransfersCapability === undefined;
+      
+      if (shouldRelease) {
+        this.logger.log(`Transfers capability is active for account ${account.id}, checking for pending transfers`);
+        await this.releasePendingTransfersForAccount(account.id);
+      }
+    }
+    
     // Update user's Stripe account status
     const user = await this.userService.findByStripeAccountId(account.id);
     if (user) {
@@ -410,6 +519,125 @@ export class StripeService {
       user.stripeAccountStatus = status.status;
       await this.userService.save(user);
     }
+  }
+
+  /**
+   * Release pending transfers for an account when transfers capability becomes active
+   */
+  private async releasePendingTransfersForAccount(accountId: string): Promise<void> {
+    try {
+      // Find user by Stripe account ID
+      const user = await this.userService.findByStripeAccountId(accountId);
+      if (!user) {
+        this.logger.warn(`No user found for Stripe account ${accountId}`);
+        return;
+      }
+
+      // Find all transactions awaiting transfer for this payee
+      const pendingTransactions = await this.transactionRepository.find({
+        where: {
+          payeeId: user.id,
+          status: 'awaiting_transfer' as any,
+          stripeTransferId: IsNull(), // Not yet transferred
+        },
+      });
+
+      this.logger.log(`Found ${pendingTransactions.length} transactions awaiting transfer for account ${accountId}`);
+
+      if (pendingTransactions.length === 0) {
+        return;
+      }
+
+      // Release funds for each transaction
+      for (const transaction of pendingTransactions) {
+        try {
+          await this.releaseFundsForTransaction(transaction.id);
+          this.logger.log(`Successfully released funds for transaction ${transaction.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to release funds for transaction ${transaction.id}: ${error.message}`, error.stack);
+          // Continue with other transactions even if one fails
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error releasing pending transfers for account ${accountId}: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Release funds for a single transaction (used by webhook handler)
+   */
+  private async releaseFundsForTransaction(transactionId: number): Promise<void> {
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: transactionId },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction ${transactionId} not found`);
+    }
+
+    // Check if transfer already created
+    if (transaction.stripeTransferId) {
+      this.logger.log(`Transaction ${transactionId} already has transfer ${transaction.stripeTransferId}, skipping`);
+      return;
+    }
+
+    // If no Stripe Payment Intent, just update status (legacy transactions)
+    if (!transaction.stripePaymentIntentId) {
+      await this.transactionRepository.update(transactionId, { status: 'paid' });
+      return;
+    }
+
+    // Get charge ID from Payment Intent
+    const chargeId = await this.getChargeIdFromPaymentIntent(transaction.stripePaymentIntentId);
+
+    // Get payee (traveler) user
+    const payee = await this.transactionRepository.manager.findOne(UserEntity, {
+      where: { id: transaction.payeeId },
+    });
+
+    if (!payee || !payee.stripeAccountId) {
+      throw new NotFoundException(`Payee or Stripe account not found for transaction ${transactionId}`);
+    }
+
+    // Verify transfers capability is active (double-check)
+    const accountStatus = await this.getAccountStatus(payee.stripeAccountId);
+    if (!accountStatus.transfersEnabled) {
+      this.logger.warn(`Account ${payee.stripeAccountId} does not have transfers enabled yet, skipping transaction ${transactionId}`);
+      return;
+    }
+
+    // Calculate traveler amount
+    let travelerAmountUSD: number;
+    if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+      travelerAmountUSD = await this.convertToUSD(
+        transaction.travelerPayment,
+        transaction.currencyCode || 'USD'
+      );
+    } else {
+      // Fallback calculation for legacy transactions
+      const fee = await this.platformPricingService.calculateFee(transaction.originalAmount || transaction.amount);
+      const tvaAmount = (20 / 100) * fee; // 20% TVA
+      const travelerPayment = (transaction.originalAmount || transaction.amount) - fee - tvaAmount;
+      travelerAmountUSD = await this.convertToUSD(
+        travelerPayment,
+        transaction.currencyCode || 'USD'
+      );
+    }
+
+    // Create Transfer
+    const transfer = await this.createTransfer(
+      travelerAmountUSD,
+      payee.stripeAccountId,
+      chargeId,
+    );
+
+    // Update transaction with transfer ID and status
+    await this.transactionRepository.update(transactionId, {
+      stripeTransferId: transfer.id,
+      status: 'paid', // Funds successfully transferred
+    });
+
+    this.logger.log(`Successfully released funds for transaction ${transactionId}, transfer ID: ${transfer.id}`);
   }
 
   /**

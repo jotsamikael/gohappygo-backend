@@ -8,6 +8,8 @@ import { UserModule } from 'src/user/user.module';
 import { StripeModule } from 'src/stripe/stripe.module';
 import { CurrencyModule } from 'src/currency/currency.module';
 import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.module';
+import { CacheModule } from '@nestjs/cache-manager';
+import { TransactionMapper } from './transaction.mapper';
 
 @Module({
   imports: [
@@ -15,9 +17,10 @@ import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.mod
     StripeModule,
     CurrencyModule,
     PlatformPricingModule,
+    CacheModule.register(),
   ],
   controllers: [TransactionController],
-  providers: [TransactionService],
+  providers: [TransactionService, TransactionMapper],
   exports: [TransactionService]
 })
 export class TransactionModule {}

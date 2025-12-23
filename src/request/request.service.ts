@@ -294,7 +294,8 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
 
   // 7. Update request status
   request.currentStatusId = acceptedStatus.id;
-  await this.requestRepository.save(request);
+  request.currentStatus = acceptedStatus; // Also update the relation object
+  const savedRequest = await this.requestRepository.save(request);
 
   // 8. Add status history record
   await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
@@ -314,10 +315,10 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
   const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
   const transactionAmount = pricing.totalAmount;
 
-  // Reload request with currency relations for Stripe conversion
+  // Reload request with currency relations for Stripe conversion (include currentStatus to verify it was saved)
   const requestWithCurrency = await this.requestRepository.findOne({
     where: { id: requestId },
-    relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency']
+    relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
   });
 
   await this.transactionService.createTransactionFromRequest(
@@ -345,10 +346,10 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
    //send email to the requester
    await this.userEventService.emitRequestAccepted(requester!, request, true, request.travel.userId);
 
-  // Reload request with all relations for mapping
+  // Reload request with all relations for mapping (include currentStatus)
   const updatedRequest = await this.requestRepository.findOne({
     where: { id: requestId },
-    relations: ['travel', 'travel.user', 'demand']
+    relations: ['travel', 'travel.user', 'demand', 'currentStatus']
   });
 
   return this.requestMapper.toAcceptResponseDto(updatedRequest!);
@@ -381,20 +382,38 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
     throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
   }
 
-  // 3. Release funds from stripe to payee (only if pending)
+  // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
   // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
-  if (transaction.status === 'pending') {
+  // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid' or 'awaiting_transfer')
+  if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer')) {
     try {
       await this.transactionService.releaseFundsFromStripe(transaction.id, user);
+      // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
     } catch (error) {
-      // If transfer fails, throw error and don't change request status
-      throw new CustomBadRequestException(
-        `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
-        ErrorCode.INTERNAL_ERROR
-      );
+      // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
+      if (error.message.includes('transfers enabled') || 
+          error.message.includes('onboarding') || 
+          error.message.includes('capability')) {
+        // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
+        await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+        console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
+        // Allow request completion - funds are safely held by platform
+      } else {
+        // For other errors, don't allow completion
+        throw new CustomBadRequestException(
+          `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
+          ErrorCode.INTERNAL_ERROR
+        );
+      }
     }
-  } else {
-    console.log(`Transaction ${transaction.id} is already ${transaction.status}, skipping fund release`);
+  } else if (transaction.stripeTransferId) {
+    console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
+  } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
+    console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
+    throw new CustomBadRequestException(
+      `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+      ErrorCode.INTERNAL_ERROR
+    );
   }
 
   // 4. Only update request status to completed if transfer succeeded

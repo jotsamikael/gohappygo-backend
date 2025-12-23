@@ -259,9 +259,9 @@ export class CurrencyService {
       throw new CustomNotFoundException(`Currency with code ${fromCurrencyCode} not found`, ErrorCode.CURRENCY_NOT_FOUND);
     }
 
-    // Convert: amount / sourceCurrency.exchangeRate
-    // exchangeRate is relative to base currency (USD), so dividing by exchangeRate gives USD amount
-    const convertedAmount = amount / Number(sourceCurrency.exchangeRate);
+    // Convert: amount * sourceCurrency.exchangeRate
+    // exchangeRate represents "1 [currency] = X USD", so multiply to get USD amount
+    const convertedAmount = amount * Number(sourceCurrency.exchangeRate);
     
     // Round to 2 decimal places
     return Math.round(convertedAmount * 100) / 100;
