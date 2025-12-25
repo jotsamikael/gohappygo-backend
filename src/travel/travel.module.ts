@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TravelController } from './travel.controller';
 import { TravelService } from './travel.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -14,6 +14,10 @@ import { ReviewEntity } from 'src/review/review.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
 import { RequestStatusModule } from 'src/request-status/request-status.module';
+import { RequestStatusHistoryModule } from 'src/request-status-history/request-status-history.module';
+import { TransactionModule } from 'src/transaction/transaction.module';
+import { StripeModule } from 'src/stripe/stripe.module';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports:[
@@ -21,7 +25,11 @@ import { RequestStatusModule } from 'src/request-status/request-status.module';
     FileUploadModule,
     EventsModule,
     AirlineModule,
-    RequestStatusModule
+    RequestStatusModule,
+    RequestStatusHistoryModule,
+    forwardRef(() => TransactionModule),
+    forwardRef(() => StripeModule),
+    UserModule
     
   ],
   controllers: [TravelController],

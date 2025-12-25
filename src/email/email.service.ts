@@ -226,6 +226,15 @@ export class EmailService {
       html,
     });
   }
+  sendRequestCancelledConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
+    const html = this.emailTemplatesService.getRequestCancelledTemplate(userFirstName, event);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Request Cancelled - GoHappyGo',
+      html,
+    });
+  }
+
   sendRequestCompletedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
     const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event);
     return this.sendEmail({

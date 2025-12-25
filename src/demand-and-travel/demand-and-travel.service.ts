@@ -8,7 +8,7 @@ import { Cache } from 'cache-manager';
 import { FindDemandsAndTravelsQueryDto } from './dto/FindDemandsAndTravelsQuery.dto';
 import { DemandOrTravelResponseDto, PaginatedDemandsAndTravelsResponseDto } from './dto/demand-and-travel-response.dto';
 import { PackageKind } from 'src/demand/package-kind.enum';
-import { AirlineResponseDto } from './dto/airlineResponseDto';
+import { DemandTravelAirlineResponseDto } from './dto/airlineResponseDto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookmarkEntity, BookmarkType } from 'src/bookmark/entities/bookmark.entity';
@@ -572,7 +572,7 @@ export class DemandAndTravelService {
      * Helper method to get airline from flight number
      * Extracts first 2-3 characters and matches with IATA code
      */
-    public async getAirlineFromFlightNumber(flightNumber: string): Promise<AirlineResponseDto | null> {
+    public async getAirlineFromFlightNumber(flightNumber: string): Promise<DemandTravelAirlineResponseDto | null> {
         if (!flightNumber || flightNumber.length < 2) {
             return null;
         }

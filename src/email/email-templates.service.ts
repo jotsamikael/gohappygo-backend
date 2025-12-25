@@ -1009,6 +1009,71 @@ export class EmailTemplatesService {
     `;
   }
 
+  getRequestCancelledTemplate(userFirstName: string, event: RequestEvent): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Request Cancelled - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .cancelled-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+          .refund-info { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
+          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Request Cancelled</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userFirstName},</h2>
+            <p>We regret to inform you that your delivery request has been cancelled.</p>
+            
+            <div class="request-details">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${event.requestId}</p>
+              <p><strong>Type:</strong> ${event.requestType}</p>
+              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+              <p><strong>Cancelled:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
+            </div>
+            
+            <div class="refund-info">
+              <h3>💰 Refund Information</h3>
+              <p>If you had made a payment for this request, a full refund has been processed and will be credited back to your original payment method within 5-10 business days.</p>
+              <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>
+            </div>
+            
+            <p><strong>What can you do?</strong></p>
+            <ul>
+              <li>Browse other available travels or demands</li>
+              <li>Create a new request for a different travel</li>
+              <li>Contact support if you have any questions</li>
+            </ul>
+            
+            <p style="text-align: center;">
+              <a href="${this.baseUrl}/requests" class="action-button">Browse Available Travels</a>
+            </p>
+            
+            <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   getRequestCompletedForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
     return `
       <!DOCTYPE html>

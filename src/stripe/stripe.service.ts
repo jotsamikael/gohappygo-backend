@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { UserEntity } from 'src/user/user.entity';
@@ -19,6 +19,7 @@ export class StripeService {
     private configService: ConfigService,
     private userService: UserService,
     private currencyService: CurrencyService,
+    @Inject(forwardRef(() => PlatformPricingService))
     private platformPricingService: PlatformPricingService,
     @InjectRepository(StripeWebhookEventEntity)
     private webhookEventRepository: Repository<StripeWebhookEventEntity>,
@@ -356,6 +357,34 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Error creating Transfer: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to create Transfer: ${error.message}`);
+    }
+  }
+
+  /**
+   * Refund a Payment Intent
+   * @param paymentIntentId - Stripe Payment Intent ID
+   * @returns Stripe Refund object
+   */
+  async refundPaymentIntent(paymentIntentId: string): Promise<Stripe.Refund> {
+    try {
+      // Retrieve the Payment Intent to get the charge ID
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (!paymentIntent.latest_charge) {
+        throw new BadRequestException('Payment Intent has no charge to refund');
+      }
+
+      // Create refund for the charge
+      const refund = await this.stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: paymentIntent.amount, // Full refund
+      });
+
+      this.logger.log(`Refund created successfully: ${refund.id} for Payment Intent ${paymentIntentId}`);
+      return refund;
+    } catch (error) {
+      this.logger.error(`Error refunding Payment Intent ${paymentIntentId}: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to refund Payment Intent: ${error.message}`);
     }
   }
 

@@ -261,15 +261,29 @@ async uploadVerificationDocuments(
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get current user information with profile stats' })
+  @ApiOperation({ 
+    summary: 'Get current user information with profile stats',
+    description: 'Get information about the current authenticated user. Optionally provide userId query parameter to get information about another user.'
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Optional user ID to get information about another user'
+  })
   @ApiResponse({ 
     status: 200, 
-    description: 'Current user information with profile stats',
+    description: 'User information with profile stats',
     type: UserProfileResponseDto
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getCurrentUser(@CurrentUser() user: UserEntity): Promise<UserProfileResponseDto> {
-    return this.authService.getUserProfileWithStats(user.id);
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getCurrentUser(
+    @CurrentUser() user: UserEntity,
+    @Query('userId') userId?: number
+  ): Promise<UserProfileResponseDto> {
+    const targetUserId = userId || user.id;
+    return this.authService.getUserProfileWithStats(targetUserId);
   }
 
   @Get('admin/verification-files/:userId')

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException, forwardRef } from '@nestjs/common';
 import { DemandEntity } from './demand.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -16,12 +16,17 @@ import { UserEventsService } from 'src/events/user-events.service';
 import { AirlineService } from 'src/airline/airline.service';
 import { DemandMapper } from './demand.mapper';
 import { DemandDetailResponseDto } from './dto/demand-detail-response.dto';
+import { DemandResponseDto } from './dto/demand-response.dto';
 import { CustomNotFoundException, CustomBadRequestException, CustomForbiddenException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { ReviewEntity } from 'src/review/review.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
 import { RequestStatusService } from 'src/request-status/request-status.service';
+import { RequestStatusHistoryService } from 'src/request-status-history/request-status-history.service';
+import { TransactionService } from 'src/transaction/transaction.service';
+import { StripeService } from 'src/stripe/stripe.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class DemandService {
@@ -39,18 +44,24 @@ export class DemandService {
         private readonly userEventService: UserEventsService,
         private readonly airlineService: AirlineService,
         private readonly demandMapper: DemandMapper,
-        private readonly requestStatusService: RequestStatusService
+        private readonly requestStatusService: RequestStatusService,
+        private readonly requestStatusHistoryService: RequestStatusHistoryService,
+        @Inject(forwardRef(() => TransactionService))
+        private readonly transactionService: TransactionService,
+        @Inject(forwardRef(() => StripeService))
+        private readonly stripeService: StripeService,
+        private readonly userService: UserService
 
     ){}
 
 
-async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandEntity>> {
+async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandResponseDto>> {
   
   const cacheKey = this.generateDemandListCacheKey(query);
   this.demandListCacheKeys.add(cacheKey);
 
   // Check cache first
-  const cachedData = await this.cacheManager.get<PaginatedResponse<DemandEntity>>(cacheKey);
+  const cachedData = await this.cacheManager.get<PaginatedResponse<DemandResponseDto>>(cacheKey);
   if (cachedData) {
       console.log(`Cache Hit---------> Returning demands list from Cache ${cacheKey}`);
       return cachedData;
@@ -165,10 +176,13 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandEn
 
   const items = await queryBuilder.getMany();
   
+  // Transform entities to DTOs using mapper
+  const mappedItems = this.demandMapper.toListResponseDtoArray(items);
+  
   const totalPages = Math.ceil(totalItems / limit);
 
-  const responseResult = {
-      items,
+  const responseResult: PaginatedResponse<DemandResponseDto> = {
+      items: mappedItems,
       meta: {
           currentPage: page,
           itemsPerPage: limit,
@@ -448,11 +462,16 @@ async publishDemand(
     }
   }
 
-async softDeleteDemandByUser(id: number, user?: UserEntity): Promise<DemandEntity> {
+async cancelDemand(id: number, user?: UserEntity): Promise<DemandEntity> {
   // 1. Find the demand with all necessary relations
   const demand = await this.demandRepository.findOne({
     where: { id },
-    relations: ['requests', 'requests.currentStatus', 'requests.transactions'],
+    relations: [
+      'requests', 
+      'requests.currentStatus', 
+      'requests.transactions',
+      'requests.requester'
+    ],
   });
 
   if (!demand) {
@@ -468,7 +487,7 @@ async softDeleteDemandByUser(id: number, user?: UserEntity): Promise<DemandEntit
 
     // Check if user is the owner of the demand
     if (demand.userId !== user.id) {
-      throw new CustomForbiddenException('You can only delete your own demands', ErrorCode.DEMAND_UNAUTHORIZED);
+      throw new CustomForbiddenException('You can only cancel your own demands', ErrorCode.DEMAND_UNAUTHORIZED);
     }
   }
 
@@ -477,56 +496,84 @@ async softDeleteDemandByUser(id: number, user?: UserEntity): Promise<DemandEntit
     throw new CustomBadRequestException('Demand is already cancelled', ErrorCode.DEMAND_ALREADY_CANCELLED);
   }
 
-  // 4. Check for requests with blocking statuses (ACCEPTED, COMPLETED, DELIVERED, NEGOTIATING)
-  const blockingStatuses = ['ACCEPTED', 'COMPLETED', 'DELIVERED', 'NEGOTIATING'];
-
-  if (demand.requests && demand.requests.length > 0) {
-    for (const request of demand.requests) {
-      if (!request.currentStatus) continue;
-
-      const currentStatus = request.currentStatus.status;
-
-      if (blockingStatuses.includes(currentStatus)) {
-        throw new CustomBadRequestException(
-          `Cannot delete demand because it has a request with status '${currentStatus}'. Demands with accepted, completed, delivered, or negotiating requests cannot be deleted.`,
-          ErrorCode.DEMAND_CANNOT_BE_DELETED
-        );
-      }
-    }
+  // 4. Get CANCELLED status for requests
+  const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+  if (!cancelledStatus) {
+    throw new NotFoundException('CANCELLED request status not found');
   }
 
-  // 5. Check for transactions with blocking statuses (paid, refunded)
+  // 5. Cancel all requests and process refunds
   if (demand.requests && demand.requests.length > 0) {
     for (const request of demand.requests) {
+      // Skip if already cancelled
+      if (request.currentStatus?.status === 'CANCELLED') {
+        continue;
+      }
+
+      // Cancel the request
+      request.currentStatusId = cancelledStatus.id;
+      request.currentStatus = cancelledStatus;
+      await this.requestRepository.save(request);
+
+      // Record status history
+      await this.requestStatusHistoryService.record(request.id, cancelledStatus.id);
+
+      // Process refunds for paid transactions
       if (request.transactions && request.transactions.length > 0) {
         for (const transaction of request.transactions) {
-          if (transaction.status === 'paid' || transaction.status === 'refunded') {
-            throw new CustomBadRequestException(
-              `Cannot delete demand because it has a transaction with status '${transaction.status}'. Demands with paid or refunded transactions cannot be deleted.`,
-              ErrorCode.DEMAND_CANNOT_BE_DELETED
-            );
+          // Only refund if transaction is paid and has a Stripe Payment Intent
+          if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+            try {
+              // Refund via Stripe
+              await this.stripeService.refundPaymentIntent(transaction.stripePaymentIntentId);
+              
+              // Update transaction status to refunded
+              await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+            } catch (error) {
+              // Log error but continue with other requests
+              console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+              // Still update transaction status to indicate refund attempt failed
+              await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+            }
+          } else if (transaction.status === 'pending') {
+            // For pending transactions, just mark as cancelled
+            await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
           }
+        }
+      }
+
+      // Send email and notification to requester
+      if (request.requester) {
+        const requester = await this.userService.findOne({ id: request.requesterId });
+        if (requester) {
+          // Emit event for email and notification
+          this.userEventService.emitRequestCancelled(requester, request, false, demand.userId);
         }
       }
     }
   }
 
-  // 6. Soft-delete by changing status
+  // 6. Cancel demand by changing status
   demand.status = 'cancelled';
   if (user && user.id) {
     demand.updatedBy = user.id;
   }
 
   try {
-    const deletedDemand = await this.demandRepository.save(demand);
+    const cancelledDemand = await this.demandRepository.save(demand);
 
     // 7. Clear cache
     await this.clearDemandListCache();
 
-    return deletedDemand;
+    return cancelledDemand;
   } catch (error) {
-    throw new CustomBadRequestException(`Failed to delete demand: ${error.message}`, ErrorCode.INTERNAL_ERROR);
+    throw new CustomBadRequestException(`Failed to cancel demand: ${error.message}`, ErrorCode.INTERNAL_ERROR);
   }
+}
+
+async softDeleteDemandByUser(id: number, user?: UserEntity): Promise<DemandEntity> {
+  // This method is kept for backward compatibility but now calls cancelDemand
+  return this.cancelDemand(id, user);
 }
 
 async getDemandById(id: number): Promise<DemandDetailResponseDto>  {

@@ -22,7 +22,7 @@ export class RequestMapper {
             isSharedWeight: request.travel.isSharedWeight,
             isInstant: request.travel.isInstant,
             isAllowExtraWeight: request.travel.isAllowExtraWeight,
-            feeForLateComer: request.travel.feeForLateComer ? request.travel.feeForLateComer.toString() : '0.00',
+            punctualityLevel: request.travel.punctualityLevel ?? false,
             feeForGloomy: request.travel.feeForGloomy ? request.travel.feeForGloomy.toString() : '0.00',
             airlineId: request.travel.airlineId,
             departureAirportId: request.travel.departureAirportId,

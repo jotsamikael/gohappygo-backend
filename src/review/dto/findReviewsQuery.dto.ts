@@ -15,7 +15,7 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
     id?: number;
 
     @ApiProperty({
-        description: 'Filter by reviewerId user ID (admin only)',
+        description: 'Filter by reviewerId user ID (reviews given by this user)',
         example: 1,
         required: false
     })
@@ -25,7 +25,7 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
     reviewerId?: number;
 
     @ApiProperty({
-        description: 'Filter by reviewee user ID (admin only)',
+        description: 'Filter by reviewee user ID (reviews received by this user)',
         example: 1,
         required: false
     })

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException, forwardRef } from '@nestjs/common';
 import { TravelEntity } from './travel.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
@@ -9,7 +9,6 @@ import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { CreateTravelDto } from './dto/createTravel.dto';
 import { UpdateTravelDto } from './dto/updateTravel.dto';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { FilePurpose } from 'src/uploaded-file/uploaded-file-purpose.enum';
 import { UserEventsService } from 'src/events/user-events.service';
 import { AirlineService } from 'src/airline/airline.service';
@@ -18,14 +17,22 @@ import { TravelMapper } from './travel.mapper';
 import { ReviewService } from 'src/review/review.service';
 import { BookmarkService } from 'src/bookmark/bookmark.service';
 import { TravelDetailResponseDto } from './dto/travel-detail.response.dto';
+import { TravelResponseDto } from './dto/travel-response.dto';
 import { CustomNotFoundException, CustomBadRequestException, CustomForbiddenException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { ReviewEntity } from 'src/review/review.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
 import { RequestStatusService } from 'src/request-status/request-status.service';
+import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { RequestStatusHistoryService } from 'src/request-status-history/request-status-history.service';
+import { TransactionService } from 'src/transaction/transaction.service';
+import { StripeService } from 'src/stripe/stripe.service';
+import { UserService } from 'src/user/user.service';
+import { RequestStatusHistoryEntity } from 'src/request-status-history/RequestStatusHistory.entity';
 @Injectable()
 export class TravelService {
+ 
   
  
   private travelListCacheKeys: Set<string> = new Set();
@@ -41,6 +48,12 @@ export class TravelService {
     private readonly airlineService: AirlineService,
     private readonly travelMapper: TravelMapper,
     private readonly requestStatusService: RequestStatusService,
+    private readonly requestStatusHistoryService: RequestStatusHistoryService,
+    @Inject(forwardRef(() => TransactionService))
+    private readonly transactionService: TransactionService,
+    @Inject(forwardRef(() => StripeService))
+    private readonly stripeService: StripeService,
+    private readonly userService: UserService,
   ) { }
 
   private generateTravelsListCacheKey(query: FindTravelsQueryDto): string {
@@ -76,14 +89,14 @@ export class TravelService {
     return travels;
   }
 
-  async getAllTravels(query: FindTravelsQueryDto): Promise<PaginatedResponse<TravelEntity>> {
+  async getAllTravels(query: FindTravelsQueryDto): Promise<PaginatedResponse<TravelResponseDto>> {
     //generate cache key
     const cacheKey = this.generateTravelsListCacheKey(query);
     //add cache key to memory
     this.travelListCacheKeys.add(cacheKey)
 
     //get data from cache
-    const getCachedData = await this.cacheManager.get<PaginatedResponse<TravelEntity>>(cacheKey);
+    const getCachedData = await this.cacheManager.get<PaginatedResponse<TravelResponseDto>>(cacheKey);
     if (getCachedData) {
       console.log(`Cache Hit---------> Returning travels list from Cache ${cacheKey}`)
       return getCachedData
@@ -214,15 +227,36 @@ export class TravelService {
       .leftJoinAndSelect('travel.departureAirport', 'departureAirport')
       .leftJoinAndSelect('travel.arrivalAirport', 'arrivalAirport')
       .leftJoinAndSelect('travel.airline', 'airline')
-      .leftJoinAndSelect('travel.images', 'images');
+      .leftJoinAndSelect('travel.images', 'images')
+      // Add COUNT subquery for requests to determine isEditable
+      .addSelect((subQuery) => {
+        return subQuery
+          .select('COUNT(request.id)', 'requestCount')
+          .from(RequestEntity, 'request')
+          .where('request.travelId = travel.id');
+      }, 'requestCount');
 
-    const items = await queryBuilder.getMany();
-    console.log('🔍 Debug - Final items found:', items.length);
+    // Use getRawAndEntities to get both entities and raw data (including requestCount)
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+    console.log('🔍 Debug - Final items found:', entities.length);
+
+    // Add isEditable property to each travel entity and transform to DTOs
+    // isEditable = true if travel has no requests (requestCount === 0)
+    const itemsWithIsEditable = entities.map((travel: TravelEntity, index: number) => {
+      const requestCount = parseInt(raw[index]?.requestCount || '0', 10);
+      return {
+        ...travel,
+        isEditable: requestCount === 0
+      } as TravelEntity & { isEditable: boolean };
+    });
+
+    // Transform entities to DTOs using mapper
+    const mappedItems = this.travelMapper.toListResponseDtoArray(itemsWithIsEditable);
 
     const totalPages = Math.ceil(totalItems / limit);
 
-    const responseResult = {
-      items,
+    const responseResult: PaginatedResponse<TravelResponseDto> = {
+      items: mappedItems,
       meta: {
         currentPage: page,
         itemsPerPage: limit,
@@ -278,7 +312,7 @@ export class TravelService {
       isSharedWeight: createTravelDto.isSharedWeight,
       isInstant: createTravelDto.isInstant,
       isAllowExtraWeight: createTravelDto.isAllowExtraWeight,
-      feeForLateComer: createTravelDto.feeForLateComer,
+      punctualityLevel: createTravelDto.punctualityLevel ?? false,
       feeForGloomy: createTravelDto.feeForGloomy,
       departureAirportId: createTravelDto.departureAirportId,
       arrivalAirportId: createTravelDto.arrivalAirportId,
@@ -344,11 +378,16 @@ export class TravelService {
     }
   }
 
-  async softDeleteTravel(id: number, user?: UserEntity): Promise<TravelEntity> {
+  async cancelTravel(id: number, user?: UserEntity): Promise<TravelEntity> {
     // 1. Find the travel with all necessary relations
     const travel = await this.travelRepository.findOne({
       where: { id },
-      relations: ['requests', 'requests.currentStatus', 'requests.transactions'],
+      relations: [
+        'requests', 
+        'requests.currentStatus', 
+        'requests.transactions',
+        'requests.requester'
+      ],
     });
 
     if (!travel) {
@@ -364,7 +403,7 @@ export class TravelService {
 
       // Check if user is the owner of the travel
       if (travel.userId !== user.id) {
-        throw new CustomForbiddenException('You can only delete your own travels', ErrorCode.TRAVEL_UNAUTHORIZED);
+        throw new CustomForbiddenException('You can only cancel your own travels', ErrorCode.TRAVEL_UNAUTHORIZED);
       }
     }
 
@@ -373,55 +412,78 @@ export class TravelService {
       throw new CustomBadRequestException('Travel is already cancelled', ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
 
-    // 4. Check for requests with blocking statuses (ACCEPTED, COMPLETED, DELIVERED, NEGOTIATING)
-    const blockingStatuses = ['ACCEPTED', 'COMPLETED', 'DELIVERED', 'NEGOTIATING'];
-
-    if (travel.requests && travel.requests.length > 0) {
-      for (const request of travel.requests) {
-        if (!request.currentStatus) continue;
-
-        const currentStatus = request.currentStatus.status;
-
-        if (blockingStatuses.includes(currentStatus)) {
-          throw new CustomBadRequestException(
-            `Cannot delete travel because it has a request with status '${currentStatus}'. Travels with accepted, completed, delivered, or negotiating requests cannot be deleted.`,
-            ErrorCode.TRAVEL_CANNOT_BE_DELETED
-          );
-        }
-      }
+    // 4. Get CANCELLED status for requests
+    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+    if (!cancelledStatus) {
+      throw new NotFoundException('CANCELLED request status not found');
     }
 
-    // 5. Check for transactions with blocking statuses (paid, refunded)
+    // 5. Cancel all requests and process refunds
     if (travel.requests && travel.requests.length > 0) {
       for (const request of travel.requests) {
+        // Skip if already cancelled
+        if (request.currentStatus?.status === 'CANCELLED') {
+          continue;
+        }
+
+        // Cancel the request
+        request.currentStatusId = cancelledStatus.id;
+        request.currentStatus = cancelledStatus;
+        await this.requestRepository.save(request);
+
+        // Record status history
+        await this.requestStatusHistoryService.record(request.id, cancelledStatus.id);
+
+        // Process refunds for paid transactions
         if (request.transactions && request.transactions.length > 0) {
           for (const transaction of request.transactions) {
-            if (transaction.status === 'paid' || transaction.status === 'refunded') {
-              throw new CustomBadRequestException(
-                `Cannot delete travel because it has a transaction with status '${transaction.status}'. Travels with paid or refunded transactions cannot be deleted.`,
-                ErrorCode.TRAVEL_CANNOT_BE_DELETED
-              );
+            // Only refund if transaction is paid and has a Stripe Payment Intent
+            if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+              try {
+                // Refund via Stripe
+                await this.stripeService.refundPaymentIntent(transaction.stripePaymentIntentId);
+                
+                // Update transaction status to refunded
+                await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+              } catch (error) {
+                // Log error but continue with other requests
+                console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+                // Still update transaction status to indicate refund attempt failed
+                await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+              }
+            } else if (transaction.status === 'pending') {
+              // For pending transactions, just mark as cancelled
+              await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
             }
+          }
+        }
+
+        // Send email and notification to requester
+        if (request.requester) {
+          const requester = await this.userService.findOne({ id: request.requesterId });
+          if (requester) {
+            // Emit event for email and notification
+            this.userEventService.emitRequestCancelled(requester, request, false, travel.userId);
           }
         }
       }
     }
 
-    // 6. Soft-delete by changing status
+    // 6. Cancel travel by changing status
     travel.status = 'cancelled';
     if (user && user.id) {
       travel.updatedBy = user.id;
     }
 
     try {
-      const deletedTravel = await this.travelRepository.save(travel);
+      const cancelledTravel = await this.travelRepository.save(travel);
 
       // 7. Clear cache
       await this.clearTravelListCache();
 
-      return deletedTravel;
+      return cancelledTravel;
     } catch (error) {
-      throw new CustomBadRequestException(`Failed to delete travel: ${error.message}`, ErrorCode.TRAVEL_CANNOT_BE_DELETED);
+      throw new CustomBadRequestException(`Failed to cancel travel: ${error.message}`, ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
   }
 
@@ -621,7 +683,7 @@ export class TravelService {
     const updateData: any = {};
     const allowedFields = [
       'description', 'flightNumber', 'isSharedWeight', 'isInstant', 'isAllowExtraWeight',
-      'feeForLateComer', 'feeForGloomy', 'departureAirportId', 'arrivalAirportId',
+      'punctualityLevel', 'feeForGloomy', 'departureAirportId', 'arrivalAirportId',
       'departureDatetime', 'pricePerKg', 'currencyId', 'totalWeightAllowance', 
       'weightAvailable', 'airlineId'
     ];
@@ -664,4 +726,7 @@ export class TravelService {
       throw new CustomBadRequestException(`Failed to update travel: ${error.message}`, ErrorCode.INTERNAL_ERROR);
     }
   }
+
+
+  
 }

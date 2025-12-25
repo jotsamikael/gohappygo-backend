@@ -6,7 +6,7 @@ import { UserRole } from 'src/user/user.entity';
 import { DemandAndTravelService } from './demand-and-travel.service';
 import { FindDemandsAndTravelsQueryDto } from './dto/FindDemandsAndTravelsQuery.dto';
 import { PaginatedDemandsAndTravelsResponseDto } from './dto/demand-and-travel-response.dto';
-import { AirlineResponseDto } from './dto/airlineResponseDto';
+import { DemandTravelAirlineResponseDto } from './dto/airlineResponseDto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt-auth.guard';
 
 @ApiTags('demandsAndTravels')
@@ -58,7 +58,7 @@ export class DemandAndTravelController {
         summary: 'Get airline from flight number',
         description: 'Get airline from flight number'
     })
-    @ApiResponse({ status: 200, description: 'Airline fetched successfully', type: AirlineResponseDto })
+    @ApiResponse({ status: 200, description: 'Airline fetched successfully', type: DemandTravelAirlineResponseDto })
     @ApiResponse({ status: 400, description: 'Bad request' })
     async getAirlineFromFlightNumber(@Query('flightNumber') flightNumber: string) {
         return await this.demandAndTravelService.getAirlineFromFlightNumber(flightNumber);

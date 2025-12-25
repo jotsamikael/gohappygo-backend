@@ -242,12 +242,19 @@ export class ReviewService implements OnModuleInit {
     const isAdmin = user.role?.code === UserRole.ADMIN;
     const isOperator = user.role?.code === UserRole.OPERATOR;
     
+    // Check if normal user is filtering by specific reviewerId or revieweeId
+    const isFilteringBySpecificUser = !isAdmin && !isOperator && (reviewerId !== undefined || revieweeId !== undefined);
+    
     console.log('DEBUG: isAdmin:', isAdmin);
     console.log('DEBUG: isOperator:', isOperator);
     console.log('DEBUG: !isAdmin && !isOperator:', !isAdmin && !isOperator);
+    console.log('DEBUG: isFilteringBySpecificUser:', isFilteringBySpecificUser);
+    console.log('DEBUG: reviewerId:', reviewerId);
+    console.log('DEBUG: revieweeId:', revieweeId);
 
-    if (!isAdmin && !isOperator) {
-      console.log('DEBUG: Entering regular user branch');
+    if (!isAdmin && !isOperator && !isFilteringBySpecificUser) {
+      // Regular user without specific filters - show only their own reviews
+      console.log('DEBUG: Entering regular user branch - showing own reviews');
       if (isAsReviewer) {
         console.log('DEBUG: Branch: isAsReviewer is TRUE - filtering by reviewerId');
         // Only show reviews where user is the reviewer
@@ -257,11 +264,15 @@ export class ReviewService implements OnModuleInit {
         // Only show reviews where user is the reviewee (not the reviewer)
         queryBuilder.andWhere('review.revieweeId = :userId', { userId: user.id });
       }
-    } else if (isAsReviewer) {
+    } else if (isAsReviewer && !isFilteringBySpecificUser) {
+      // Admin/Operator with asReviewer flag (but not filtering by specific user)
       console.log('DEBUG: Branch: Admin/Operator with isAsReviewer TRUE - filtering by reviewerId');
-      // For admins/operators, if asReviewer is true, filter by current user as reviewer
       queryBuilder.andWhere('review.reviewerId = :userId', { userId: user.id });
+    } else if (isFilteringBySpecificUser) {
+      // Normal user filtering by specific user - skip automatic user filtering
+      console.log('DEBUG: Branch: Normal user filtering by specific user - skipping automatic filter');
     } else {
+      // Admin/Operator without asReviewer flag - no automatic user filter
       console.log('DEBUG: Branch: Admin/Operator with isAsReviewer FALSE - no user filter applied');
     }
 
@@ -270,11 +281,13 @@ export class ReviewService implements OnModuleInit {
       queryBuilder.andWhere('review.id = :id', { id });
     }
 
-    if (reviewerId && (isAdmin || isOperator)) {
+    // Allow all users (including normal users) to filter by reviewerId
+    if (reviewerId !== undefined) {
       queryBuilder.andWhere('review.reviewerId = :reviewerId', { reviewerId });
     }
 
-    if (revieweeId && (isAdmin || isOperator)) {
+    // Allow all users (including normal users) to filter by revieweeId
+    if (revieweeId !== undefined) {
       queryBuilder.andWhere('review.revieweeId = :revieweeId', { revieweeId });
     }
 

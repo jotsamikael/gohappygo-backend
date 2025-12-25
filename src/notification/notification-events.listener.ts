@@ -69,6 +69,34 @@ export class NotificationEventsListener {
   }
 
   /**
+   * Handle request cancelled event
+   */
+  @OnEvent('request.cancelled')
+  async handleRequestCancelled(event: RequestEvent) {
+    try {
+      // Only create notification for the requester (isForOwner=false means this is for the requester)
+      if (event.isForOwner) {
+        return; // Skip notification creation for owner's own action
+      }
+
+      // Notify the requester that their request was cancelled
+      await this.notificationService.create({
+        targetUserId: event.requesterId,
+        actorUserId: event.ownerId,
+        notificationType: NotificationType.REQUEST_CANCELLED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: 'Request Cancelled',
+        priority: NotificationPriority.HIGH,
+      });
+
+      this.logger.log(`Notification created for request cancellation: Request ${event.requestId}`);
+    } catch (error) {
+      this.logger.error(`Failed to create notification for request.cancelled: ${error.message}`);
+    }
+  }
+
+  /**
    * Handle request completed event
    */
   @OnEvent('request.completed')

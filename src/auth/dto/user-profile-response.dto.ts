@@ -1,7 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { CurrencyResponseDto } from "src/currency/dto/currency-response.dto";
-import { UserRoleResponseDto } from "src/role/dto/role-response.dto";
-import { Expose, Transform, Type } from "class-transformer";
+import { Expose, Type } from "class-transformer";
 
 export class ProfileStatsResponseDto {
     @ApiProperty({ example: 1 })
@@ -59,40 +58,31 @@ export class ProfileStatsResponseDto {
 }
 
 export class UserProfileResponseDto {
-    @ApiProperty({ example: 1 })
+    @ApiProperty({ example: 29 })
     @Expose()
     id: number;
 
-    @ApiProperty({ example: 'john.doe@example.com' })
+    @ApiProperty({ example: 'jotsamikael0@gmail.com' })
     @Expose()
     email: string;
     
-    @ApiProperty({ example: 'John' })
+    @ApiProperty({ example: 'James D.' })
     @Expose()
-    firstName: string;
-    
-    @Expose()
-    lastName: string;
-    @Expose()
-    phone: string;
+    fullName: string;
 
-    @ApiProperty({ example: 'https://example.com/profile.jpg' })
+    @ApiProperty({ example: 'https://res.cloudinary.com/dgdy4huuc/image/upload/v1765651873/gohappygo/ecuacdwgrjdvewflyczo.jpg', nullable: true })
     @Expose()
-    profilePictureUrl: string;
+    profilePictureUrl: string | null;
 
-    @ApiProperty({ example: 'Frequent traveler who loves helping others' })
+    @ApiProperty({ example: 'I am a traveler who like exotic places', nullable: true })
     @Expose()
-    bio: string;
-
-    @ApiProperty({ type: UserRoleResponseDto })
-    @Expose()
-    role: UserRoleResponseDto;
+    bio: string | null;
 
     @ApiProperty({ example: false })
     @Expose()
     isPhoneVerified: boolean;
 
-    @ApiProperty({ example: false })
+    @ApiProperty({ example: true })
     @Expose()
     isVerified: boolean;
 
@@ -102,9 +92,10 @@ export class UserProfileResponseDto {
 
     @ApiProperty({ type: CurrencyResponseDto, nullable: true })
     @Expose()
+    @Type(() => CurrencyResponseDto)
     recentCurrency: CurrencyResponseDto | null;
 
-    @ApiProperty({ example: '2024-01-01T00:00:00.000Z' })
+    @ApiProperty({ example: '2025-09-13T19:44:29.010Z' })
     @Expose()
     createdAt: Date;
 
@@ -113,19 +104,18 @@ export class UserProfileResponseDto {
     @Type(() => ProfileStatsResponseDto)
     profileStats: ProfileStatsResponseDto;
 
-    @ApiProperty({ example: 'acct_1234567890', nullable: true, description: 'Stripe Connect account ID' })
+    @ApiProperty({ example: null, nullable: true })
     @Expose()
     stripeAccountId: string | null;
 
     @ApiProperty({ 
-        example: 'pending', 
-        enum: ['uninitiated', 'pending', 'active', 'restricted'],
-        description: 'Stripe Connect account status' 
+        example: 'uninitiated', 
+        enum: ['uninitiated', 'pending', 'active', 'restricted']
     })
     @Expose()
     stripeAccountStatus: 'uninitiated' | 'pending' | 'active' | 'restricted';
 
-    @ApiProperty({ example: 'FR', nullable: true, description: 'ISO 3166-1 alpha-2 country code for Stripe Connect account' })
+    @ApiProperty({ example: null, nullable: true })
     @Expose()
     stripeCountryCode: string | null;
 }

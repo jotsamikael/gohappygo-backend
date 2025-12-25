@@ -50,7 +50,7 @@ export class DemandImageResponseDto {
 }
 
 
-export class AirlineResponseDto {
+export class BookmarkAirlineResponseDto {
   @ApiProperty()
   @Expose()
   airlineId: number;
@@ -141,7 +141,7 @@ export class TravelResponseDto {
 
   @ApiProperty()
   @Expose()
-  feeForLateComer: string;
+  punctualityLevel: boolean;
 
   @ApiProperty()
   @Expose()
@@ -194,10 +194,10 @@ export class TravelResponseDto {
   @Type(() => UserResponseDto)
   user: UserResponseDto | null;
 
-  @ApiProperty({ type: AirlineResponseDto, nullable: true })
+  @ApiProperty({ type: BookmarkAirlineResponseDto, nullable: true })
   @Expose()
-  @Type(() => AirlineResponseDto)
-  airline: AirlineResponseDto | null;
+  @Type(() => BookmarkAirlineResponseDto)
+  airline: BookmarkAirlineResponseDto | null;
 }
 
 export class DemandResponseDto {
@@ -304,10 +304,10 @@ export class BookmarkItemResponseDto {
   @Type(() => DemandResponseDto)
   demand: DemandResponseDto | null;
 
-  @ApiProperty({ type: AirlineResponseDto, nullable: true })
+  @ApiProperty({ type: BookmarkAirlineResponseDto, nullable: true })
   @Expose()
-  @Type(() => AirlineResponseDto)
-  airline: AirlineResponseDto | null;
+  @Type(() => BookmarkAirlineResponseDto)
+  airline: BookmarkAirlineResponseDto | null;
 
   @ApiProperty({ type: DemandImageResponseDto, nullable: true })
   @Expose()

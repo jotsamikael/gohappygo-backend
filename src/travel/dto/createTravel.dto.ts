@@ -67,13 +67,19 @@ export class CreateTravelDto {
   isAllowExtraWeight: boolean;
 
   @ApiProperty({
-    description: 'Fee charged for late comers',
-    example: 10.00
+    description: 'Punctuality level (false = punctual, true = very punctual)',
+    example: false,
+    default: false,
+    required: false
   })
-  @IsNotEmpty({ message: 'feeForLateComer can not be empty' })
-  @Type(() => Number)
-  @IsNumber({}, { message: 'feeForLateComer must be a number' })
-  feeForLateComer: number;
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean({ message: 'punctualityLevel must be a boolean' })
+  punctualityLevel?: boolean;
 
   @ApiProperty({
     description: 'Fee charged for gloomy weather conditions',

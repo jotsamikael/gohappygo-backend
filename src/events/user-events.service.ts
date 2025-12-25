@@ -445,6 +445,29 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.REQUEST_COMPLETED, event);
   }
 
+  emitRequestCancelled(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {
+    // Determine requester name from available data
+    let requesterName = 'Unknown User';
+    if (requestData.requester) {
+      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName.charAt(0)}.`;
+    }
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      isForOwner: isForOwner,
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      userEmail: user.email,
+      timestamp: new Date(),
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+    };
+    this.eventEmitter.emit(UserEventType.REQUEST_CANCELLED, event);
+  }
+
   // KYC Events
   emitKycStarted(user: UserEntity, sessionId: string, redirectUrl: string, provider: string): void {
     const event: KycStartedEvent = {

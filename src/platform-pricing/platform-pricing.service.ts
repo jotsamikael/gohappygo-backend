@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { CreatePlatformPricingDto } from './dto/create-platform-pricing.dto';
@@ -19,6 +19,7 @@ export class PlatformPricingService {
     @InjectRepository(PlatformPricingEntity)
     private platformPricingRepository: Repository<PlatformPricingEntity>,
     private platformPricingMapper: PlatformPricingMapper,
+    @Inject(forwardRef(() => TravelService))
     private travelService: TravelService,
   ) { }
 

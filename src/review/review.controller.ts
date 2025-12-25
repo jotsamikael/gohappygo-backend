@@ -53,7 +53,7 @@ async editReview(
 @ApiBearerAuth('JWT-auth')
 @ApiOperation({ 
     summary: 'Get reviews with filters',
-    description: 'For regular users: Get reviews where they are reviewer or reviewee. Use asReviewer=true query parameter to only get reviews they posted. For admins/operators: Get all reviews with full filtering capabilities.'
+    description: 'For regular users: By default, get reviews where they are reviewer or reviewee (use asReviewer=true to only get reviews they posted). You can also filter by reviewerId or revieweeId to see all reviews for a specific user. For admins/operators: Get all reviews with full filtering capabilities.'
 })
 @ApiResponse({ status: 200, description: 'Reviews fetched successfully', type: PaginatedReviewsResponseDto })
 @ApiResponse({ status: 400, description: 'Bad request' })

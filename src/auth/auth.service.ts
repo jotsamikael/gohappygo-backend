@@ -47,6 +47,7 @@ import { CustomBadRequestException, CustomConflictException, CustomNotFoundExcep
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { StripeService } from 'src/stripe/stripe.service';
 import { Logger } from '@nestjs/common';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class AuthService {
@@ -85,6 +86,7 @@ export class AuthService {
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
     private stripeService: StripeService,
+    private commonService: CommonService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -137,6 +139,7 @@ export class AuthService {
       lastName: registerDto.lastName,
       phone: registerDto.phoneNumber,
       password: hashedPassword,
+      bio: 'I am a Happy traveler',
       profilePictureUrl: 'https://res.cloudinary.com/dgdy4huuc/image/upload/v1760627196/gohappygo/profile-preview_sjwdus.png',
       roleId: userRole?.id,
       isEmailVerified: false,
@@ -830,7 +833,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       .andWhere('DATE(d.travelDate) >= DATE(:today)', { today: now })
       .getMany();
     for (const d of futureDemands) {
-      await this.demandService.softDeleteDemandByUser(d.id);
+      await this.demandService.cancelDemand(d.id);
     }
 
     const futureTravels = await this.travelRepository
@@ -839,7 +842,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       .andWhere('t.departureDatetime >= :now', { now })
       .getMany();
     for (const t of futureTravels) {
-      await this.travelService.softDeleteTravel(t.id);
+      await this.travelService.cancelTravel(t.id);
     }
 
     // 3) Soft delete the user (sets deleted_at)
@@ -955,15 +958,15 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       !user.isVerified && 
       await this.hasVerificationFiles(userId);
 
+    // Format fullName - ensure it's always a string
+    const fullName = this.commonService.formatFullName(user.firstName || '', user.lastName || '') || user.firstName || '';
+
     return {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phone: user.phone,
-      profilePictureUrl: user.profilePictureUrl,
-      bio: user.bio,
-      role: user.role,
+      fullName,
+      profilePictureUrl: user.profilePictureUrl || null,
+      bio: user.bio || null,
       isPhoneVerified: user.isPhoneVerified,
       isVerified: user.isVerified,
       isAwaitingVerification,

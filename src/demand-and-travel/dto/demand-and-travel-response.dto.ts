@@ -185,9 +185,9 @@ export class DemandOrTravelResponseDto {
   @Expose()
   isAllowExtraWeight?: boolean;
 
-  @ApiProperty({ description: 'Fee for late comer (travels only)', required: false })
+  @ApiProperty({ description: 'Punctuality level (travels only, false = punctual, true = very punctual)', required: false })
   @Expose()
-  feeForLateComer?: number;
+  punctualityLevel?: boolean;
 
   @ApiProperty({ description: 'Fee for gloomy weather (travels only)', required: false })
   @Expose()

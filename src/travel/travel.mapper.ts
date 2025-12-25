@@ -1,5 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { TravelResponseDto } from "./dto/travel-response.dto";
+import { 
+    TravelResponseDto, 
+    TravelListAirportDto, 
+    TravelListUserDto, 
+    TravelListImageDto, 
+    TravelListAirlineDto 
+} from "./dto/travel-response.dto";
 import { TravelEntity } from "./travel.entity";
 import { plainToInstance } from "class-transformer";
 import { 
@@ -18,6 +24,151 @@ import { CommonService } from "src/common/service/common.service";
 @Injectable()
 export class TravelMapper {
     constructor(private commonService: CommonService) {}
+    
+    /**
+     * Transform TravelEntity to TravelResponseDto for list endpoints
+     */
+    toListResponseDto(travel: TravelEntity & { isEditable?: boolean }): TravelResponseDto {
+        // Transform departure airport
+        const departureAirport = travel.departureAirport ? plainToInstance(TravelListAirportDto, {
+            id: travel.departureAirport.id,
+            ident: travel.departureAirport.ident,
+            type: travel.departureAirport.type,
+            name: travel.departureAirport.name,
+            isoCountry: travel.departureAirport.isoCountry || '',
+            isoRegion: travel.departureAirport.isoRegion || '',
+            municipality: travel.departureAirport.municipality || '',
+            icaoCode: travel.departureAirport.icaoCode || '',
+            iataCode: travel.departureAirport.iataCode || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform arrival airport
+        const arrivalAirport = travel.arrivalAirport ? plainToInstance(TravelListAirportDto, {
+            id: travel.arrivalAirport.id,
+            ident: travel.arrivalAirport.ident,
+            type: travel.arrivalAirport.type,
+            name: travel.arrivalAirport.name,
+            isoCountry: travel.arrivalAirport.isoCountry || '',
+            isoRegion: travel.arrivalAirport.isoRegion || '',
+            municipality: travel.arrivalAirport.municipality || '',
+            icaoCode: travel.arrivalAirport.icaoCode || '',
+            iataCode: travel.arrivalAirport.iataCode || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform user
+        const user = travel.user ? plainToInstance(TravelListUserDto, {
+            id: travel.user.id,
+            createdAt: travel.user.createdAt,
+            updatedAt: travel.user.updatedAt,
+            isDeactivated: travel.user.isDeactivated,
+            email: travel.user.email,
+            firstName: travel.user.firstName,
+            lastName: travel.user.lastName,
+            bio: travel.user.bio || '',
+            fullName: null, // Not included in list response
+            profilePictureUrl: travel.user.profilePictureUrl || '',
+            isVerified: travel.user.isVerified,
+            rating: travel.user.rating ? travel.user.rating.toString() : null,
+            numberOfReviews: travel.user.numberOfReviews || 0,
+            stripeAccountStatus: travel.user.stripeAccountStatus || 'uninitiated',
+            stripeCountryCode: travel.user.stripeCountryCode || null,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform images
+        const images = travel.images ? travel.images.map(image => plainToInstance(TravelListImageDto, {
+            id: image.id,
+            originalName: image.originalName,
+            fileUrl: image.fileUrl,
+            size: image.size,
+            mimeType: image.mimeType,
+            purpose: image.purpose,
+            uploadedAt: image.uploadedAt,
+            travelId: image.travelId,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        })) : [];
+
+        // Transform airline
+        const airline = travel.airline ? plainToInstance(TravelListAirlineDto, {
+            id: travel.airline.id,
+            isDeactivated: travel.airline.isDeactivated,
+            icaoCode: travel.airline.icaoCode,
+            iataCode: travel.airline.iataCode || '',
+            name: travel.airline.name,
+            logoUrl: travel.airline.logoUrl || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Build the complete mapped data
+        const mappedData: any = {
+            id: travel.id,
+            createdAt: travel.createdAt,
+            updatedAt: travel.updatedAt,
+            deletedAt: travel.deletedAt || null,
+            createdBy: travel.createdBy,
+            updatedBy: travel.updatedBy || null,
+            isDeactivated: travel.isDeactivated,
+            userId: travel.userId,
+            description: travel.description,
+            flightNumber: travel.flightNumber,
+            isSharedWeight: travel.isSharedWeight,
+            isInstant: travel.isInstant,
+            isAllowExtraWeight: travel.isAllowExtraWeight,
+            punctualityLevel: travel.punctualityLevel ?? false,
+            feeForGloomy: travel.feeForGloomy ? travel.feeForGloomy.toString() : '0.00',
+            feeForLateComer: travel.feeForLateComer ? travel.feeForLateComer.toString() : '0.00',
+            airlineId: travel.airlineId,
+            departureAirportId: travel.departureAirportId,
+            arrivalAirportId: travel.arrivalAirportId,
+            departureDatetime: travel.departureDatetime,
+            totalWeightAllowance: travel.totalWeightAllowance ? travel.totalWeightAllowance.toString() : '0.00',
+            weightAvailable: travel.weightAvailable ? travel.weightAvailable.toString() : '0.00',
+            pricePerKg: travel.pricePerKg ? travel.pricePerKg.toString() : '0.00',
+            currencyId: travel.currencyId,
+            status: travel.status,
+            departureAirport: departureAirport,
+            arrivalAirport: arrivalAirport,
+            user: user,
+            images: images,
+            airline: airline,
+            isEditable: travel.isEditable ?? false,
+        };
+
+        // Transform the main DTO
+        const result = plainToInstance(TravelResponseDto, mappedData, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        });
+
+        // Manually assign nested objects to ensure they're included
+        (result as any).departureAirport = departureAirport;
+        (result as any).arrivalAirport = arrivalAirport;
+        (result as any).user = user;
+        (result as any).images = images;
+        (result as any).airline = airline;
+
+        return result;
+    }
+
+    /**
+     * Transform array of TravelEntity to TravelResponseDto array
+     */
+    toListResponseDtoArray(travels: (TravelEntity & { isEditable?: boolean })[]): TravelResponseDto[] {
+        return travels.map(travel => this.toListResponseDto(travel));
+    }
+
     toResponseDto(travel: TravelEntity): TravelResponseDto {
         return plainToInstance(TravelResponseDto, travel);
     }
@@ -146,7 +297,7 @@ export class TravelMapper {
             isSharedWeight: travel.isSharedWeight,
             isInstant: travel.isInstant,
             isAllowExtraWeight: travel.isAllowExtraWeight,
-            feeForLateComer: travel.feeForLateComer ? Number(travel.feeForLateComer) : 0,
+            punctualityLevel: travel.punctualityLevel ?? false,
             feeForGloomy: travel.feeForGloomy ? Number(travel.feeForGloomy) : 0,
             currency: currency,
             departureAirport: departureAirport,

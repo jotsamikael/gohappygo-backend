@@ -10,8 +10,6 @@ import { CreateRequestToDemandDto } from './dto/createRequestToDemand.dto';
 import { TravelService } from 'src/travel/travel.service';
 import { DemandService } from 'src/demand/demand.service';
 import { TransactionService } from 'src/transaction/transaction.service';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
-import { FilePurpose } from 'src/uploaded-file/uploaded-file-purpose.enum';
 import { FindRequestsQueryDto } from './dto/findRequestsQuery.dto';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -42,7 +40,6 @@ export class RequestService {
     private demandService: DemandService,
     private transactionService: TransactionService,
     private readonly userEventService: UserEventsService,
-    private readonly fileUploadService: FileUploadService,
     private readonly userService: UserService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly requestMapper: RequestMapper,

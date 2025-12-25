@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-export class AirlineResponseDto {
+export class DemandTravelAirlineResponseDto {
     @ApiProperty({ example: 1 })
     id: number;
 

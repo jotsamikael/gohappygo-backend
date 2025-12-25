@@ -101,13 +101,16 @@ export class DemandAndTravelMapper {
   }
 
   /**
-   * Map demand entity to DemandOrTravelResponseDto
+   * Map demand entity or DTO to DemandOrTravelResponseDto
    */
   toDemandResponse(
-    demand: DemandEntity, 
+    demand: DemandEntity | any, 
     airline: any = null, 
     isBookmarked: boolean = false
   ): DemandOrTravelResponseDto {
+    // Handle both DemandEntity and DemandResponseDto
+    // If demand is a DTO (has nested objects already mapped), extract from DTO
+    // Otherwise, treat as entity and map nested objects
     const mapped = {
       id: demand.id,
       type: 'demand' as const,
@@ -118,18 +121,28 @@ export class DemandAndTravelMapper {
       arrivalAirportId: demand.arrivalAirportId,
       userId: demand.userId,
       status: demand.status,
-      deliveryDate: demand.travelDate,
+      deliveryDate: demand.travelDate || demand.deliveryDate,
       createdAt: demand.createdAt,
       updatedAt: demand.updatedAt,
-      weight: demand.weight,
-      pricePerKg: demand.pricePerKg,
+      weight: typeof demand.weight === 'string' ? parseFloat(demand.weight) : demand.weight,
+      pricePerKg: typeof demand.pricePerKg === 'string' ? parseFloat(demand.pricePerKg) : demand.pricePerKg,
       isDeactivated: demand.isDeactivated,
       packageKind: demand.packageKind,
-      departureAirport: this.toAirportSimpleResponse(demand.departureAirport),
-      arrivalAirport: this.toAirportSimpleResponse(demand.arrivalAirport),
-      airline: this.toAirlineSimpleResponse(airline),
-      user: this.toUserNameResponse(demand.user),
-      images: this.toImageResponseArray(demand.images || []),
+      departureAirport: demand.departureAirport 
+        ? this.toAirportSimpleResponse(demand.departureAirport)
+        : null,
+      arrivalAirport: demand.arrivalAirport
+        ? this.toAirportSimpleResponse(demand.arrivalAirport)
+        : null,
+      airline: airline 
+        ? this.toAirlineSimpleResponse(airline)
+        : (demand.airline ? this.toAirlineSimpleResponse(demand.airline) : null),
+      user: demand.user
+        ? this.toUserNameResponse(demand.user)
+        : null,
+      images: demand.images
+        ? this.toImageResponseArray(demand.images)
+        : [],
       isBookmarked
     };
 
@@ -140,13 +153,16 @@ export class DemandAndTravelMapper {
   }
 
   /**
-   * Map travel entity to DemandOrTravelResponseDto
+   * Map travel entity or DTO to DemandOrTravelResponseDto
    */
   toTravelResponse(
-    travel: TravelEntity, 
+    travel: TravelEntity | any, 
     airline: any = null, 
     isBookmarked: boolean = false
   ): DemandOrTravelResponseDto {
+    // Handle both TravelEntity and TravelResponseDto
+    // If travel is a DTO (has nested objects already mapped), extract from DTO
+    // Otherwise, treat as entity and map nested objects
     const mapped = {
       id: travel.id,
       type: 'travel' as const,
@@ -160,19 +176,29 @@ export class DemandAndTravelMapper {
       deliveryDate: travel.departureDatetime,
       createdAt: travel.createdAt,
       updatedAt: travel.updatedAt,
-      pricePerKg: travel.pricePerKg,
-      weightAvailable: travel.weightAvailable,
+      pricePerKg: typeof travel.pricePerKg === 'string' ? parseFloat(travel.pricePerKg) : travel.pricePerKg,
+      weightAvailable: typeof travel.weightAvailable === 'string' ? parseFloat(travel.weightAvailable) : travel.weightAvailable,
       isDeactivated: travel.isDeactivated,
       isSharedWeight: travel.isSharedWeight,
       isInstant: travel.isInstant,
       isAllowExtraWeight: travel.isAllowExtraWeight,
-      feeForLateComer: travel.feeForLateComer,
-      feeForGloomy: travel.feeForGloomy,
-      departureAirport: this.toAirportSimpleResponse(travel.departureAirport),
-      arrivalAirport: this.toAirportSimpleResponse(travel.arrivalAirport),
-      airline: this.toAirlineSimpleResponse(airline || travel.airline),
-      user: this.toUserNameResponse(travel.user),
-      images: this.toImageResponseArray(travel.images || []),
+      punctualityLevel: travel.punctualityLevel ?? false,
+      feeForGloomy: typeof travel.feeForGloomy === 'string' ? parseFloat(travel.feeForGloomy) : travel.feeForGloomy,
+      departureAirport: travel.departureAirport 
+        ? this.toAirportSimpleResponse(travel.departureAirport)
+        : null,
+      arrivalAirport: travel.arrivalAirport
+        ? this.toAirportSimpleResponse(travel.arrivalAirport)
+        : null,
+      airline: airline 
+        ? this.toAirlineSimpleResponse(airline)
+        : (travel.airline ? this.toAirlineSimpleResponse(travel.airline) : null),
+      user: travel.user
+        ? this.toUserNameResponse(travel.user)
+        : null,
+      images: travel.images
+        ? this.toImageResponseArray(travel.images)
+        : [],
       isBookmarked
     };
 

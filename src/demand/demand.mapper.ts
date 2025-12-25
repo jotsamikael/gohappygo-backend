@@ -10,6 +10,13 @@ import {
     DemandDetailReviewerDto,
     DemandDetailCurrencyDto
 } from "./dto/demand-detail-response.dto";
+import {
+    DemandResponseDto,
+    DemandListAirportDto,
+    DemandListUserDto,
+    DemandListImageDto,
+    DemandListAirlineDto
+} from "./dto/demand-response.dto";
 import { ReviewEntity } from "src/review/review.entity";
 import { Injectable } from "@nestjs/common";
 import { CommonService } from "src/common/service/common.service";
@@ -17,6 +24,145 @@ import { CommonService } from "src/common/service/common.service";
 @Injectable()
 export class DemandMapper {
     constructor(private commonService: CommonService) {}
+    
+    /**
+     * Transform DemandEntity to DemandResponseDto for list endpoints
+     */
+    toListResponseDto(demand: DemandEntity): DemandResponseDto {
+        // Transform departure airport
+        const departureAirport = demand.departureAirport ? plainToInstance(DemandListAirportDto, {
+            id: demand.departureAirport.id,
+            ident: demand.departureAirport.ident,
+            type: demand.departureAirport.type,
+            name: demand.departureAirport.name,
+            isoCountry: demand.departureAirport.isoCountry || '',
+            isoRegion: demand.departureAirport.isoRegion || '',
+            municipality: demand.departureAirport.municipality || '',
+            icaoCode: demand.departureAirport.icaoCode || '',
+            iataCode: demand.departureAirport.iataCode || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform arrival airport
+        const arrivalAirport = demand.arrivalAirport ? plainToInstance(DemandListAirportDto, {
+            id: demand.arrivalAirport.id,
+            ident: demand.arrivalAirport.ident,
+            type: demand.arrivalAirport.type,
+            name: demand.arrivalAirport.name,
+            isoCountry: demand.arrivalAirport.isoCountry || '',
+            isoRegion: demand.arrivalAirport.isoRegion || '',
+            municipality: demand.arrivalAirport.municipality || '',
+            icaoCode: demand.arrivalAirport.icaoCode || '',
+            iataCode: demand.arrivalAirport.iataCode || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform user
+        const user = demand.user ? plainToInstance(DemandListUserDto, {
+            id: demand.user.id,
+            createdAt: demand.user.createdAt,
+            updatedAt: demand.user.updatedAt,
+            isDeactivated: demand.user.isDeactivated,
+            email: demand.user.email,
+            firstName: demand.user.firstName,
+            lastName: demand.user.lastName,
+            bio: demand.user.bio || '',
+            fullName: null, // Not included in list response
+            profilePictureUrl: demand.user.profilePictureUrl || '',
+            isVerified: demand.user.isVerified,
+            rating: demand.user.rating ? demand.user.rating.toString() : null,
+            numberOfReviews: demand.user.numberOfReviews || 0,
+            stripeAccountStatus: demand.user.stripeAccountStatus || 'uninitiated',
+            stripeCountryCode: demand.user.stripeCountryCode || null,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Transform images
+        const images = demand.images ? demand.images.map(image => plainToInstance(DemandListImageDto, {
+            id: image.id,
+            originalName: image.originalName,
+            fileUrl: image.fileUrl,
+            size: image.size,
+            publicId: image.publicId,
+            mimeType: image.mimeType,
+            purpose: image.purpose,
+            uploadedAt: image.uploadedAt,
+            travelId: image.travelId || null,
+            demandId: image.demandId,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        })) : [];
+
+        // Transform airline
+        const airline = demand.airline ? plainToInstance(DemandListAirlineDto, {
+            id: demand.airline.id,
+            isDeactivated: demand.airline.isDeactivated,
+            icaoCode: demand.airline.icaoCode,
+            iataCode: demand.airline.iataCode || '',
+            name: demand.airline.name,
+            logoUrl: demand.airline.logoUrl || '',
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
+        // Build the complete mapped data
+        const mappedData: any = {
+            id: demand.id,
+            createdAt: demand.createdAt,
+            updatedAt: demand.updatedAt,
+            deletedAt: demand.deletedAt || null,
+            createdBy: demand.createdBy,
+            updatedBy: demand.updatedBy || null,
+            isDeactivated: demand.isDeactivated,
+            userId: demand.userId,
+            airlineId: demand.airlineId,
+            description: demand.description,
+            flightNumber: demand.flightNumber,
+            departureAirportId: demand.departureAirportId,
+            arrivalAirportId: demand.arrivalAirportId,
+            travelDate: demand.travelDate,
+            weight: demand.weight ? demand.weight.toString() : '0.00',
+            pricePerKg: demand.pricePerKg ? demand.pricePerKg.toString() : '0.00',
+            currencyId: demand.currencyId,
+            status: demand.status,
+            packageKind: demand.packageKind,
+            departureAirport: departureAirport,
+            arrivalAirport: arrivalAirport,
+            user: user,
+            images: images,
+            airline: airline,
+        };
+
+        // Transform the main DTO
+        const result = plainToInstance(DemandResponseDto, mappedData, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        });
+
+        // Manually assign nested objects to ensure they're included
+        (result as any).departureAirport = departureAirport;
+        (result as any).arrivalAirport = arrivalAirport;
+        (result as any).user = user;
+        (result as any).images = images;
+        (result as any).airline = airline;
+
+        return result;
+    }
+
+    /**
+     * Transform array of DemandEntity to DemandResponseDto array
+     */
+    toListResponseDtoArray(demands: DemandEntity[]): DemandResponseDto[] {
+        return demands.map(demand => this.toListResponseDto(demand));
+    }
   
     toDemandDetailResponse(demand: DemandEntity, reviews: ReviewEntity[]): DemandDetailResponseDto {
         // Transform airports

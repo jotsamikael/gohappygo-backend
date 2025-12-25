@@ -115,7 +115,7 @@ export class ReviewMapper {
             isSharedWeight: travel.isSharedWeight,
             isInstant: travel.isInstant,
             isAllowExtraWeight: travel.isAllowExtraWeight,
-            feeForLateComer: travel.feeForLateComer ? travel.feeForLateComer.toString() : '0.00',
+            punctualityLevel: travel.punctualityLevel ?? false,
             feeForGloomy: travel.feeForGloomy ? travel.feeForGloomy.toString() : '0.00',
             airlineId: travel.airlineId,
             departureAirportId: travel.departureAirportId,

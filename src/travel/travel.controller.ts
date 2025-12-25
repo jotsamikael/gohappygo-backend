@@ -10,6 +10,7 @@ import { CreateTravelDto } from './dto/createTravel.dto';
 import { UpdateTravelDto } from './dto/updateTravel.dto';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { CreateTravelResponseDto, TravelResponseDto } from './dto/travel-response.dto';
+import { PaginatedTravelResponseDto } from './dto/paginated-travel-response.dto';
 import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { TravelEntity } from './travel.entity';
 import { TravelDetailResponseDto } from './dto/travel-detail.response.dto';
@@ -74,7 +75,7 @@ export class TravelController {
          Supports pagination and sorting.
             `
          })
-        @ApiResponse({ status: 200, description: 'Travels fetched successfully',type: TravelResponseDto })
+        @ApiResponse({ status: 200, description: 'Travels fetched successfully', type: PaginatedTravelResponseDto })
         @ApiResponse({ status: 400, description: 'Bad request' })
         @ApiResponse({ status: 401, description: 'Unauthorized' })
         @ApiResponse({ status: 403, description: 'Forbidden - Admin access required for certain operations' })
@@ -136,11 +137,11 @@ export class TravelController {
         @UseGuards(JwtAuthGuard)
         @ApiBearerAuth('JWT-auth')
         @ApiOperation({ 
-            summary: 'Delete (cancel) a travel',
-            description: 'Soft delete a travel by setting its status to cancelled. Only the travel owner can delete their travel. Travel cannot be deleted if it has accepted, completed, delivered, or negotiating requests, or paid/refunded transactions.'
+            summary: 'Cancel a travel',
+            description: 'Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. When a travel is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.'
         })
-        @ApiResponse({ status: 200, description: 'Travel deleted (cancelled) successfully', type: TravelResponseDto })
-        @ApiResponse({ status: 400, description: 'Bad request - travel cannot be deleted due to active requests or transactions' })
+        @ApiResponse({ status: 200, description: 'Travel cancelled successfully', type: TravelResponseDto })
+        @ApiResponse({ status: 400, description: 'Bad request - travel is already cancelled' })
         @ApiResponse({ status: 401, description: 'Unauthorized' })
         @ApiResponse({ status: 403, description: 'Forbidden - not the travel owner' })
         @ApiResponse({ status: 404, description: 'Travel not found' })
@@ -148,6 +149,6 @@ export class TravelController {
             @Param('id', ParseIntPipe) id: number,
             @CurrentUser() user: any
         ): Promise<TravelEntity> {
-            return await this.travelService.softDeleteTravel(id, user);
+            return await this.travelService.cancelTravel(id, user);
         }
     }

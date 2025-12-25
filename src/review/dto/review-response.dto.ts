@@ -93,9 +93,9 @@ export class ReviewTravelDto {
   @Expose()
   isAllowExtraWeight: boolean;
 
-  @ApiProperty({ example: '20.00' })
+  @ApiProperty({ example: false, description: 'Punctuality level (false = punctual, true = very punctual)' })
   @Expose()
-  feeForLateComer: string;
+  punctualityLevel: boolean;
 
   @ApiProperty({ example: '0.00' })
   @Expose()

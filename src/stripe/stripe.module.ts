@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { StripeController } from './stripe.controller';
 import { ConfigModule } from '@nestjs/config';
@@ -14,7 +14,7 @@ import { TransactionEntity } from 'src/transaction/transaction.entity';
     ConfigModule,
     UserModule,
     CurrencyModule,
-    PlatformPricingModule,
+    forwardRef(() => PlatformPricingModule),
     TypeOrmModule.forFeature([StripeWebhookEventEntity, TransactionEntity]),
   ],
   controllers: [StripeController],

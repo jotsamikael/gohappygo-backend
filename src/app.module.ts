@@ -11,8 +11,6 @@ import { AuthModule } from './auth/auth.module';
 import { UserEntity } from './user/user.entity';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
-import { FileUploadModule } from './file-upload/file-upload.module';
-import { File } from './file-upload/entities/file.entity';
 import { EventsModule } from './events/events.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { DemandModule } from './demand/demand.module';
@@ -74,6 +72,7 @@ import { PlatformPricingModule } from './platform-pricing/platform-pricing.modul
 import { PlatformPricingEntity } from './platform-pricing/entities/platform-pricing.entity';
 import { StripeModule } from './stripe/stripe.module';
 import { StripeWebhookEventEntity } from './stripe/entities/stripe-webhook-event.entity';
+import { FileUploadModule } from './file-upload/file-upload.module';
 
 @Module({
   imports: [

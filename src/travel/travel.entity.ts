@@ -34,11 +34,14 @@ export class TravelEntity extends BaseEntity {
   @Column()
   isAllowExtraWeight: boolean;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  feeForLateComer: number;
+  @Column({ type: 'boolean', default: false })
+  punctualityLevel: boolean; // false = punctual, true = very punctual
 
   @Column('decimal', { precision: 10, scale: 2 })
   feeForGloomy: number;
+  
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  feeForLateComer : number;
 
   @Column({ nullable: true })
   airlineId: number;

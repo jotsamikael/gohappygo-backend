@@ -127,6 +127,15 @@ export class AllEventsListener {
     }
   }
 
+  @OnEvent(UserEventType.REQUEST_CANCELLED)
+  async handleRequestCancelled(event: RequestEvent): Promise<void> {
+    this.logger.log(`Request cancelled - ${event.requestType} - Request ID: ${event.requestId}`);
+    // Only send email to requester (isForOwner=false means this is for the requester)
+    if (!event.isForOwner) {
+      await this.emailService.sendRequestCancelledConfirmation(event.userEmail, event.userFirstName, event);
+    }
+  }
+
   // Transaction Events
   @OnEvent(UserEventType.TRANSACTION_CREATED)
   async handleTransactionCreated(event: TransactionEvent): Promise<void> {

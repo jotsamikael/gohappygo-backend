@@ -7,7 +7,8 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UserRole } from 'src/user/user.entity';
 import { FindDemandsQueryDto } from './dto/FindDemandsQuery.dto';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
-import { CreateDemandResponseDto, DemandResponseDto, PaginatedDemandsResponseDto } from './dto/demand-response.dto';
+import { CreateDemandResponseDto, DemandResponseDto } from './dto/demand-response.dto';
+import { PaginatedDemandResponseDto } from './dto/paginated-demand-response.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { DemandDetailResponseDto } from './dto/demand-detail-response.dto';
 import { DemandEntity } from './demand.entity';
@@ -75,7 +76,7 @@ export class DemandController {
          Supports pagination and sorting.
          `
      })
-     @ApiResponse({ status: 200, description: 'Demands fetched successfully', type: PaginatedDemandsResponseDto })
+     @ApiResponse({ status: 200, description: 'Demands fetched successfully', type: PaginatedDemandResponseDto })
      @ApiResponse({ status: 400, description: 'Bad request' })
      @ApiResponse({ status: 401, description: 'Unauthorized' })
      @ApiResponse({ status: 403, description: 'Forbidden - Admin access required for certain operations' })
@@ -136,17 +137,17 @@ export class DemandController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({ 
-      summary: 'Delete (cancel) a demand',
-      description: 'Soft delete a demand by setting its status to cancelled. Only the demand owner can delete their demand. Demand cannot be deleted if it has accepted, completed, delivered, or negotiating requests, or paid/refunded transactions.'
+      summary: 'Cancel a demand',
+      description: 'Cancel a demand by setting its status to cancelled. Only the demand owner can cancel their demand. When a demand is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.'
     })
     @ApiResponse({ 
       status: 200, 
-      description: 'Demand deleted (cancelled) successfully',
+      description: 'Demand cancelled successfully',
       type: DemandResponseDto
     })
     @ApiResponse({ 
       status: 400, 
-      description: 'Bad request - demand cannot be deleted due to active requests or transactions' 
+      description: 'Bad request - demand is already cancelled' 
     })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden - not the demand owner' })
@@ -155,7 +156,7 @@ export class DemandController {
       @Param('id', ParseIntPipe) id: number,
       @CurrentUser() user: any
     ): Promise<DemandEntity> {
-      return await this.demandService.softDeleteDemandByUser(id, user);
+      return await this.demandService.cancelDemand(id, user);
     }
 
    

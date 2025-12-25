@@ -21,7 +21,7 @@ export class UserResponseDto {
   profilePictureUrl?: string | null;
 }
 
-export class AirlineResponseDto {
+export class RequestAirlineResponseDto {
   @ApiProperty({ description: 'Airline ID', example: 1 })
   airlineId: number;
 
