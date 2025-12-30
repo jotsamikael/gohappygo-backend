@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional, IsNumber, IsEnum } from "class-validator";
+import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional, IsNumber, IsEnum, IsDateString } from "class-validator";
 import { Type } from "class-transformer";
 import { PackageKind } from "../package-kind.enum";
 
@@ -48,12 +48,11 @@ export class CreateDemandDto{
     arrivalAirportId: number;
   
     @ApiProperty({
-      description: 'Travel date',
-      example: '2025-01-01',
-      type: 'string'
-    })
-    @IsNotEmpty({ message: 'Travel date can not be empty' })
-    @IsString({ message: 'Travel date must be a string' })
+       description: 'travelDate datetime',
+       example: '2025-01-01T10:00:00Z'
+     })
+     @IsNotEmpty({ message: 'travel Date can not be empty' })
+     @IsDateString({}, { message: 'travel Date must be a valid date string' })
     travelDate: string;
   
     @ApiProperty({

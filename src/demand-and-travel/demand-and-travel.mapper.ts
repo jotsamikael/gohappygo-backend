@@ -5,6 +5,7 @@ import {
   DemandOrTravelResponseDto, 
   AirportSimpleResponseDto, 
   AirlineSimpleResponseDto,
+  CurrencySimpleResponseDto,
   UserNameResponseDto,
   ImageResponseDto
 } from "./dto/demand-and-travel-response.dto";
@@ -60,6 +61,38 @@ export class DemandAndTravelMapper {
   }
 
   /**
+   * Map currency entity to CurrencySimpleResponseDto
+   */
+  toCurrencySimpleResponse(currency: any): CurrencySimpleResponseDto | null {
+    console.log('🔍 Debug - toCurrencySimpleResponse called with:', {
+      currency,
+      isNull: currency === null,
+      isUndefined: currency === undefined,
+      type: typeof currency,
+      hasId: currency?.id,
+      hasCode: currency?.code,
+      hasSymbol: currency?.symbol
+    });
+    
+    if (!currency) {
+      console.log('🔍 Debug - Currency is null/undefined, returning null');
+      return null;
+    }
+    
+    const mapped = plainToInstance(CurrencySimpleResponseDto, {
+      id: currency.id,
+      code: currency.code,
+      symbol: currency.symbol
+    }, {
+      excludeExtraneousValues: true,
+      enableImplicitConversion: true,
+    });
+    
+    console.log('🔍 Debug - Currency mapped result:', mapped);
+    return mapped;
+  }
+
+  /**
    * Map user entity to UserNameResponseDto
    */
   toUserNameResponse(user: any): UserNameResponseDto | null {
@@ -106,7 +139,8 @@ export class DemandAndTravelMapper {
   toDemandResponse(
     demand: DemandEntity | any, 
     airline: any = null, 
-    isBookmarked: boolean = false
+    isBookmarked: boolean = false,
+    currency: any = null
   ): DemandOrTravelResponseDto {
     // Handle both DemandEntity and DemandResponseDto
     // If demand is a DTO (has nested objects already mapped), extract from DTO
@@ -137,6 +171,22 @@ export class DemandAndTravelMapper {
       airline: airline 
         ? this.toAirlineSimpleResponse(airline)
         : (demand.airline ? this.toAirlineSimpleResponse(demand.airline) : null),
+      currency: (() => {
+        // Use currency from parameter (fetched separately), or from demand entity, or null
+        const currencyToMap = currency || demand.currency || null;
+        console.log('🔍 Debug - Mapping demand currency:', {
+          demandId: demand.id,
+          demandCurrency: demand.currency,
+          demandCurrencyId: demand.currencyId,
+          currencyFromParam: currency,
+          currencyToMap: currencyToMap,
+          hasCurrencyProperty: 'currency' in demand,
+          currencyType: typeof currencyToMap
+        });
+        return currencyToMap
+          ? this.toCurrencySimpleResponse(currencyToMap)
+          : null;
+      })(),
       user: demand.user
         ? this.toUserNameResponse(demand.user)
         : null,
@@ -158,7 +208,8 @@ export class DemandAndTravelMapper {
   toTravelResponse(
     travel: TravelEntity | any, 
     airline: any = null, 
-    isBookmarked: boolean = false
+    isBookmarked: boolean = false,
+    currency: any = null
   ): DemandOrTravelResponseDto {
     // Handle both TravelEntity and TravelResponseDto
     // If travel is a DTO (has nested objects already mapped), extract from DTO
@@ -193,6 +244,22 @@ export class DemandAndTravelMapper {
       airline: airline 
         ? this.toAirlineSimpleResponse(airline)
         : (travel.airline ? this.toAirlineSimpleResponse(travel.airline) : null),
+      currency: (() => {
+        // Use currency from parameter (fetched separately), or from travel entity, or null
+        const currencyToMap = currency || travel.currency || null;
+        console.log('🔍 Debug - Mapping travel currency:', {
+          travelId: travel.id,
+          travelCurrency: travel.currency,
+          travelCurrencyId: travel.currencyId,
+          currencyFromParam: currency,
+          currencyToMap: currencyToMap,
+          hasCurrencyProperty: 'currency' in travel,
+          currencyType: typeof currencyToMap
+        });
+        return currencyToMap
+          ? this.toCurrencySimpleResponse(currencyToMap)
+          : null;
+      })(),
       user: travel.user
         ? this.toUserNameResponse(travel.user)
         : null,

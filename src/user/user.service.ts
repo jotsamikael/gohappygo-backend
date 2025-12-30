@@ -333,18 +333,6 @@ private async checkIfUserIsAwaitingVerification(user: UserEntity): Promise<boole
       currentUser.email = updateUserDto.email;
     }
 
-    if (
-      updateUserDto.phoneNumber &&
-      updateUserDto.phoneNumber !== currentUser.phone
-    ) {
-      const phoneExists = await this.userRepository.findOne({
-        where: { phone: updateUserDto.phoneNumber },
-      });
-      if (phoneExists) {
-        throw new ConflictException('Phone number already in use');
-      }
-      currentUser.phone = updateUserDto.phoneNumber;
-    }
 
     if (updateUserDto.firstName) {
       currentUser.firstName = updateUserDto.firstName;
@@ -503,22 +491,7 @@ async updateUserProfile(
     currentUser.bio = updateProfileDto.bio;
   }
 
-  // Update phone if provided
-  if (updateProfileDto.phone) {
-    // Check if phone number is already in use by another user
-    const existingUserWithPhone = await this.userRepository.findOne({
-      where: { phone: updateProfileDto.phone }
-    });
-
-    if (existingUserWithPhone && existingUserWithPhone.id !== currentUser.id) {
-      throw new BadRequestException('Phone number is already in use by another user');
-    }
-
-    currentUser.phone = updateProfileDto.phone;
-    // Reset phone verification status when phone is changed
-    currentUser.isPhoneVerified = false;
-  }
-
+ 
   // Handle profile picture upload
   if (profilePicture) {
     try {

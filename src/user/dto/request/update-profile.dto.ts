@@ -45,15 +45,4 @@ export class UpdateProfileDto {
   @MaxLength(500, { message: 'bio cannot exceed 500 characters' })
   bio?: string;
 
-  @ApiProperty({
-    description: 'Phone number in international format',
-    example: '+237697942923',
-    required: false
-  })
-  @IsOptional()
-  @IsString({ message: 'phone must be a string' })
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'phone must be in international format starting with + followed by country code and number (e.g., +237697942923)'
-  })
-  phone?: string;
 }

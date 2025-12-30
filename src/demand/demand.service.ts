@@ -172,12 +172,37 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
       .leftJoinAndSelect('demand.departureAirport', 'departureAirport')
       .leftJoinAndSelect('demand.arrivalAirport', 'arrivalAirport')
       .leftJoinAndSelect('demand.airline', 'airline')
+      .leftJoinAndSelect('demand.currency', 'currency')
       .leftJoinAndSelect('demand.images', 'images');
 
   const items = await queryBuilder.getMany();
   
+  // Debug currency in entities before mapping
+  if (items.length > 0) {
+    const firstItem = items[0];
+    console.log('🔍 Debug - Demand entity before mapping:', {
+      demandId: firstItem.id,
+      hasCurrency: !!firstItem.currency,
+      currency: firstItem.currency,
+      currencyId: firstItem.currencyId,
+      currencyKeys: firstItem.currency ? Object.keys(firstItem.currency) : null
+    });
+  }
+  
   // Transform entities to DTOs using mapper
   const mappedItems = this.demandMapper.toListResponseDtoArray(items);
+  
+  // Debug currency in DTOs after mapping
+  if (mappedItems.length > 0) {
+    const firstMapped = mappedItems[0];
+    console.log('🔍 Debug - Demand DTO after mapping:', {
+      demandId: firstMapped.id,
+      hasCurrency: 'currency' in firstMapped,
+      currency: (firstMapped as any).currency,
+      currencyId: firstMapped.currencyId,
+      allKeys: Object.keys(firstMapped)
+    });
+  }
   
   const totalPages = Math.ceil(totalItems / limit);
 

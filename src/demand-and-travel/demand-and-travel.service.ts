@@ -3,6 +3,7 @@ import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.inter
 import { DemandService } from 'src/demand/demand.service';
 import { TravelService } from 'src/travel/travel.service';
 import { AirlineService } from 'src/airline/airline.service';
+import { CurrencyService } from 'src/currency/currency.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { FindDemandsAndTravelsQueryDto } from './dto/FindDemandsAndTravelsQuery.dto';
@@ -23,6 +24,7 @@ export class DemandAndTravelService {
         private demandService: DemandService, 
         private travelService: TravelService,
         private airlineService: AirlineService,
+        private currencyService: CurrencyService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectRepository(BookmarkEntity) private readonly bookmarkRepository: Repository<BookmarkEntity>,
         private readonly jwtService: JwtService,
@@ -132,6 +134,30 @@ export class DemandAndTravelService {
 
         console.log('🔍 Debug - Total demands found:', demandsResponse.items.length);
         console.log('🔍 Debug - Total travels found:', travelsResponse.items.length);
+        
+        // Debug currency data in demands
+        if (demandsResponse.items.length > 0) {
+            const firstDemand = demandsResponse.items[0] as any;
+            console.log('🔍 Debug - First demand currency check:', {
+                demandId: firstDemand.id,
+                hasCurrency: !!firstDemand.currency,
+                currency: firstDemand.currency,
+                currencyId: firstDemand.currencyId,
+                allKeys: Object.keys(firstDemand)
+            });
+        }
+        
+        // Debug currency data in travels
+        if (travelsResponse.items.length > 0) {
+            const firstTravel = travelsResponse.items[0] as any;
+            console.log('🔍 Debug - First travel currency check:', {
+                travelId: firstTravel.id,
+                hasCurrency: !!firstTravel.currency,
+                currency: firstTravel.currency,
+                currencyId: firstTravel.currencyId,
+                allKeys: Object.keys(firstTravel)
+            });
+        }
 
         // Extract IDs for bookmark lookup
         const travelIds = travelsResponse.items.map(t => t.id).filter(Boolean);
@@ -156,8 +182,18 @@ export class DemandAndTravelService {
             });
         }
 
-        // Fetch bookmarks in parallel with airline prefetch (if needed)
-        // This optimizes by running bookmark query concurrently with airline operations
+        // Extract currency IDs for prefetching
+        const currencyIds = new Set<number>();
+        demandsResponse.items.forEach(d => {
+            if (d.currencyId) currencyIds.add(d.currencyId);
+        });
+        travelsResponse.items.forEach(t => {
+            if (t.currencyId) currencyIds.add(t.currencyId);
+        });
+        console.log('🔍 Debug - Unique currency IDs to fetch:', Array.from(currencyIds));
+
+        // Fetch bookmarks in parallel with airline and currency prefetch (if needed)
+        // This optimizes by running bookmark query concurrently with airline/currency operations
         const bookmarkPromise = currentUserId && (travelIds.length > 0 || demandIds.length > 0)
             ? this.fetchUserBookmarksBatch(currentUserId, travelIds, demandIds)
             : Promise.resolve({ travelIds: new Set<number>(), demandIds: new Set<number>() });
@@ -180,23 +216,81 @@ export class DemandAndTravelService {
                 return Promise.resolve(airlineCache);
             })();
 
-        // Wait for both bookmark and airline operations to complete in parallel
-        const [{ travelIds: travelBookmarkedIds, demandIds: demandBookmarkedIds }, finalAirlineCache] = await Promise.all([
+        // Build currency cache promise
+        const currencyCachePromise = currencyIds.size > 0
+            ? this.prefetchCurrencies(Array.from(currencyIds))
+            : Promise.resolve(new Map<number, any>());
+
+        // Wait for bookmark, airline, and currency operations to complete in parallel
+        const [{ travelIds: travelBookmarkedIds, demandIds: demandBookmarkedIds }, finalAirlineCache, currencyCache] = await Promise.all([
             bookmarkPromise,
-            airlineCachePromise
+            airlineCachePromise,
+            currencyCachePromise
         ]);
+        
+        console.log('🔍 Debug - Currency cache size:', currencyCache.size);
 
         // Transform demands and travels with bookmark status in a single pass
         const demandsWithBookmark = demandsResponse.items.map((demand) => {
-            const airline = finalAirlineCache.get(demand.flightNumber) || demand.airline || null;
+            const airline = finalAirlineCache.get(demand.flightNumber) || (demand as any).airline || null;
+            const currency = demand.currencyId ? currencyCache.get(demand.currencyId) || null : null;
             const isBookmarked = currentUserId ? demandBookmarkedIds.has(demand.id) : false;
-            return this.demandAndTravelMapper.toDemandResponse(demand, airline, isBookmarked);
+            
+            // Debug currency before mapping
+            if (demand.id === demandsResponse.items[0]?.id) {
+                const demandAny = demand as any;
+                console.log('🔍 Debug - Demand before mapping:', {
+                    demandId: demand.id,
+                    currency: demandAny.currency,
+                    currencyId: demand.currencyId,
+                    currencyFromCache: currency,
+                    hasCurrencyProperty: 'currency' in demandAny
+                });
+            }
+            
+            const mapped = this.demandAndTravelMapper.toDemandResponse(demand, airline, isBookmarked, currency);
+            
+            // Debug currency after mapping
+            if (demand.id === demandsResponse.items[0]?.id) {
+                console.log('🔍 Debug - Demand after mapping:', {
+                    demandId: mapped.id,
+                    currency: mapped.currency,
+                    hasCurrencyProperty: 'currency' in mapped
+                });
+            }
+            
+            return mapped;
         });
 
         const travelsWithBookmark = travelsResponse.items.map((travel) => {
-            const airline = finalAirlineCache.get(travel.flightNumber) || travel.airline || null;
+            const airline = finalAirlineCache.get(travel.flightNumber) || (travel as any).airline || null;
+            const currency = travel.currencyId ? currencyCache.get(travel.currencyId) || null : null;
             const isBookmarked = currentUserId ? travelBookmarkedIds.has(travel.id) : false;
-            return this.demandAndTravelMapper.toTravelResponse(travel, airline, isBookmarked);
+            
+            // Debug currency before mapping
+            if (travel.id === travelsResponse.items[0]?.id) {
+                const travelAny = travel as any;
+                console.log('🔍 Debug - Travel before mapping:', {
+                    travelId: travel.id,
+                    currency: travelAny.currency,
+                    currencyId: travel.currencyId,
+                    currencyFromCache: currency,
+                    hasCurrencyProperty: 'currency' in travelAny
+                });
+            }
+            
+            const mapped = this.demandAndTravelMapper.toTravelResponse(travel, airline, isBookmarked, currency);
+            
+            // Debug currency after mapping
+            if (travel.id === travelsResponse.items[0]?.id) {
+                console.log('🔍 Debug - Travel after mapping:', {
+                    travelId: mapped.id,
+                    currency: mapped.currency,
+                    hasCurrencyProperty: 'currency' in mapped
+                });
+            }
+            
+            return mapped;
         });
 
         // Combine all items
@@ -566,6 +660,58 @@ export class DemandAndTravelService {
         
         console.log(`✅ Pre-fetched ${airlineCache.size} airlines for ${flightNumbers.length} flight numbers`);
         return airlineCache;
+    }
+
+    /**
+     * Pre-fetch currencies by IDs to avoid multiple database queries
+     */
+    private async prefetchCurrencies(currencyIds: number[]): Promise<Map<number, any>> {
+        const currencyCache = new Map<number, any>();
+        
+        if (currencyIds.length === 0) {
+            return currencyCache;
+        }
+        
+        console.log(`🔍 Pre-fetching ${currencyIds.length} currencies`);
+        
+        // Process in batches to avoid overwhelming the database
+        const batchSize = 10;
+        const batches: number[][] = [];
+        
+        for (let i = 0; i < currencyIds.length; i += batchSize) {
+            batches.push(currencyIds.slice(i, i + batchSize));
+        }
+        
+        // Process batches sequentially with a delay between batches
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            
+            const currencyPromises = batch.map(currencyId =>
+                this.currencyService.findOne(currencyId)
+                    .then(currency => ({ currencyId, currency }))
+                    .catch(error => {
+                        console.warn(`⚠️  Error fetching currency ${currencyId}:`, error.message);
+                        return { currencyId, currency: null };
+                    })
+            );
+            
+            const batchResults = await Promise.all(currencyPromises);
+            
+            // Add to cache
+            for (const { currencyId, currency } of batchResults) {
+                if (currency) {
+                    currencyCache.set(currencyId, currency);
+                }
+            }
+            
+            // Delay between batches
+            if (batchIndex < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        console.log(`✅ Pre-fetched ${currencyCache.size} currencies`);
+        return currencyCache;
     }
 
     /**

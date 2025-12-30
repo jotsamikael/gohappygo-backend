@@ -30,6 +30,7 @@ export class StripeService {
     if (!secretKey) {
       this.logger.warn('STRIPE_SECRET_KEY not found in environment variables');
     }
+    //  apiVersion: '2025-02-24.acacia',
     this.stripe = new Stripe(secretKey || '', {
       apiVersion: '2025-12-15.clover',
     });

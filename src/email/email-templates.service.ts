@@ -1593,4 +1593,160 @@ export class EmailTemplatesService {
       </html>
     `;
   }
+
+  /**
+   * Get email template for alert matched notification
+   */
+  getAlertMatchedEmailTemplate(data: {
+    userName: string;
+    alertType: 'Demand' | 'Travel';
+    departureAirport: string;
+    arrivalAirport: string;
+    flightNumber: string;
+    travelDate: string;
+    demandId?: number;
+    travelId?: number;
+  }): string {
+    const entityId = data.demandId || data.travelId;
+    const entityType = data.demandId ? 'demand' : 'travel';
+    const viewUrl = `${this.baseUrl}/${entityType}/${entityId}`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Alert Matched - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-details { background: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #FF9800; }
+          .action-button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          .highlight { background: #e8f5e9; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔔 Alert Matched!</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${data.userName},</h2>
+            <p>Great news! A new <strong>${data.alertType}</strong> has been published that matches your alert criteria.</p>
+            
+            <div class="alert-details">
+              <h3>Matched ${data.alertType} Details:</h3>
+              <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
+              <p><strong>Flight Number:</strong> ${data.flightNumber}</p>
+              <p><strong>Travel Date:</strong> ${data.travelDate}</p>
+            </div>
+
+            <div class="highlight">
+              <p><strong>✨ This ${data.alertType.toLowerCase()} matches your alert preferences!</strong></p>
+              <p>Don't miss out - check it out now and see if it meets your needs.</p>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${viewUrl}" class="action-button">View ${data.alertType}</a>
+            </div>
+
+            <p style="margin-top: 20px; color: #666; font-size: 14px;">
+              If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
+            </p>
+          </div>
+          <div class="footer">
+            <p>This is an automated notification from GoHappyGo.</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Get email template for alert creation confirmation
+   */
+  getAlertCreatedEmailTemplate(data: {
+    userName: string;
+    alertType: string;
+    departureAirport: string;
+    arrivalAirport: string;
+    flightNumber?: string | null;
+    travelDate?: string | null;
+    alertId: number;
+  }): string {
+    const alertDetails = [
+      `<p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>`,
+      `<p><strong>Alert Type:</strong> ${data.alertType}</p>`,
+    ];
+
+    if (data.flightNumber) {
+      alertDetails.push(`<p><strong>Flight Number:</strong> ${data.flightNumber}</p>`);
+    }
+
+    if (data.travelDate) {
+      alertDetails.push(`<p><strong>Travel Date:</strong> ${data.travelDate}</p>`);
+    }
+
+    const viewUrl = `${this.baseUrl}/alerts`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Alert Created - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-details { background: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50; }
+          .success-badge { background: #4CAF50; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+          .action-button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Alert Created Successfully!</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${data.userName},</h2>
+            <p>Your alert has been created successfully. We'll notify you when a matching ${data.alertType.toLowerCase()} is published.</p>
+            
+            <div class="alert-details">
+              <h3>Alert Details:</h3>
+              ${alertDetails.join('')}
+              <p><strong>Alert ID:</strong> #${data.alertId}</p>
+            </div>
+
+            <div class="highlight">
+              <p><strong>📧 What happens next?</strong></p>
+              <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${viewUrl}" class="action-button">View My Alerts</a>
+            </div>
+
+            <p style="margin-top: 20px; color: #666; font-size: 14px;">
+              You can manage or delete your alerts anytime from your account settings.
+            </p>
+          </div>
+          <div class="footer">
+            <p>This is an automated confirmation from GoHappyGo.</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
 } 

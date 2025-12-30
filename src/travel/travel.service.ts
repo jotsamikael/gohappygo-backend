@@ -227,6 +227,7 @@ export class TravelService {
       .leftJoinAndSelect('travel.departureAirport', 'departureAirport')
       .leftJoinAndSelect('travel.arrivalAirport', 'arrivalAirport')
       .leftJoinAndSelect('travel.airline', 'airline')
+      .leftJoinAndSelect('travel.currency', 'currency')
       .leftJoinAndSelect('travel.images', 'images')
       // Add COUNT subquery for requests to determine isEditable
       .addSelect((subQuery) => {
@@ -240,6 +241,18 @@ export class TravelService {
     const { entities, raw } = await queryBuilder.getRawAndEntities();
     console.log('🔍 Debug - Final items found:', entities.length);
 
+    // Debug currency in entities before mapping
+    if (entities.length > 0) {
+      const firstEntity = entities[0];
+      console.log('🔍 Debug - Travel entity before mapping:', {
+        travelId: firstEntity.id,
+        hasCurrency: !!(firstEntity as any).currency,
+        currency: (firstEntity as any).currency,
+        currencyId: (firstEntity as any).currencyId,
+        currencyKeys: (firstEntity as any).currency ? Object.keys((firstEntity as any).currency) : null
+      });
+    }
+
     // Add isEditable property to each travel entity and transform to DTOs
     // isEditable = true if travel has no requests (requestCount === 0)
     const itemsWithIsEditable = entities.map((travel: TravelEntity, index: number) => {
@@ -252,6 +265,18 @@ export class TravelService {
 
     // Transform entities to DTOs using mapper
     const mappedItems = this.travelMapper.toListResponseDtoArray(itemsWithIsEditable);
+    
+    // Debug currency in DTOs after mapping
+    if (mappedItems.length > 0) {
+      const firstMapped = mappedItems[0];
+      console.log('🔍 Debug - Travel DTO after mapping:', {
+        travelId: firstMapped.id,
+        hasCurrency: 'currency' in firstMapped,
+        currency: (firstMapped as any).currency,
+        currencyId: firstMapped.currencyId,
+        allKeys: Object.keys(firstMapped)
+      });
+    }
 
     const totalPages = Math.ceil(totalItems / limit);
 

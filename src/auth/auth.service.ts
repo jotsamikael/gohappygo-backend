@@ -964,6 +964,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
     return {
       id: user.id,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       fullName,
       profilePictureUrl: user.profilePictureUrl || null,
       bio: user.bio || null,

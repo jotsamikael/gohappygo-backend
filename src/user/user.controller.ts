@@ -209,20 +209,7 @@ export class UserController {
     description: 'Update the profile of the currently authenticated user. Optionally upload a profile picture.'
   })
   @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        firstName: { type: 'string', example: 'John' },
-        lastName: { type: 'string', example: 'Doe' },
-        bio: { type: 'string', example: 'Frequent traveler' },
-        phone: { type: 'string', example: '+237697942923', description: 'Phone number in international format' },
-        profilePicture: {
-          type: 'string',
-          format: 'binary',
-          description: 'Profile picture image file (JPEG, PNG, WebP)'
-        }
-      }
-    }
+      type: UpdateProfileDto,
   })
   @ApiResponse({
     status: 200,

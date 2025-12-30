@@ -65,6 +65,14 @@ export class UserProfileResponseDto {
     @ApiProperty({ example: 'jotsamikael0@gmail.com' })
     @Expose()
     email: string;
+
+    @ApiProperty({ example: 'John' })
+    @Expose()
+    firstName: string;
+
+    @ApiProperty({ example: 'Doe' })
+    @Expose()
+    lastName: string;
     
     @ApiProperty({ example: 'James D.' })
     @Expose()

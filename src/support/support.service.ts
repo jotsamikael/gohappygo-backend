@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -19,6 +19,8 @@ import { CustomNotFoundException, CustomForbiddenException, CustomBadRequestExce
 
 @Injectable()
 export class SupportService {
+  private readonly logger = new Logger(SupportService.name);
+
   constructor(
     @InjectRepository(SupportRequestEntity)
     private readonly supportRequestRepository: Repository<SupportRequestEntity>,
@@ -52,34 +54,66 @@ export class SupportService {
     const savedRequest = await this.supportRequestRepository.save(supportRequest);
 
     // Send confirmation email to requester
-    const confirmationTemplate = this.emailTemplatesService.getSupportRequestConfirmationTemplate({
-      requestId: savedRequest.id,
-      email: savedRequest.email,
-      category: savedRequest.supportCategory,
-    });
+    try {
+      const confirmationTemplate = this.emailTemplatesService.getSupportRequestConfirmationTemplate({
+        requestId: savedRequest.id,
+        email: savedRequest.email,
+        category: savedRequest.supportCategory,
+      });
 
-    await this.emailService.sendEmail({
-      to: savedRequest.email,
-      subject: 'Support Request Received - GoHappyGo',
-      html: confirmationTemplate,
-    });
+      if (!confirmationTemplate || confirmationTemplate.trim().length === 0) {
+        this.logger.error(`Support confirmation template is empty for request ${savedRequest.id}`);
+      } else {
+        const emailSent = await this.emailService.sendEmail({
+          to: savedRequest.email,
+          subject: 'Support Request Received - GoHappyGo',
+          html: confirmationTemplate,
+        });
+
+        if (!emailSent) {
+          this.logger.error(`Failed to send confirmation email to ${savedRequest.email} for support request ${savedRequest.id}`);
+        } else {
+          this.logger.log(`Support confirmation email sent successfully to ${savedRequest.email} for request ${savedRequest.id}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error sending support confirmation email: ${error.message}`, error.stack);
+      // Don't fail the request creation if email fails
+    }
 
     // Send notification email to support team
     const supportEmail = this.configService.get<string>('SUPPORT_EMAIL');
     if (supportEmail) {
-      const notificationTemplate = this.emailTemplatesService.getSupportRequestReceivedTemplate({
-        requestId: savedRequest.id,
-        email: savedRequest.email,
-        message: savedRequest.message,
-        category: savedRequest.supportCategory,
-        requesterType: savedRequest.supportRequesterType,
-      });
+      try {
+        const notificationTemplate = this.emailTemplatesService.getSupportRequestReceivedTemplate({
+          requestId: savedRequest.id,
+          email: savedRequest.email,
+          message: savedRequest.message,
+          category: savedRequest.supportCategory,
+          requesterType: savedRequest.supportRequesterType,
+        });
 
-      await this.emailService.sendEmail({
-        to: supportEmail,
-        subject: `New Support Request #${savedRequest.id} - ${savedRequest.supportCategory}`,
-        html: notificationTemplate,
-      });
+        if (!notificationTemplate || notificationTemplate.trim().length === 0) {
+          this.logger.error(`Support notification template is empty for request ${savedRequest.id}`);
+        } else {
+          const emailSent = await this.emailService.sendEmail({
+            to: supportEmail,
+            subject: `New Support Request #${savedRequest.id} - ${savedRequest.supportCategory}`,
+            html: notificationTemplate,
+          });
+
+          if (!emailSent) {
+            this.logger.error(`Failed to send notification email to support team for request ${savedRequest.id}`);
+          } else {
+            this.logger.log(`Support notification email sent successfully to ${supportEmail} for request ${savedRequest.id}`);
+          }
+        }
+      } catch (error) {
+        this.logger.error(`Error sending support notification email: ${error.message}`, error.stack);
+        // Don't fail the request creation if email fails
+      }
+    } else {
+      this.logger.warn('SUPPORT_EMAIL not configured. Skipping support team notification.');
     }
 
     return this.supportMapper.toSupportRequestResponse(savedRequest);

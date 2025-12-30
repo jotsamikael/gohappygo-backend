@@ -46,18 +46,6 @@ export class UpdateUserDto {
   email: string;
 
   @ApiProperty({
-    description: 'Phone number',
-    example: '+1234567890',
-    minLength: 1,
-    maxLength: 15
-  })
-  @IsNotEmpty()
-  @IsPhoneNumber()
-  phoneNumber: string;
-
-
-
-  @ApiProperty({
     description: 'Role id',
     example: 1,
     minLength: 1,

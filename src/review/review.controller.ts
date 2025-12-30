@@ -12,6 +12,7 @@ import { ModerateReviewDto } from './dto/moderateReview.dto';
 import { UserRole } from 'src/user/user.entity';
 import { Roles } from 'src/auth/decorators/role.decorators';
 import { RolesGuard } from 'src/auth/guards/roles-guard';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt-auth.guard';
 
 @ApiTags('reviews')
 @Controller('review')
@@ -49,7 +50,7 @@ async editReview(
 }
 
 @Get()
-@UseGuards(JwtAuthGuard)
+@UseGuards(OptionalJwtAuthGuard)// now even visitors can see reviews
 @ApiBearerAuth('JWT-auth')
 @ApiOperation({ 
     summary: 'Get reviews with filters',

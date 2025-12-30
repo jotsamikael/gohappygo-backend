@@ -86,6 +86,21 @@ export class AirlineSimpleResponseDto {
   logoUrl?: string;
 }
 
+// Add Currency DTO
+export class CurrencySimpleResponseDto {
+  @ApiProperty({ description: 'Currency ID' })
+  @Expose()
+  id: number;
+
+  @ApiProperty({ description: 'Currency code (e.g., CFA, USD, EUR)' })
+  @Expose()
+  code: string;
+
+  @ApiProperty({ description: 'Currency symbol (e.g., XAF, $, €)' })
+  @Expose()
+  symbol: string;
+}
+
 // Update DemandOrTravelResponseDto to include airline
 export class DemandOrTravelResponseDto {
   @ApiProperty({ description: 'Unique identifier' })
@@ -131,6 +146,11 @@ export class DemandOrTravelResponseDto {
   @Expose()
   @Type(() => AirlineSimpleResponseDto)
   airline?: AirlineSimpleResponseDto | null;
+
+  @ApiProperty({ type: CurrencySimpleResponseDto, description: 'Currency details', required: false, nullable: true })
+  @Expose()
+  @Type(() => CurrencySimpleResponseDto)
+  currency?: CurrencySimpleResponseDto | null;
 
   @ApiProperty({ description: 'User ID who created this item' })
   @Expose()

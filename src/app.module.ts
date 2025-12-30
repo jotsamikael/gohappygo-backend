@@ -73,6 +73,8 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
 import { StripeModule } from './stripe/stripe.module';
 import { StripeWebhookEventEntity } from './stripe/entities/stripe-webhook-event.entity';
 import { FileUploadModule } from './file-upload/file-upload.module';
+import { AlertModule } from './alert/alert.module';
+import { AlertEntity } from './alert/entities/alert.entity';
 
 @Module({
   imports: [
@@ -153,7 +155,8 @@ import { FileUploadModule } from './file-upload/file-upload.module';
           SupportRequestEntity,
           SupportLogEntity,
           PlatformPricingEntity,
-          StripeWebhookEventEntity
+          StripeWebhookEventEntity,
+          AlertEntity
         ],
         synchronize: configService.get<string>('NODE_ENV') === 'development', // Only in dev mode
         logging: configService.get<string>('NODE_ENV') === 'development',
@@ -215,7 +218,8 @@ import { FileUploadModule } from './file-upload/file-upload.module';
       NotificationModule,
       SupportModule,
       PlatformPricingModule,
-      StripeModule
+      StripeModule,
+      AlertModule
   ],
   controllers: [AppController, UserController],
   providers: [AppService],
