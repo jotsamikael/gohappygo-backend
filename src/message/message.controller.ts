@@ -5,6 +5,7 @@ import {
   Param, 
   ParseIntPipe, 
   Post, 
+  Query,
   UseGuards 
 } from '@nestjs/common';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
@@ -12,15 +13,21 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UserEntity } from 'src/user/user.entity';
 import { SendMessageDto } from './dto/SendMessage.dto';
 import { MessageService } from './message.service';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { MessageResponseDto } from './dto/message-response.dto';
+import { FindThreadQueryDto } from './dto/request/find-thread-query.dto';
+import { PaginatedThreadResponseDto } from './dto/response/paginated-thread-response.dto';
+import { MessageMapper } from './message.mapper';
 
 @ApiTags('messages')
 @Controller('message')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    private readonly messageMapper: MessageMapper,
+  ) {}
 
   @Post('send')
   @ApiOperation({
@@ -43,37 +50,42 @@ export class MessageController {
   }
 
   @Get('thread/:requestId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get message thread',
-    description: 'Get all messages for a specific request',
+    description: 'Get paginated messages for a specific request with sorting and caching',
   })
-  @ApiResponse({ status: 200, description: 'Messages fetched successfully' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Messages fetched successfully',
+    type: PaginatedThreadResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getThread(
     @CurrentUser() user: UserEntity,
     @Param('requestId', ParseIntPipe) requestId: number,
-  ) {
-    const messages = await this.messageService.getThread(requestId, user);
+    @Query() query: FindThreadQueryDto,
+  ): Promise<PaginatedThreadResponseDto> {
+    const { items, total } = await this.messageService.getThread(requestId, user, query);
+    
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const totalPages = Math.ceil(total / limit);
+    
+    // Map entities to DTOs
+    const mappedItems = this.messageMapper.toThreadMessageResponseDtoArray(items);
+    
     return {
-      success: true,
-      requestId,
-      messages: messages.map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        isRead: msg.isRead,
-        createdAt: msg.createdAt,
-        sender: {
-          id: msg.sender.id,
-          firstName: msg.sender.firstName,
-          lastName: msg.sender.lastName,
-          profilePictureUrl: msg.sender.profilePictureUrl,
-        },
-        receiver: {
-          id: msg.receiver.id,
-          firstName: msg.receiver.firstName,
-          lastName: msg.receiver.lastName,
-        },
-      })),
+      items: mappedItems,
+      meta: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalItems: total,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+      },
     };
   }
 

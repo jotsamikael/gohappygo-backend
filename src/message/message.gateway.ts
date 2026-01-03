@@ -91,9 +91,32 @@ import { UserService } from 'src/user/user.service';
       });
 
     } catch (error) {
-      //this.logger.error(`❌ Authentication failed for client ${client.id}: ${error.message}`);
-      this.logger.error(`❌ Error stack:`, error.stack);
-      client.emit('error', { message: 'Authentication failed' });
+      // Handle specific JWT errors
+      let errorMessage = 'Authentication failed';
+      let errorCode = 'AUTH_FAILED';
+
+      if (error.name === 'TokenExpiredError') {
+        errorMessage = 'Token has expired. Please refresh your token and reconnect.';
+        errorCode = 'TOKEN_EXPIRED';
+        this.logger.warn(`❌ Client ${client.id} - Token expired`);
+      } else if (error.name === 'JsonWebTokenError') {
+        errorMessage = 'Invalid token format';
+        errorCode = 'INVALID_TOKEN';
+        this.logger.warn(`❌ Client ${client.id} - Invalid token: ${error.message}`);
+      } else if (error.name === 'NotBeforeError') {
+        errorMessage = 'Token not active yet';
+        errorCode = 'TOKEN_NOT_ACTIVE';
+        this.logger.warn(`❌ Client ${client.id} - Token not active`);
+      } else {
+        this.logger.error(`❌ Authentication failed for client ${client.id}: ${error.message}`);
+        this.logger.error(`❌ Error stack:`, error.stack);
+      }
+
+      client.emit('error', { 
+        message: errorMessage,
+        code: errorCode,
+        error: error.name || 'UnknownError'
+      });
       client.disconnect();
     }
   }
@@ -109,7 +132,7 @@ import { UserService } from 'src/user/user.service';
      * Handle when a user joins a specific chat thread (request-based chat)
      */
     @SubscribeMessage('join-thread')
-    //@UseGuards(WsJwtGuard)
+    @UseGuards(WsJwtGuard)
     async handleJoinThread(
       @ConnectedSocket() client: Socket,
       @MessageBody() data: any, // Change to any to handle both string and object
@@ -135,6 +158,13 @@ import { UserService } from 'src/user/user.service';
       
       const user = client.data.user;
       
+      // Add check for user authentication (defensive check even with guard)
+      if (!user) {
+        this.logger.error(`❌ Client ${client.id} - User not authenticated for join-thread`);
+        client.emit('error', { message: 'User not authenticated. Please reconnect.' });
+        return;
+      }
+      
       // Ensure requestId is a number
       const requestId = Number(parsedData.requestId);
 
@@ -152,12 +182,17 @@ import { UserService } from 'src/user/user.service';
       const roomName = `request:${requestId}`;
       client.join(roomName);
       
+      // Add logging to verify room join
+      const rooms = Array.from(client.rooms);
+      this.logger.log(`✅ User ${user.id} joined room ${roomName}. Current rooms: ${rooms.join(', ')}`);
       console.log('🔥 Joined room:', roomName);
+      console.log('🔥 Client rooms:', rooms);
       
       // Send confirmation
       const response = {
         requestId: requestId,
         message: `Joined thread for request ${requestId}`,
+        roomName: roomName, // Include room name in response for debugging
       };
       
       console.log('🔥 Sending response:', response);
@@ -251,13 +286,68 @@ import { UserService } from 'src/user/user.service';
   
         // Send to the specific request room
         const roomName = `request:${dto.requestId}`;
+        
+        // Add logging to verify broadcast (with safe access)
+        let roomSize = 0;
+        let clientIds: string[] = [];
+        try {
+          // For namespaced servers, access adapter directly, not through sockets
+          // this.server is already the namespace server, so use this.server.adapter
+          // The adapter might be a getter function, so we need to call it or access it properly
+          const adapter = (this.server as any)?.adapter || (this.server as any)?.sockets?.adapter;
+          if (adapter && typeof adapter === 'object' && adapter.rooms) {
+            const room = adapter.rooms.get(roomName);
+            if (room) {
+              roomSize = room.size;
+              clientIds = Array.from(room);
+            }
+          }
+        } catch (error) {
+          // Adapter access failed, but we can still broadcast
+          this.logger.warn(`Could not access room adapter for ${roomName}, but continuing with broadcast`);
+        }
+        
+        this.logger.log(`📤 Broadcasting message to room ${roomName}. Room has ${roomSize} clients`);
+        console.log(`🔥 Room ${roomName} has ${roomSize} clients`);
+        if (clientIds.length > 0) {
+          console.log(`🔥 Clients in room:`, clientIds);
+          // Verify these sockets are actually connected (safe access for namespaced servers)
+          try {
+            const socketsCollection = (this.server as any).sockets?.sockets || (this.server as any).sockets;
+            if (socketsCollection && typeof socketsCollection.get === 'function') {
+              clientIds.forEach(socketId => {
+                const socket = socketsCollection.get(socketId);
+                if (socket) {
+                  const socketUser = (socket as any).data?.user;
+                  this.logger.log(`  ✓ Socket ${socketId} is connected (User: ${socketUser?.id || 'unknown'})`);
+                } else {
+                  this.logger.warn(`  ✗ Socket ${socketId} is NOT connected (might have disconnected)`);
+                }
+              });
+            } else {
+              this.logger.warn(`  ⚠️ Could not access sockets collection for verification`);
+            }
+          } catch (error) {
+            this.logger.warn(`  ⚠️ Error verifying socket connections: ${error.message}`);
+          }
+        }
+        
+        // Broadcast to the room (excludes sender, which is what we want)
+        // All clients in the room will receive the message
+        this.logger.log(`📡 Broadcasting 'new-message' to room ${roomName}`);
         this.server.to(roomName).emit('new-message', messagePayload);
         
         // Also send to receiver's personal room (for notifications even if not in thread)
-        this.server.to(`user:${dto.receiverId}`).emit('message-notification', {
+        // This ensures the receiver gets notified even if they haven't joined the thread yet
+        const userRoomName = `user:${dto.receiverId}`;
+        this.logger.log(`📡 Sending 'message-notification' to personal room ${userRoomName}`);
+        this.server.to(userRoomName).emit('message-notification', {
           ...messagePayload,
           unreadCount: await this.messageService.getUnreadCount(fullMessage.receiver),
         });
+        
+        // Log the actual socket IDs that should receive the message
+        this.logger.log(`📤 Message broadcasted. Sender: ${client.id} (User: ${user.id}), Receiver ID: ${dto.receiverId}, Room: ${roomName}`);
   
         // Send acknowledgment to sender
         client.emit('message-sent', {

@@ -1,0 +1,54 @@
+import { Injectable } from "@nestjs/common";
+import { plainToInstance } from "class-transformer";
+import { MessageEntity } from "./message.entity";
+import { ThreadMessageResponseDto, ThreadMessageUserDto } from "./dto/response/thread-message-response.dto";
+
+@Injectable()
+export class MessageMapper {
+  /**
+   * Map UserEntity to ThreadMessageUserDto
+   */
+  toThreadMessageUserDto(user: any): ThreadMessageUserDto | null {
+    if (!user) return null;
+    
+    return plainToInstance(ThreadMessageUserDto, {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profilePictureUrl: user.profilePictureUrl || null,
+    }, {
+      excludeExtraneousValues: true,
+      enableImplicitConversion: true,
+    });
+  }
+
+  /**
+   * Map MessageEntity to ThreadMessageResponseDto
+   */
+  toThreadMessageResponseDto(message: MessageEntity): ThreadMessageResponseDto {
+    const sender = this.toThreadMessageUserDto(message.sender);
+    const receiver = this.toThreadMessageUserDto(message.receiver);
+
+    const mapped = {
+      id: message.id,
+      content: message.content,
+      isRead: message.isRead,
+      createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
+      sender,
+      receiver,
+    };
+
+    return plainToInstance(ThreadMessageResponseDto, mapped, {
+      excludeExtraneousValues: true,
+      enableImplicitConversion: true,
+    });
+  }
+
+  /**
+   * Map array of MessageEntity to array of ThreadMessageResponseDto
+   */
+  toThreadMessageResponseDtoArray(messages: MessageEntity[]): ThreadMessageResponseDto[] {
+    return messages.map(message => this.toThreadMessageResponseDto(message));
+  }
+}
