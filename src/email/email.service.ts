@@ -235,6 +235,15 @@ export class EmailService {
     });
   }
 
+  sendRequestCancelledForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
+    const html = this.emailTemplatesService.getRequestCancelledForOwnerTemplate(userFirstName, event);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Request Cancelled on Your Travel/Demand - GoHappyGo',
+      html,
+    });
+  }
+
   sendRequestCompletedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
     const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event);
     return this.sendEmail({

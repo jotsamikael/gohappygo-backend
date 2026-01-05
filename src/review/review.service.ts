@@ -13,7 +13,7 @@ import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { PaginatedReviewsResponseDto, ReviewResponseDto, CreateReviewResponseDto } from './dto/review-response.dto';
 import { RequestService } from 'src/request/request.service';
-import { CustomNotFoundException, CustomRequestNotCompletedException, CustomRequestNotLinkedToTravelOrDemandException, CustomReviewAlreadyExistsException, CustomUnauthorizedException } from 'src/common/exception/custom-exceptions';
+import { CustomBadRequestException, CustomNotFoundException, CustomRequestNotCompletedException, CustomRequestNotLinkedToTravelOrDemandException, CustomReviewAlreadyExistsException, CustomUnauthorizedException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { ModerateReviewDto } from './dto/moderateReview.dto';
 import { ReviewMapper } from './review.mapper';
@@ -33,20 +33,20 @@ export class ReviewService implements OnModuleInit {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private reviewMapper: ReviewMapper,
     private userService: UserService
-  ) {}
+  ) { }
 
-  
+
   async addReview(user: UserEntity, reviewDto: CreateReviewDto): Promise<CreateReviewResponseDto> {
     // Fetch the request with its relations to get travel/demand and their users
-   
+
     const request = await this.requestService.getRequestById(reviewDto.requestId);
-   
+
 
     if (!request) {
       throw new CustomNotFoundException(`Request with id ${reviewDto.requestId} not found`, ErrorCode.REQUEST_NOT_FOUND);
     }
 
-    if(request.currentStatus.status !== 'COMPLETED') {
+    if (request.currentStatus.status !== 'COMPLETED') {
       throw new CustomRequestNotCompletedException('Request is not completed, you can only review completed requests', ErrorCode.REQUEST_NOT_COMPLETED);
     }
 
@@ -109,28 +109,28 @@ export class ReviewService implements OnModuleInit {
     });
 
     const savedReview = await this.reviewRepository.save(review);
-    
+
     // Update user rating statistics
     await this.updateUserRatingStats(revieweeId);
-    
+
     // Reload with relations for proper mapping
     const reviewWithRelations = await this.reviewRepository.findOne({
       where: { id: savedReview.id },
       relations: ['reviewer', 'reviewee'],
     });
-    
+
     // Clear cache
     await this.clearReviewListCache();
-    
+
     // Transform to create review response format
     const reviewData = reviewWithRelations || savedReview;
-    const reviewerDto = reviewData.reviewer 
+    const reviewerDto = reviewData.reviewer
       ? this.reviewMapper.mapUserToDto(reviewData.reviewer)
       : null;
-    const revieweeDto = reviewData.reviewee 
+    const revieweeDto = reviewData.reviewee
       ? this.reviewMapper.mapUserToDto(reviewData.reviewee)
       : null;
-    
+
     return {
       message: 'Review created successfully',
       review: {
@@ -146,52 +146,109 @@ export class ReviewService implements OnModuleInit {
       }
     };
   }
- 
 
-    async editReview(reviewId: number, user: UserEntity, updateDto: UpdateReviewDto): Promise<ReviewEntity> {
-      const review = await this.reviewRepository.findOne({ where: { id: reviewId } });
-    
-      if (!review) {
-        throw new CustomNotFoundException('Review not found', ErrorCode.REVIEW_NOT_FOUND);
-      }
-      if (review.reviewerId !== user.id) {
-        throw new CustomUnauthorizedException('You can only edit your own reviews', ErrorCode.REVIEW_UNAUTHORIZED);
-      }
-    
-      const now = new Date();
-      const createdAt = new Date(review.createdAt);
-      const diffMs = now.getTime() - createdAt.getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    
-      if (diffDays > 1) {
-        throw new CustomUnauthorizedException('You can only edit a review within 1 day of submission', ErrorCode.REVIEW_EDIT_TIME_EXPIRED);
-      }
-    
-      // Update fields
-      if (updateDto.rating !== undefined) review.rating = updateDto.rating;
-      if (updateDto.comment !== undefined) review.comment = updateDto.comment;
-    
-      const updatedReview = await this.reviewRepository.save(review);
-    
+
+  async editReview(reviewId: number, user: UserEntity, updateDto: UpdateReviewDto): Promise<ReviewEntity> {
+    const review = await this.reviewRepository.findOne({ where: { id: reviewId } });
+
+    if (!review) {
+      throw new CustomNotFoundException('Review not found', ErrorCode.REVIEW_NOT_FOUND);
+    }
+    if (review.reviewerId !== user.id) {
+      throw new CustomUnauthorizedException('You can only edit your own reviews', ErrorCode.REVIEW_UNAUTHORIZED);
+    }
+
+    const now = new Date();
+    const createdAt = new Date(review.createdAt);
+    const diffMs = now.getTime() - createdAt.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    if (diffDays > 1) {
+      throw new CustomUnauthorizedException('You can only edit a review within 1 day of submission', ErrorCode.REVIEW_EDIT_TIME_EXPIRED);
+    }
+
+    // Update fields
+    if (updateDto.rating !== undefined) review.rating = updateDto.rating;
+    if (updateDto.comment !== undefined) review.comment = updateDto.comment;
+
+    const updatedReview = await this.reviewRepository.save(review);
+
     // Update user rating statistics (recalculate if rating changed)
     if (updateDto.rating !== undefined) {
       await this.updateUserRatingStats(review.revieweeId);
     }
-    
+
     // Clear cache
     await this.clearReviewListCache();
-    
-    return updatedReview;
-    }
 
-  async getAllReviews(query: FindReviewsQueryDto, user: UserEntity): Promise<PaginatedReviewsResponseDto> {
+    return updatedReview;
+  }
+
+  async getAllReviews(query: FindReviewsQueryDto, user: UserEntity | null): Promise<PaginatedReviewsResponseDto> {
     console.log('=== DEBUG: getAllReviews START ===');
     console.log('DEBUG: Raw query object:', JSON.stringify(query, null, 2));
-    console.log('DEBUG: User ID:', user.id);
-    console.log('DEBUG: User role:', user.role?.code);
-    
+    console.log('DEBUG: User:', user ? `ID: ${user.id}, Email: ${user.email}` : 'null (visitor)');
+    console.log('DEBUG: User ID:', user?.id ?? 'null (visitor)');
+    console.log('DEBUG: User role:', user?.role?.code ?? 'null (visitor)');
+
+    const {
+      page = 1,
+      limit = 10,
+      id,
+      reviewerId,
+      revieweeId,
+      requestId,
+      rating,
+      comment,
+      createdAt,
+      orderBy = 'createdAt:desc',
+      asReviewer
+    } = query;
+
+    // Validate filter combinations
+    // asReviewer can only be used without reviewerId, revieweeId, or requestId
+    // because asReviewer filters by the current user's reviews
+    // Check if asReviewer was explicitly provided (not undefined)
+    const asReviewerProvided = asReviewer !== undefined;
+
+    if (asReviewerProvided && (reviewerId !== undefined || revieweeId !== undefined || requestId !== undefined)) {
+      throw new CustomBadRequestException(
+        'The asReviewer parameter cannot be used together with reviewerId, revieweeId, or requestId. asReviewer is only used to filter reviews of the current authenticated user.',
+        ErrorCode.REVIEW_INVALID_FILTER_COMBINATION
+      );
+    }
+
+    // Convert asReviewer to boolean for use in filtering logic (default to false if not provided)
+    const hasAsReviewer = asReviewer === true || String(asReviewer) === 'true';
+
+    // For visitors (null user), asReviewer doesn't make sense
+    if (!user && hasAsReviewer) {
+      throw new CustomBadRequestException(
+        'The asReviewer parameter can only be used by authenticated users',
+        ErrorCode.REVIEW_UNAUTHORIZED
+      );
+    }
+
+    // For visitors (null user), require reviewerId or revieweeId
+    // BUT: If authenticated user provides asReviewer, they don't need reviewerId/revieweeId
+    if (!user && !reviewerId && !revieweeId) {
+      throw new CustomBadRequestException(
+        'Visitors must provide reviewerId or revieweeId to view reviews',
+        ErrorCode.REVIEW_UNAUTHORIZED
+      );
+    }
+
+    // For authenticated users using asReviewer, they don't need reviewerId or revieweeId
+    // asReviewer already filters by the current user's reviews
+    if (user && hasAsReviewer && (reviewerId !== undefined || revieweeId !== undefined)) {
+      throw new CustomBadRequestException(
+        'When using asReviewer parameter, you cannot specify reviewerId or revieweeId. asReviewer filters by your own reviews.',
+        ErrorCode.REVIEW_INVALID_FILTER_COMBINATION
+      );
+    }
+
     // Generate cache key
-    const cacheKey = this.generateReviewListCacheKey(query, user.id);
+    const cacheKey = this.generateReviewListCacheKey(query, user?.id ?? null);
     console.log('DEBUG: Generated cache key:', cacheKey);
     this.reviewListCacheKeys.add(cacheKey);
 
@@ -205,29 +262,10 @@ export class ReviewService implements OnModuleInit {
 
     console.log(`Cache Miss---------> Returning reviews list from database`);
 
-    const {
-      page = 1,
-      limit = 10,
-      id,
-      reviewerId,
-      revieweeId,
-      requestId,
-      rating,
-      comment,
-      createdAt,
-      orderBy = 'createdAt:desc',
-      asReviewer = false
-    } = query;
-
     console.log('DEBUG: Extracted asReviewer value:', asReviewer);
     console.log('DEBUG: Type of asReviewer:', typeof asReviewer);
-    
-    // Ensure asReviewer is properly converted to boolean (handle string "false" case)
-    // Query parameters can come as strings, so we need to handle both boolean and string types
-    const isAsReviewer = asReviewer === true || String(asReviewer) === 'true';
-    console.log('DEBUG: Converted isAsReviewer:', isAsReviewer);
-    console.log('DEBUG: isAsReviewer === true:', asReviewer === true);
-    console.log('DEBUG: String(asReviewer) === "true":', String(asReviewer) === 'true');
+    console.log('DEBUG: asReviewer provided:', asReviewerProvided);
+    console.log('DEBUG: Converted hasAsReviewer:', hasAsReviewer);
 
     const skip = (page - 1) * limit;
 
@@ -239,12 +277,12 @@ export class ReviewService implements OnModuleInit {
       .take(limit);
 
     // Apply user-specific filtering logic
-    const isAdmin = user.role?.code === UserRole.ADMIN;
-    const isOperator = user.role?.code === UserRole.OPERATOR;
-    
+    const isAdmin = user?.role?.code === UserRole.ADMIN;
+    const isOperator = user?.role?.code === UserRole.OPERATOR;
+
     // Check if normal user is filtering by specific reviewerId or revieweeId
-    const isFilteringBySpecificUser = !isAdmin && !isOperator && (reviewerId !== undefined || revieweeId !== undefined);
-    
+    const isFilteringBySpecificUser = user && !isAdmin && !isOperator && (reviewerId !== undefined || revieweeId !== undefined);
+
     console.log('DEBUG: isAdmin:', isAdmin);
     console.log('DEBUG: isOperator:', isOperator);
     console.log('DEBUG: !isAdmin && !isOperator:', !isAdmin && !isOperator);
@@ -252,28 +290,23 @@ export class ReviewService implements OnModuleInit {
     console.log('DEBUG: reviewerId:', reviewerId);
     console.log('DEBUG: revieweeId:', revieweeId);
 
-    if (!isAdmin && !isOperator && !isFilteringBySpecificUser) {
+    // Around lines 293-315, ensure user is not null before accessing user.id
+    if (user && !isAdmin && !isOperator && !isFilteringBySpecificUser) {
       // Regular user without specific filters - show only their own reviews
       console.log('DEBUG: Entering regular user branch - showing own reviews');
-      if (isAsReviewer) {
-        console.log('DEBUG: Branch: isAsReviewer is TRUE - filtering by reviewerId');
+      if (hasAsReviewer) {
+        console.log('DEBUG: Branch: hasAsReviewer is TRUE - filtering by reviewerId');
         // Only show reviews where user is the reviewer
-        queryBuilder.andWhere('review.reviewerId = :userId', { userId: user.id });
+        queryBuilder.andWhere('review.reviewerId = :userId', { userId: user!.id });
       } else {
-        console.log('DEBUG: Branch: isAsReviewer is FALSE - filtering by revieweeId');
+        console.log('DEBUG: Branch: hasAsReviewer is FALSE - filtering by revieweeId');
         // Only show reviews where user is the reviewee (not the reviewer)
-        queryBuilder.andWhere('review.revieweeId = :userId', { userId: user.id });
+        queryBuilder.andWhere('review.revieweeId = :userId', { userId: user!.id });
       }
-    } else if (isAsReviewer && !isFilteringBySpecificUser) {
+    } else if (user && hasAsReviewer && !isFilteringBySpecificUser) {
       // Admin/Operator with asReviewer flag (but not filtering by specific user)
-      console.log('DEBUG: Branch: Admin/Operator with isAsReviewer TRUE - filtering by reviewerId');
-      queryBuilder.andWhere('review.reviewerId = :userId', { userId: user.id });
-    } else if (isFilteringBySpecificUser) {
-      // Normal user filtering by specific user - skip automatic user filtering
-      console.log('DEBUG: Branch: Normal user filtering by specific user - skipping automatic filter');
-    } else {
-      // Admin/Operator without asReviewer flag - no automatic user filter
-      console.log('DEBUG: Branch: Admin/Operator with isAsReviewer FALSE - no user filter applied');
+      console.log('DEBUG: Branch: Admin/Operator with hasAsReviewer TRUE - filtering by reviewerId');
+      queryBuilder.andWhere('review.reviewerId = :userId', { userId: user!.id });
     }
 
     // Apply filters
@@ -335,7 +368,7 @@ export class ReviewService implements OnModuleInit {
     console.log('DEBUG: Number of items returned:', items.length);
     console.log('DEBUG: Items reviewerIds:', items.map(item => item.reviewerId));
     console.log('DEBUG: Items revieweeIds:', items.map(item => item.revieweeId));
-    console.log('DEBUG: Current user ID:', user.id);
+    console.log('DEBUG: Current user ID:', user?.id ?? 'null (visitor)');
 
     // Load requests with travel and demand for each review
     const reviewIds = items.map(review => review.requestId);
@@ -387,7 +420,7 @@ export class ReviewService implements OnModuleInit {
   }
 
   // Add cache key generation method
-  private generateReviewListCacheKey(query: FindReviewsQueryDto, userId: number): string {
+  private generateReviewListCacheKey(query: FindReviewsQueryDto, userId: number | null): string {
     const {
       page = 1,
       limit = 10,
@@ -406,7 +439,7 @@ export class ReviewService implements OnModuleInit {
     // Query parameters can come as strings, so we need to handle both boolean and string types
     const isAsReviewer = asReviewer === true || String(asReviewer) === 'true';
 
-    return `reviews_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}_asReviewer${isAsReviewer}`;
+    return `reviews_list_user${userId ?? 'visitor'}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}_asReviewer${isAsReviewer}`;
   }
 
   // Add cache clearing method
@@ -439,20 +472,20 @@ export class ReviewService implements OnModuleInit {
 
   // Transform method
 
- 
 
-    async getReviewById(id: number): Promise<ReviewEntity | null>{
-      const review = await this.reviewRepository.findOneBy({id:id});
 
-      if(!review){
-        throw new CustomNotFoundException(`No review found with id ${id}`, ErrorCode.REVIEW_NOT_FOUND);
-      }
-      return review;
+  async getReviewById(id: number): Promise<ReviewEntity | null> {
+    const review = await this.reviewRepository.findOneBy({ id: id });
+
+    if (!review) {
+      throw new CustomNotFoundException(`No review found with id ${id}`, ErrorCode.REVIEW_NOT_FOUND);
     }
+    return review;
+  }
 
 
-    //reviews posted by user
-   async getReviewByUser(userId: number): Promise<ReviewEntity[]> {
+  //reviews posted by user
+  async getReviewByUser(userId: number): Promise<ReviewEntity[]> {
     return this.reviewRepository.find({
       where: { reviewerId: userId },
       relations: ['reviewee', 'reviewer'], // include user info if needed
@@ -460,14 +493,14 @@ export class ReviewService implements OnModuleInit {
     });
   }
 
-    //reviews received by posted
-    getReviewOfUser(id: number): Promise<ReviewEntity[] | null>{
-      return this.reviewRepository.find({
-        where: { revieweeId: id },
-        relations: ['reviewee', 'reviewer'], // include user info if needed
-        order: { id: 'DESC' }, // or 'createdAt' if you have a timestamp
-      });
-    }
+  //reviews received by posted
+  getReviewOfUser(id: number): Promise<ReviewEntity[] | null> {
+    return this.reviewRepository.find({
+      where: { revieweeId: id },
+      relations: ['reviewee', 'reviewer'], // include user info if needed
+      order: { id: 'DESC' }, // or 'createdAt' if you have a timestamp
+    });
+  }
 
   async moderateReview(
     reviewId: number,
@@ -541,11 +574,11 @@ export class ReviewService implements OnModuleInit {
 
       // Group reviews by revieweeId
       const reviewsByUser = new Map<number, number[]>();
-      
+
       for (const review of reviews) {
         const revieweeId = review.revieweeId;
         const rating = Number(review.rating);
-        
+
         if (!reviewsByUser.has(revieweeId)) {
           reviewsByUser.set(revieweeId, []);
         }

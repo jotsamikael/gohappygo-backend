@@ -854,7 +854,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
    * Get user profile with all stats using efficient COUNT queries
    * Only fetches profile stats if user role is USER (admins/operators don't need these stats)
    */
-  async getUserProfileWithStats(userId: number): Promise<UserProfileResponseDto> {
+  async getUserProfileWithStats(userId: number, excludeSensitiveData: boolean = false): Promise<UserProfileResponseDto> {
     // Get user with role (minimal relations)
     const user = await this.usersRepository.findOne({
       where: { id: userId },
@@ -963,10 +963,11 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
 
     return {
       id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName,
+      email: excludeSensitiveData ? null : user.email,
+      firstName: excludeSensitiveData ? null : user.firstName,
+      lastName: excludeSensitiveData ? null : user.lastName,
+      fullName:  fullName,
+      phone: excludeSensitiveData ? null : user.phone,
       profilePictureUrl: user.profilePictureUrl || null,
       bio: user.bio || null,
       isPhoneVerified: user.isPhoneVerified,

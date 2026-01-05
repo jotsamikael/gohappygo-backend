@@ -18,7 +18,7 @@ export class TravelEntity extends BaseEntity {
   @Column()
   userId: number;
 
-  @Column()
+  @Column({length:500})
   description: string;
 
 

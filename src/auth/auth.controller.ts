@@ -6,6 +6,7 @@ import { VerifyPhoneDto } from './dto/verifyPhone.dto';
 import { FindUsersQueryDto } from './dto/FindUsersQuery.dto';
 import { VerifyUserAccountDto } from './dto/verifyUserAccount.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RolesGuard } from './guards/roles-guard';
 import { Roles } from './decorators/role.decorators';
 import { UserRole } from 'src/user/user.entity';
@@ -259,31 +260,41 @@ async uploadVerificationDocuments(
 }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Get current user information with profile stats',
-    description: 'Get information about the current authenticated user. Optionally provide userId query parameter to get information about another user.'
+    description: 'Get information about the current authenticated user. Optionally provide userId query parameter to get information about another user. When userId is provided, sensitive fields (email, firstName, lastName, phone) are excluded. Visitors (non-authenticated users) can only access profiles with userId parameter.'
   })
   @ApiQuery({
     name: 'userId',
     required: false,
     type: Number,
-    description: 'Optional user ID to get information about another user'
+    description: 'Optional user ID to get information about another user. Sensitive fields will be excluded when viewing another user\'s profile. Required for visitors (non-authenticated users).'
   })
   @ApiResponse({ 
     status: 200, 
     description: 'User information with profile stats',
     type: UserProfileResponseDto
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 400, description: 'Bad request - userId required for visitors' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - userId required for visitors' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async getCurrentUser(
-    @CurrentUser() user: UserEntity,
+    @CurrentUser() user: UserEntity | null,
     @Query('userId') userId?: number
   ): Promise<UserProfileResponseDto> {
-    const targetUserId = userId || user.id;
-    return this.authService.getUserProfileWithStats(targetUserId);
+    // If user is not authenticated and no userId provided, require userId
+    if (!user && !userId) {
+      throw new BadRequestException('userId query parameter is required for visitors');
+    }
+
+    // Determine target user ID: use userId if provided, otherwise use authenticated user's ID
+    const targetUserId = userId ?? (user as UserEntity).id;
+    // Exclude sensitive data if viewing another user's profile (userId provided and different from current user)
+    const isViewingOtherUser = userId !== undefined && (user === null || userId !== user.id);
+    
+    return this.authService.getUserProfileWithStats(targetUserId, isViewingOtherUser);
   }
 
   @Get('admin/verification-files/:userId')

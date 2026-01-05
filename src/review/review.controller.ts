@@ -54,13 +54,15 @@ async editReview(
 @ApiBearerAuth('JWT-auth')
 @ApiOperation({ 
     summary: 'Get reviews with filters',
-    description: 'For regular users: By default, get reviews where they are reviewer or reviewee (use asReviewer=true to only get reviews they posted). You can also filter by reviewerId or revieweeId to see all reviews for a specific user. For admins/operators: Get all reviews with full filtering capabilities.'
+    description: `For visitors (non-authenticated users): They can only get reviews using the reviewerId or revieweeId query parameters. 
+    A connected user (authenticated user): By default, get reviews where they are reviewer or reviewee (only a connected user can use asReviewer=true/false to filter their reviews).
+    For admins/operators: Get all reviews with full filtering capabilities.`
 })
 @ApiResponse({ status: 200, description: 'Reviews fetched successfully', type: PaginatedReviewsResponseDto })
 @ApiResponse({ status: 400, description: 'Bad request' })
 async getAllReviews(
   @Query() query: FindReviewsQueryDto,
-  @CurrentUser() user: UserEntity
+  @CurrentUser() user: UserEntity | null
 ): Promise<PaginatedReviewsResponseDto> {
   return this.reviewService.getAllReviews(query, user);
 }

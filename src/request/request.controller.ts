@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { RequestService } from './request.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreateRequestToTravelDto } from './dto/createRequestToTravel.dto';
 import { FindRequestsQueryDto } from './dto/findRequestsQuery.dto';
 import { UserEntity, UserRole } from 'src/user/user.entity';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { CreateRequestResponseDto, PaginatedRequestsResponseDto, RequestResponseDto } from './dto/request-response.dto';
 import { RequestAcceptResponseDto } from './dto/request-accept-response.dto';
 
@@ -105,5 +105,26 @@ export class RequestController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   async completeRequest(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: UserEntity) {
     return this.requestService.completeRequest(id, user);
+  }
+
+  @Delete(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Cancel a request',
+    description: 'Cancel a request. Only the requester can cancel their request. Only non-completed requests can be cancelled. The requester will be refunded the travelerPayment amount, but the platform fee is kept.'
+  })
+  @ApiParam({ name: 'id', description: 'Request ID to cancel' })
+  @ApiResponse({ status: 200, description: 'Request cancelled successfully', type: RequestResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request - request is already completed or cancelled' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only the requester can cancel the request' })
+  @ApiResponse({ status: 404, description: 'Request not found' })
+  async cancelRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: UserEntity
+  ): Promise<RequestResponseDto> {
+    const cancelledRequest = await this.requestService.cancelRequest(id, user);
+    return this.requestService.transformRequestToResponse(cancelledRequest);
   }
 }

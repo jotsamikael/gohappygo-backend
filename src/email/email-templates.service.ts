@@ -1009,6 +1009,71 @@ export class EmailTemplatesService {
     `;
   }
 
+  getRequestCancelledForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Request Cancelled - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .cancelled-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+          .info-box { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
+          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Request Cancelled</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userFirstName},</h2>
+            <p>We're writing to inform you that a request on your travel/demand has been cancelled.</p>
+            
+            <div class="request-details">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${event.requestId}</p>
+              <p><strong>Type:</strong> ${event.requestType}</p>
+              <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
+              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+              <p><strong>Cancelled:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
+            </div>
+            
+            <div class="info-box">
+              <h3>ℹ️ Important Information</h3>
+              <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
+              <p>You can continue to receive other requests for your travel/demand.</p>
+            </div>
+            
+            <p><strong>What can you do?</strong></p>
+            <ul>
+              <li>Check your travel/demand status and available weight</li>
+              <li>Wait for new requests from other users</li>
+              <li>Contact support if you have any questions</li>
+            </ul>
+            
+            <p style="text-align: center;">
+              <a href="${this.baseUrl}/travels" class="action-button">View My Travels</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>Thank you for using GoHappyGo!</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   getRequestCancelledTemplate(userFirstName: string, event: RequestEvent): string {
     return `
       <!DOCTYPE html>

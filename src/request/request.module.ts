@@ -14,7 +14,9 @@ import { EventsModule } from 'src/events/events.module';
 import { UserModule } from 'src/user/user.module';
 import { RequestMapper } from './request.mapper';
 import { AirlineModule } from 'src/airline/airline.module';
+import { AirportModule } from 'src/airport/airport.module';
 import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.module';
+import { StripeModule } from 'src/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.mod
     EventsModule,
     UserModule,
     AirlineModule,
-    PlatformPricingModule
+    AirportModule,
+    PlatformPricingModule,
+    StripeModule
   ],
   controllers: [RequestController],
   providers: [RequestService, RequestMapper],

@@ -9,6 +9,8 @@ import {
   HttpCode,
   HttpStatus,
   Headers,
+  Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { StripeService } from './stripe.service';
@@ -21,7 +23,9 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 @ApiTags('Stripe')
 @Controller('stripe')
 export class StripeController {
-  constructor(private readonly stripeService: StripeService) {}
+  private readonly logger = new Logger(StripeController.name);
+
+  constructor(private readonly stripeService: StripeService) { }
 
   @Get('onboarding-link')
   @UseGuards(JwtAuthGuard)
@@ -44,10 +48,10 @@ export class StripeController {
       // Create deferred account (fallback if not created during registration)
       // Use stored country code or default to FR
       const countryCode = user.stripeCountryCode || 'FR';
-      const clientIp = req.ip || 
-                       req.connection?.remoteAddress || 
-                       req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                       '127.0.0.1';
+      const clientIp = req.ip ||
+        req.connection?.remoteAddress ||
+        req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        '127.0.0.1';
       const account = await this.stripeService.createConnectAccount(user, countryCode, clientIp);
       accountId = account.id;
     }
@@ -102,19 +106,61 @@ export class StripeController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ): Promise<{ received: boolean }> {
+    this.logger.log('=== STRIPE WEBHOOK RECEIVED ===');
+    this.logger.log(`Request method: ${req.method}`);
+    this.logger.log(`Request URL: ${req.url}`);
+    this.logger.log(`Has rawBody: ${!!req.rawBody}`);
+    // Simpler fix for lines 113-116
+    this.logger.log(`RawBody type: ${typeof req.rawBody}`);
+    const rawBodyStr = req.rawBody
+      ? (typeof req.rawBody === 'string' ? req.rawBody : Buffer.isBuffer(req.rawBody) ? req.rawBody.toString() : String(req.rawBody))
+      : '';
+    this.logger.log(`RawBody length: ${rawBodyStr.length}`);
+    this.logger.log(`Has stripe-signature header: ${!!signature}`);
+    this.logger.log(`Signature value: ${signature ? signature.substring(0, 20) + '...' : 'MISSING'}`);
+    this.logger.log(`Content-Type: ${req.headers['content-type']}`);
+    this.logger.log(`User-Agent: ${req.headers['user-agent']}`);
+
     const payload = req.rawBody;
 
     if (!payload) {
-      throw new Error('Missing raw body');
+      this.logger.error('❌ WEBHOOK FAILED: Missing raw body');
+      this.logger.error(`Request body type: ${typeof req.body}`);
+      this.logger.error(`Request body exists: ${!!req.body}`);
+      throw new BadRequestException('Missing raw body - webhook signature verification requires raw request body');
     }
 
-    // Verify webhook signature
-    const event = this.stripeService.verifyWebhookSignature(payload, signature);
+    if (!signature) {
+      this.logger.error('❌ WEBHOOK FAILED: Missing stripe-signature header');
+      this.logger.error(`Available headers: ${JSON.stringify(Object.keys(req.headers))}`);
+      throw new BadRequestException('Missing stripe-signature header');
+    }
 
-    // Handle webhook event
-    await this.stripeService.handleWebhook(event);
+    try {
+      // Verify webhook signature
+      this.logger.log('🔐 Attempting to verify webhook signature...');
+      const event = this.stripeService.verifyWebhookSignature(payload, signature);
+      this.logger.log(`✅ Webhook signature verified successfully`);
+      this.logger.log(`Event ID: ${event.id}`);
+      this.logger.log(`Event type: ${event.type}`);
+      this.logger.log(`Event created: ${new Date(event.created * 1000).toISOString()}`);
 
-    return { received: true };
+      // Handle webhook event (this saves to DB)
+      this.logger.log(`📦 Processing webhook event: ${event.type}...`);
+      await this.stripeService.handleWebhook(event);
+      this.logger.log(`✅ Webhook event ${event.id} processed successfully`);
+
+      return { received: true };
+    } catch (error) {
+      this.logger.error(`❌ WEBHOOK PROCESSING FAILED`);
+      this.logger.error(`Error message: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
+      this.logger.error(`Error name: ${error.name}`);
+      if (error.response) {
+        this.logger.error(`Error response: ${JSON.stringify(error.response)}`);
+      }
+      throw error;
+    }
   }
 }
 

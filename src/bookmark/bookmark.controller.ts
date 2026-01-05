@@ -50,7 +50,6 @@ export class BookmarkController {
   @ApiOperation({
     summary: 'Get all bookmarks',
     description: 'Retrieve all bookmarks for the authenticated user with pagination and filtering',
-
   })
   @ApiResponse({ status: 200, description: 'Bookmarks fetched successfully', type: BookmarkListResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

@@ -21,7 +21,7 @@ export class DemandEntity extends BaseEntity{
   @Column({ nullable: true })
   airlineId: number;
 
-  @Column()
+  @Column({length:500})
   description: string;
   
   @Column({nullable:true})

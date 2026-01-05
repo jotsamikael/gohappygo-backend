@@ -25,8 +25,10 @@ import { RequestStatusEntity } from 'src/request-status/requestStatus.entity';
 import { CustomBadRequestException, CustomForbiddenException, CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { AirlineService } from 'src/airline/airline.service';
+import { AirportService } from 'src/airport/airport.service';
 import { CommonService } from 'src/common/service/common.service';
 import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.service';
+import { StripeService } from 'src/stripe/stripe.service';
 
 @Injectable()
 export class RequestService {
@@ -44,8 +46,10 @@ export class RequestService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly requestMapper: RequestMapper,
     private readonly airlineService: AirlineService,
+    private readonly airportService: AirportService,
     private readonly commonService: CommonService,
-    private readonly platformPricingService: PlatformPricingService
+    private readonly platformPricingService: PlatformPricingService,
+    private readonly stripeService: StripeService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -406,11 +410,57 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   } else if (transaction.stripeTransferId) {
     console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
   } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
-    console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
-    throw new CustomBadRequestException(
-      `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
-      ErrorCode.INTERNAL_ERROR
-    );
+    // Before throwing error, check Payment Intent status from Stripe
+    if (transaction.stripePaymentIntentId) {
+      try {
+        const paymentIntent = await this.stripeService.getPaymentIntent(transaction.stripePaymentIntentId);
+        if (paymentIntent.status === 'succeeded') {
+          // Payment succeeded but status not updated yet - update it and proceed
+          await this.transactionService.updateTransactionStatus(transaction.id, 'paid');
+          // Retry the fund release
+          try {
+            await this.transactionService.releaseFundsFromStripe(transaction.id, user);
+          } catch (error) {
+            // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
+            if (error.message.includes('transfers enabled') || 
+                error.message.includes('onboarding') || 
+                error.message.includes('capability')) {
+              // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
+              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+              console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
+              // Allow request completion - funds are safely held by platform
+            } else {
+              // For other errors, don't allow completion
+              throw new CustomBadRequestException(
+                `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
+                ErrorCode.INTERNAL_ERROR
+              );
+            }
+          }
+        } else {
+          // Payment actually not succeeded
+          console.log(`Transaction ${transaction.id} is ${transaction.status}, Payment Intent status: ${paymentIntent.status}. Payment not yet successful. Cannot release funds.`);
+          throw new CustomBadRequestException(
+            `Transaction payment is not yet successful (Payment Intent status: ${paymentIntent.status}). Cannot release funds.`,
+            ErrorCode.INTERNAL_ERROR
+          );
+        }
+      } catch (error) {
+        // If we can't check Payment Intent, fall back to original behavior
+        console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds. Error checking Payment Intent: ${error.message}`);
+        throw new CustomBadRequestException(
+          `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+          ErrorCode.INTERNAL_ERROR
+        );
+      }
+    } else {
+      // No Payment Intent - throw error as before
+      console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
+      throw new CustomBadRequestException(
+        `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+        ErrorCode.INTERNAL_ERROR
+      );
+    }
   }
 
   // 4. Only update request status to completed if transfer succeeded
@@ -463,6 +513,142 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true);
 
   return updatedRequest;
+}
+
+async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
+  // 1. Get request with all necessary relations
+  const request = await this.getRequestById(requestId);
+  if (!request) {
+    throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+  }
+
+  // 2. Check if user is the requester
+  if (request.requesterId !== user.id) {
+    throw new CustomForbiddenException('Only the requester can cancel this request', ErrorCode.REQUEST_UNAUTHORIZED);
+  }
+
+  // 3. Check if request is already COMPLETED
+  const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
+  if (!completedStatus) {
+    throw new CustomNotFoundException('Completed status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+  }
+
+  if (request.currentStatusId === completedStatus.id) {
+    throw new CustomBadRequestException('Cannot cancel a completed request', ErrorCode.REQUEST_NOT_FOUND);
+  }
+
+  // 4. Check if request is already CANCELLED
+  const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+  if (!cancelledStatus) {
+    throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+  }
+
+  if (request.currentStatusId === cancelledStatus.id) {
+    throw new CustomBadRequestException('Request is already cancelled', ErrorCode.REQUEST_NOT_FOUND);
+  }
+
+  // 5. Get transaction
+  const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+  if (!transaction) {
+    throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+  }
+
+  // 6. Process refund (only travelerPayment, fee is kept)
+  if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+    try {
+      // Convert travelerPayment to USD (Payment Intent is in USD)
+      let travelerPaymentUSD: number;
+      if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+        travelerPaymentUSD = await this.stripeService.convertToUSD(
+          transaction.travelerPayment,
+          transaction.currencyCode || 'USD'
+        );
+      } else {
+        // If travelerPayment is not stored, calculate it from the transaction amount
+        // This shouldn't happen, but handle it gracefully
+        throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+      }
+
+      // Refund only the travelerPayment amount (partial refund)
+      await this.stripeService.refundPaymentIntentPartial(
+        transaction.stripePaymentIntentId,
+        travelerPaymentUSD
+      );
+
+      // Update transaction status to refunded
+      await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+    } catch (error) {
+      console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+      throw new CustomBadRequestException(
+        `Failed to process refund: ${error.message}`,
+        ErrorCode.INTERNAL_ERROR
+      );
+    }
+  } else if (transaction.status === 'pending') {
+    // For pending transactions, just mark as cancelled (no refund needed)
+    await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+  }
+
+  // 7. Restore weight to travel if request was for a travel
+  if (request.travelId) {
+    const travel = await this.travelService.findOne({
+      where: { id: request.travelId }
+    });
+
+    if (travel) {
+      // Convert to numbers to handle decimal/string type issues from TypeORM
+      const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+      const requestWeight = Number(request.weight) || 0;
+      
+      // Add the request weight back to available weight
+      const newAvailableWeight = travelWeightAvailable + requestWeight;
+      
+      // Update travel weight
+      travel.weightAvailable = newAvailableWeight;
+      
+      // If travel was 'filled', change status back to 'active' since weight is now available
+      if (travel.status === 'filled' && newAvailableWeight > 0) {
+        travel.status = 'active';
+      }
+
+      await this.travelService.save(travel);
+    }
+  }
+
+  // 8. Update request status to CANCELLED
+  request.currentStatusId = cancelledStatus.id;
+  request.currentStatus = cancelledStatus;
+  await this.requestRepository.save(request);
+
+  // 9. Record status history
+  await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+
+  // 10. Send email and notification to requester (isForOwner=false)
+  const requester = await this.userService.findOne({ id: request.requesterId });
+  if (requester) {
+    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+    if (ownerId) {
+      this.userEventService.emitRequestCancelled(requester, request, false, ownerId);
+    }
+  }
+
+  // 11. Send email and notification to travel/demand owner (isForOwner=true)
+  if (request.travelId && request.travel) {
+    const travelOwner = await this.userService.findOne({ id: request.travel.userId });
+    if (travelOwner) {
+      this.userEventService.emitRequestCancelled(travelOwner, request, true, request.travel.userId);
+    }
+  } else if (request.demandId && request.demand) {
+    const demandOwner = await this.userService.findOne({ id: request.demand.userId });
+    if (demandOwner) {
+      this.userEventService.emitRequestCancelled(demandOwner, request, true, request.demand.userId);
+    }
+  }
+
+  // 12. Clear cache
+  await this.clearRequestListCache();
+
+  return request;
 }
 
 // Helper method for travel requests
@@ -792,7 +978,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       relations: ['demand', 'travel', 'requestStatusHistory', 'transactions', 'messages'],
     });
   }
-  private async transformRequestToResponse(request: RequestEntity): Promise<RequestResponseDto> {
+  async transformRequestToResponse(request: RequestEntity): Promise<RequestResponseDto> {
     // Format requester fullName
     const requesterFullName = request.requester 
       ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
@@ -815,22 +1001,57 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       profilePictureUrl: null
     };
 
-    // Build travel object with airline information
+    // Build travel object with airline and airport information
     let travel: any = request.travel ? { ...request.travel } : null;
     
-    if (travel && travel.flightNumber) {
-      // Get airline from flight number
-      const airline = await this.airlineService.findByFlightNumber(travel.flightNumber);
-      
-      if (airline) {
-        travel.airline = {
-          airlineId: airline.id,
-          name: airline.name,
-          logoUrl: (airline.logoUrl as string | null) ?? null
-        };
+    if (travel) {
+      if (travel.flightNumber) {
+        // Get airline from flight number
+        const airline = await this.airlineService.findByFlightNumber(travel.flightNumber);
+        
+        if (airline) {
+          travel.airline = {
+            airlineId: airline.id,
+            name: airline.name,
+            logoUrl: (airline.logoUrl as string | null) ?? null
+          };
+        } else {
+          // If airline not found, set airline to null
+          travel.airline = null;
+        }
+      }
+
+      // Get departure and arrival airports
+      if (travel.departureAirportId) {
+        const departureAirport = await this.airportService.findOne(travel.departureAirportId);
+        if (departureAirport) {
+          travel.departureAirport = {
+            name: departureAirport.name || '',
+            municipality: departureAirport.municipality || '',
+            isoCountry: departureAirport.isoCountry || '',
+            iataCode: departureAirport.iataCode || ''
+          };
+        } else {
+          travel.departureAirport = null;
+        }
       } else {
-        // If airline not found, set airline to null
-        travel.airline = null;
+        travel.departureAirport = null;
+      }
+
+      if (travel.arrivalAirportId) {
+        const arrivalAirport = await this.airportService.findOne(travel.arrivalAirportId);
+        if (arrivalAirport) {
+          travel.arrivalAirport = {
+            name: arrivalAirport.name || '',
+            municipality: arrivalAirport.municipality || '',
+            isoCountry: arrivalAirport.isoCountry || '',
+            iataCode: arrivalAirport.iataCode || ''
+          };
+        } else {
+          travel.arrivalAirport = null;
+        }
+      } else {
+        travel.arrivalAirport = null;
       }
     }
 

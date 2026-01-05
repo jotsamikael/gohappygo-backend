@@ -62,21 +62,25 @@ export class UserProfileResponseDto {
     @Expose()
     id: number;
 
-    @ApiProperty({ example: 'jotsamikael0@gmail.com' })
+    @ApiProperty({ example: 'jotsamikael0@gmail.com', nullable: true })
     @Expose()
-    email: string;
+    email: string | null;
 
-    @ApiProperty({ example: 'John' })
+    @ApiProperty({ example: 'John', nullable: true })
     @Expose()
-    firstName: string;
+    firstName: string | null;
 
-    @ApiProperty({ example: 'Doe' })
+    @ApiProperty({ example: 'Doe', nullable: true })
     @Expose()
-    lastName: string;
+    lastName: string | null;
     
-    @ApiProperty({ example: 'James D.' })
+    @ApiProperty({ example: 'James D.', nullable: true })
     @Expose()
-    fullName: string;
+    fullName: string | null;
+
+    @ApiProperty({ example: '+1234567890', nullable: true })
+    @Expose()
+    phone: string | null;
 
     @ApiProperty({ example: 'https://res.cloudinary.com/dgdy4huuc/image/upload/v1765651873/gohappygo/ecuacdwgrjdvewflyczo.jpg', nullable: true })
     @Expose()

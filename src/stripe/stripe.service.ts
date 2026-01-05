@@ -105,7 +105,7 @@ export class StripeService {
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
         refresh_url: `${frontendUrl}/settings/payments?refresh=true`,
-        return_url: `${frontendUrl}/settings/payments?success=true`,
+        return_url: `${frontendUrl}/settings/payments?success=true`, 
         type: 'account_onboarding',
       });
 
@@ -390,65 +390,125 @@ export class StripeService {
   }
 
   /**
+   * Refund a partial amount from a Payment Intent
+   * @param paymentIntentId - Stripe Payment Intent ID
+   * @param amountUSD - Amount to refund in USD (will be converted to cents)
+   * @returns Stripe Refund object
+   */
+  async refundPaymentIntentPartial(paymentIntentId: string, amountUSD: number): Promise<Stripe.Refund> {
+    try {
+      // Retrieve the Payment Intent to get the charge ID and verify currency
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (!paymentIntent.latest_charge) {
+        throw new BadRequestException('Payment Intent has no charge to refund');
+      }
+
+      // Convert amount to cents (Stripe uses smallest currency unit)
+      const amountInCents = Math.round(amountUSD * 100);
+
+      if (amountInCents <= 0) {
+        throw new BadRequestException('Refund amount must be greater than zero');
+      }
+
+      if (amountInCents > paymentIntent.amount) {
+        throw new BadRequestException('Refund amount cannot exceed the original payment amount');
+      }
+
+      // Create partial refund for the charge
+      const refund = await this.stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: amountInCents,
+      });
+
+      this.logger.log(`Partial refund created successfully: ${refund.id} for Payment Intent ${paymentIntentId}, amount: ${amountUSD} USD (${amountInCents} cents)`);
+      return refund;
+    } catch (error) {
+      this.logger.error(`Error partially refunding Payment Intent ${paymentIntentId}: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to partially refund Payment Intent: ${error.message}`);
+    }
+  }
+
+  /**
    * Handle webhook events
    */
   async handleWebhook(event: Stripe.Event): Promise<void> {
-    // Store webhook event for idempotency and debugging
-    const existingEvent = await this.webhookEventRepository.findOne({
-      where: { eventId: event.id },
-    });
-
-    if (existingEvent && existingEvent.processed) {
-      this.logger.log(`Webhook event ${event.id} already processed, skipping`);
-      return;
-    }
-
-    // Save or update event
-    if (existingEvent) {
-      existingEvent.processed = false; // Reset if reprocessing
-      existingEvent.payload = JSON.stringify(event);
-      await this.webhookEventRepository.save(existingEvent);
-    } else {
-      const webhookEvent = this.webhookEventRepository.create({
-        eventId: event.id,
-        eventType: event.type,
-        processed: false,
-        payload: JSON.stringify(event),
+    this.logger.log(`[handleWebhook] Starting processing for event ${event.id} (type: ${event.type})`);
+    
+    try {
+      // Store webhook event for idempotency and debugging
+      this.logger.log(`[handleWebhook] Checking if event ${event.id} already exists in database...`);
+      const existingEvent = await this.webhookEventRepository.findOne({
+        where: { eventId: event.id },
       });
-      await this.webhookEventRepository.save(webhookEvent);
-    }
 
-    // Process event based on type
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        await this.handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
-        break;
-      case 'payment_intent.payment_failed':
-        await this.handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
-        break;
-      case 'transfer.created':
-        await this.handleTransferCreated(event.data.object as Stripe.Transfer);
-        break;
-      case 'transfer.updated':
-        await this.handleTransferUpdated(event.data.object as Stripe.Transfer);
-        break;
-      case 'transfer.reversed':
-        await this.handleTransferReversed(event.data.object as Stripe.Transfer);
-        break;
-      case 'account.updated':
-        await this.handleAccountUpdated(event.data.object as Stripe.Account);
-        break;
-      default:
-        this.logger.log(`Unhandled webhook event type: ${event.type}`);
-    }
+      if (existingEvent && existingEvent.processed) {
+        this.logger.log(`[handleWebhook] Event ${event.id} already processed, skipping`);
+        return;
+      }
 
-    // Mark event as processed
-    const eventEntity = await this.webhookEventRepository.findOne({
-      where: { eventId: event.id },
-    });
-    if (eventEntity) {
-      eventEntity.processed = true;
-      await this.webhookEventRepository.save(eventEntity);
+      // Save or update event
+      this.logger.log(`[handleWebhook] Saving webhook event to database...`);
+      if (existingEvent) {
+        this.logger.log(`[handleWebhook] Updating existing event record`);
+        existingEvent.processed = false; // Reset if reprocessing
+        existingEvent.payload = JSON.stringify(event);
+        await this.webhookEventRepository.save(existingEvent);
+        this.logger.log(`[handleWebhook] Event record updated successfully`);
+      } else {
+        this.logger.log(`[handleWebhook] Creating new event record`);
+        const webhookEvent = this.webhookEventRepository.create({
+          eventId: event.id,
+          eventType: event.type,
+          processed: false,
+          payload: JSON.stringify(event),
+        });
+        await this.webhookEventRepository.save(webhookEvent);
+        this.logger.log(`[handleWebhook] Event record created successfully with ID: ${webhookEvent.id}`);
+      }
+
+      // Process event based on type
+      this.logger.log(`[handleWebhook] Processing event type: ${event.type}`);
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await this.handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+          break;
+        case 'payment_intent.payment_failed':
+          await this.handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
+          break;
+        case 'transfer.created':
+          await this.handleTransferCreated(event.data.object as Stripe.Transfer);
+          break;
+        case 'transfer.updated':
+          await this.handleTransferUpdated(event.data.object as Stripe.Transfer);
+          break;
+        case 'transfer.reversed':
+          await this.handleTransferReversed(event.data.object as Stripe.Transfer);
+          break;
+        case 'account.updated':
+          await this.handleAccountUpdated(event.data.object as Stripe.Account);
+          break;
+        default:
+          this.logger.log(`[handleWebhook] Unhandled webhook event type: ${event.type}`);
+      }
+      this.logger.log(`[handleWebhook] Event type ${event.type} processed successfully`);
+
+      // Mark event as processed
+      this.logger.log(`[handleWebhook] Marking event ${event.id} as processed...`);
+      const eventEntity = await this.webhookEventRepository.findOne({
+        where: { eventId: event.id },
+      });
+      if (eventEntity) {
+        eventEntity.processed = true;
+        await this.webhookEventRepository.save(eventEntity);
+        this.logger.log(`[handleWebhook] Event ${event.id} marked as processed`);
+      } else {
+        this.logger.warn(`[handleWebhook] Could not find event ${event.id} to mark as processed`);
+      }
+    } catch (error) {
+      this.logger.error(`[handleWebhook] Error processing webhook event ${event.id}: ${error.message}`);
+      this.logger.error(`[handleWebhook] Error stack: ${error.stack}`);
+      throw error;
     }
   }
 
@@ -524,11 +584,16 @@ export class StripeService {
    * Handle account.updated webhook
    */
   private async handleAccountUpdated(account: Stripe.Account): Promise<void> {
-    this.logger.log(`Account updated: ${account.id}`);
+    this.logger.log(`[handleAccountUpdated] Processing account.updated webhook for account: ${account.id}`);
+    this.logger.log(`[handleAccountUpdated] Account charges_enabled: ${account.charges_enabled}`);
+    this.logger.log(`[handleAccountUpdated] Account details_submitted: ${account.details_submitted}`);
     
     // Check if transfers capability is now active
     const transfersCapability = account.capabilities?.transfers;
     const previousTransfersCapability = (account as any).previous_attributes?.capabilities?.transfers;
+    
+    this.logger.log(`[handleAccountUpdated] Transfers capability: ${transfersCapability}`);
+    this.logger.log(`[handleAccountUpdated] Previous transfers capability: ${previousTransfersCapability || 'undefined'}`);
     
     // If transfers capability just became active (either detected via previous_attributes or by checking current status)
     // Release pending transfers for this account
@@ -536,18 +601,40 @@ export class StripeService {
       // Check if this is a new activation (previous was not active) or if we should check anyway
       const shouldRelease = previousTransfersCapability !== 'active' || previousTransfersCapability === undefined;
       
+      this.logger.log(`[handleAccountUpdated] Should release pending transfers: ${shouldRelease}`);
+      
       if (shouldRelease) {
-        this.logger.log(`Transfers capability is active for account ${account.id}, checking for pending transfers`);
-        await this.releasePendingTransfersForAccount(account.id);
+        this.logger.log(`[handleAccountUpdated] Transfers capability is active for account ${account.id}, checking for pending transfers`);
+        try {
+          await this.releasePendingTransfersForAccount(account.id);
+          this.logger.log(`[handleAccountUpdated] Pending transfers released successfully`);
+        } catch (error) {
+          this.logger.error(`[handleAccountUpdated] Error releasing pending transfers: ${error.message}`);
+          // Don't throw - continue to update status
+        }
       }
     }
     
     // Update user's Stripe account status
+    this.logger.log(`[handleAccountUpdated] Finding user by Stripe account ID: ${account.id}`);
     const user = await this.userService.findByStripeAccountId(account.id);
     if (user) {
+      this.logger.log(`[handleAccountUpdated] User found: ${user.id} (${user.email})`);
+      this.logger.log(`[handleAccountUpdated] Current stripeAccountStatus: ${user.stripeAccountStatus}`);
+      
+      this.logger.log(`[handleAccountUpdated] Retrieving account status from Stripe...`);
       const status = await this.getAccountStatus(account.id);
+      this.logger.log(`[handleAccountUpdated] Stripe account status: ${status.status}`);
+      this.logger.log(`[handleAccountUpdated] chargesEnabled: ${status.chargesEnabled}, transfersEnabled: ${status.transfersEnabled}, detailsSubmitted: ${status.detailsSubmitted}`);
+      
+      const previousStatus = user.stripeAccountStatus;
       user.stripeAccountStatus = status.status;
+      
+      this.logger.log(`[handleAccountUpdated] Updating user stripeAccountStatus from '${previousStatus}' to '${status.status}'`);
       await this.userService.save(user);
+      this.logger.log(`[handleAccountUpdated] User stripeAccountStatus updated successfully`);
+    } else {
+      this.logger.warn(`[handleAccountUpdated] No user found for Stripe account ID: ${account.id}`);
     }
   }
 
@@ -687,18 +774,43 @@ export class StripeService {
   }
 
   /**
+   * Retrieve Payment Intent from Stripe
+   * @param paymentIntentId - Stripe Payment Intent ID
+   * @returns Stripe Payment Intent object
+   */
+  async getPaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+    try {
+      return await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    } catch (error) {
+      this.logger.error(`Error retrieving Payment Intent: ${error.message}`, error.stack);
+      throw new NotFoundException(`Failed to retrieve Payment Intent: ${error.message}`);
+    }
+  }
+
+  /**
    * Verify webhook signature
    */
   verifyWebhookSignature(payload: string | Buffer, signature: string): Stripe.Event {
+    this.logger.log(`[verifyWebhookSignature] Starting signature verification...`);
+    
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
     if (!webhookSecret) {
+      this.logger.error(`[verifyWebhookSignature] STRIPE_WEBHOOK_SECRET not configured in environment`);
       throw new BadRequestException('STRIPE_WEBHOOK_SECRET not configured');
     }
+    
+    this.logger.log(`[verifyWebhookSignature] Webhook secret found (length: ${webhookSecret.length})`);
+    this.logger.log(`[verifyWebhookSignature] Payload type: ${typeof payload}, length: ${payload ? (typeof payload === 'string' ? payload.length : payload.toString().length) : 0}`);
+    this.logger.log(`[verifyWebhookSignature] Signature length: ${signature ? signature.length : 0}`);
 
     try {
-      return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      const event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      this.logger.log(`[verifyWebhookSignature] Signature verification successful`);
+      return event;
     } catch (error) {
-      this.logger.error(`Webhook signature verification failed: ${error.message}`);
+      this.logger.error(`[verifyWebhookSignature] Signature verification failed`);
+      this.logger.error(`[verifyWebhookSignature] Error message: ${error.message}`);
+      this.logger.error(`[verifyWebhookSignature] Error name: ${error.name}`);
       throw new BadRequestException(`Webhook signature verification failed: ${error.message}`);
     }
   }

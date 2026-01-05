@@ -167,14 +167,14 @@ import { AlertEntity } from './alert/entities/alert.entity';
           connectTimeout: 60000, // 60 seconds
           acquireTimeout: 60000,
           timeout: 60000,
-          reconnect: true, // Auto-reconnect on connection loss
+          //reconnect: true, // No longer supported in mysql2 v3.14.1
           idleTimeout: 120000, // 2 minutes - shorter than MySQL's 8 hours, but accounts for network timeouts
           waitForConnections: true, // Wait for available connection instead of failing
           queueLimit: 0, // No limit on connection queue
           enableKeepAlive: true,        // ADD THIS
           keepAliveInitialDelay: 10000,     // Start keep-alive after 10 seconds of idle time
           testOnBorrow: true,           // ADD THIS - validate before use
-          reconnectDelay: 1000,
+          //reconnectDelay: 1000, //no longer supported in mysql2 v3.14.1
         },
         
         // Retry connection on failure

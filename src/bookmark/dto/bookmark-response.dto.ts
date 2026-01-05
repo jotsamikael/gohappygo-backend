@@ -235,7 +235,7 @@ export class DemandResponseDto {
 
   @ApiProperty()  
   @Expose()
-  departureDatetime: Date;
+  travelDate: Date;
 
   @ApiProperty()
   @Expose()
