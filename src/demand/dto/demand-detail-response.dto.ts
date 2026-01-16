@@ -376,9 +376,9 @@ export class DemandDetailResponseDto{
         @Expose()
         arrivalAirportId: number;
 
-        @ApiProperty({ example: '2025-10-29T23:00:00.000Z' })
+        @ApiProperty({ example: '2025-10-29' })
         @Expose()
-        travelDate: Date;
+        travelDate: string;
 
         @ApiProperty({ example: 1, nullable: true })
         @Expose()

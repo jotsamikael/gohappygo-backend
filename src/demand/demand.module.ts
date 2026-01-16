@@ -11,6 +11,7 @@ import { DemandMapper } from './demand.mapper';
 import { ReviewEntity } from 'src/review/review.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
+import { UploadedFileEntity } from 'src/uploaded-file/uploaded-file.entity';
 import { RequestStatusModule } from 'src/request-status/request-status.module';
 import { RequestStatusHistoryModule } from 'src/request-status-history/request-status-history.module';
 import { TransactionModule } from 'src/transaction/transaction.module';
@@ -18,7 +19,7 @@ import { StripeModule } from 'src/stripe/stripe.module';
 import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DemandEntity, ReviewEntity, RequestEntity, TransactionEntity]),
+  imports: [TypeOrmModule.forFeature([DemandEntity, ReviewEntity, RequestEntity, TransactionEntity, UploadedFileEntity]),
    FileUploadModule,EventsModule, AirlineModule, RequestStatusModule, RequestStatusHistoryModule, forwardRef(() => TransactionModule), forwardRef(() => StripeModule), UserModule],
   controllers: [DemandController],
   providers: [DemandService, DemandMapper],

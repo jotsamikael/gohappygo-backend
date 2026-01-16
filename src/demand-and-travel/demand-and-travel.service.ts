@@ -15,6 +15,7 @@ import { In, Repository } from 'typeorm';
 import { BookmarkEntity, BookmarkType } from 'src/bookmark/entities/bookmark.entity';
 import { JwtService } from '@nestjs/jwt';
 import { DemandAndTravelMapper } from './demand-and-travel.mapper';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DemandAndTravelService {
@@ -28,7 +29,8 @@ export class DemandAndTravelService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectRepository(BookmarkEntity) private readonly bookmarkRepository: Repository<BookmarkEntity>,
         private readonly jwtService: JwtService,
-        private readonly demandAndTravelMapper: DemandAndTravelMapper
+        private readonly demandAndTravelMapper: DemandAndTravelMapper,
+        private readonly configService: ConfigService
     ) {}
 
     async getDemandsAndTravels(query: FindDemandsAndTravelsQueryDto, user: any): Promise<PaginatedDemandsAndTravelsResponseDto> {
@@ -298,6 +300,42 @@ export class DemandAndTravelService {
 
         // Filter out cancelled items
         combinedItems = combinedItems.filter(item => item.status !== 'cancelled');
+
+        // Filter out expired items for non-owners
+        // Items where (travelDate + MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE) < current date
+        // should only be visible to the owner
+        const maxDisplayDaysRaw = this.configService.get<string>('MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE', '30');
+        const maxDisplayDays = parseInt(maxDisplayDaysRaw, 10) || 30;
+        
+        const currentDate = new Date();
+        currentDate.setUTCHours(0, 0, 0, 0); // Normalize to UTC midnight for date comparison
+        
+        combinedItems = combinedItems.filter(item => {
+            if (!item.deliveryDate) {
+                // If no delivery date, show to everyone
+                return true;
+            }
+            
+            const deliveryDate = new Date(item.deliveryDate);
+            deliveryDate.setUTCHours(0, 0, 0, 0); // Normalize to UTC midnight
+            
+            // Calculate the expiration date (deliveryDate + maxDisplayDays)
+            const expirationDate = new Date(deliveryDate);
+            expirationDate.setUTCDate(expirationDate.getUTCDate() + maxDisplayDays);
+            
+            // If expiration date is in the past, only show to owner
+            if (expirationDate < currentDate) {
+                // Only show if current user is the owner
+                const isOwner = currentUserId !== null && item.userId === currentUserId;
+                if (!isOwner) {
+                    console.log(`🔒 Filtering out expired item: id=${item.id}, type=${item.type}, deliveryDate=${item.deliveryDate}, expirationDate=${expirationDate.toISOString()}, currentDate=${currentDate.toISOString()}, currentUserId=${currentUserId}, ownerId=${item.userId}`);
+                }
+                return isOwner;
+            }
+            
+            // Otherwise, show to everyone
+            return true;
+        });
 
         // Apply filters manually
         if (description) {

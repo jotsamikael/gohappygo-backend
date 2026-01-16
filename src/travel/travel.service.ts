@@ -341,6 +341,7 @@ export class TravelService {
       feeForGloomy: createTravelDto.feeForGloomy,
       departureAirportId: createTravelDto.departureAirportId,
       arrivalAirportId: createTravelDto.arrivalAirportId,
+      //Normalize departure Date to UTC midnight to avoid timezone issues
       departureDatetime: new Date(createTravelDto.departureDatetime),
       pricePerKg: createTravelDto.pricePerKg,
       totalWeightAllowance: createTravelDto.totalWeightAllowance,

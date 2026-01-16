@@ -84,11 +84,15 @@ export class StripeController {
       };
     }
 
-    const status = await this.stripeService.getAccountStatus(user.stripeAccountId);
+    // Sync status from Stripe to database (fixes issues from missed webhooks)
+    const status = await this.stripeService.syncAccountStatus(user.stripeAccountId);
 
     return {
       accountId: user.stripeAccountId,
-      ...status,
+      status: status.status,
+      chargesEnabled: status.chargesEnabled,
+      transfersEnabled: status.transfersEnabled,
+      detailsSubmitted: status.detailsSubmitted,
     };
   }
 
@@ -106,6 +110,15 @@ export class StripeController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ): Promise<{ received: boolean }> {
+
+    console.log('WEBHOOK ENDPOINT HIT:', {
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+
+
     this.logger.log('=== STRIPE WEBHOOK RECEIVED ===');
     this.logger.log(`Request method: ${req.method}`);
     this.logger.log(`Request URL: ${req.url}`);

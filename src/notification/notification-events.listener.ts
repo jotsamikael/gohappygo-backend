@@ -97,6 +97,34 @@ export class NotificationEventsListener {
   }
 
   /**
+   * Handle request rejected event
+   */
+  @OnEvent('request.rejected')
+  async handleRequestRejected(event: RequestEvent) {
+    try {
+      // Only create notification for the requester (isForOwner=false means this is for the requester)
+      if (event.isForOwner) {
+        return; // Skip notification creation for owner's own action
+      }
+
+      // Notify the requester that their request was rejected
+      await this.notificationService.create({
+        targetUserId: event.requesterId,
+        actorUserId: event.ownerId,
+        notificationType: NotificationType.REQUEST_REJECTED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: 'Request Rejected',
+        priority: NotificationPriority.HIGH,
+      });
+
+      this.logger.log(`Notification created for request rejection: Request ${event.requestId}`);
+    } catch (error) {
+      this.logger.error(`Failed to create notification for request.rejected: ${error.message}`);
+    }
+  }
+
+  /**
    * Handle request completed event
    */
   @OnEvent('request.completed')

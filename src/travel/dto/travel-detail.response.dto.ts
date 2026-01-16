@@ -299,9 +299,9 @@ export class TravelDetailResponseDto {
     @Type(() => TravelDetailAirportDto)
     arrivalAirport: TravelDetailAirportDto;
 
-    @ApiProperty({ example: '2025-11-21T10:00:00.000Z' })
+    @ApiProperty({ example: '2025-11-21' })
     @Expose()
-    departureDatetime: Date;
+    departureDatetime: string;
 
     @ApiProperty({ example: 12 })
     @Expose()

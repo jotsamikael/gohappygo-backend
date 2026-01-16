@@ -288,8 +288,8 @@ export class TransactionService {
     const totalItems = await queryBuilder.getCount();
     const items = await queryBuilder.getMany();
 
-    // Transform using mapper
-    const transformedItems = items.map(transaction => this.transactionMapper.toResponseDto(transaction));
+    // Transform using mapper (pass current user to calculate showReleaseFundButton)
+    const transformedItems = items.map(transaction => this.transactionMapper.toResponseDto(transaction, user));
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -342,19 +342,26 @@ export class TransactionService {
    }
 
    //After service is performed, funds are released from stripe to payee
-   //This is triggered when payer marks request as completed
+   //This can be triggered by:
+   //1. Payer when marking request as completed (automatic flow)
+   //2. Payee as a fallback to retry transfer after completing onboarding (manual retry)
    async releaseFundsFromStripe(transactionId: number, user: UserEntity): Promise<void> {
     const transaction = await this.getTransactionById(transactionId);
     if (!transaction) {
         throw new NotFoundException('Transaction not found');
     }
-    //check if user is payer
-    if (transaction.payerId !== user.id) {
-        throw new ForbiddenException('You are not the payer of this transaction');
+    //check if user is either payer or payee (payer can trigger during completion, payee can retry after onboarding)
+    if (transaction.payerId !== user.id && transaction.payeeId !== user.id) {
+        throw new ForbiddenException('You are not authorized to release funds for this transaction. Only the payer or payee can release funds.');
     }
     //check if transaction status is 'paid' or 'awaiting_transfer' (funds are already collected)
     if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
         throw new BadRequestException('Transaction must be in paid or awaiting_transfer status to release funds');
+    }
+
+    // Check if transfer already created - prevent duplicate transfers
+    if (transaction.stripeTransferId) {
+        throw new BadRequestException(`Funds have already been released. Transfer ID: ${transaction.stripeTransferId}`);
     }
 
     // If no Stripe Payment Intent, just update status (legacy transactions)

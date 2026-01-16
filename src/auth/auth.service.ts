@@ -48,6 +48,7 @@ import { ErrorCode } from 'src/common/exception/error-codes';
 import { StripeService } from 'src/stripe/stripe.service';
 import { Logger } from '@nestjs/common';
 import { CommonService } from 'src/common/service/common.service';
+import { MessageService } from 'src/message/message.service';
 
 @Injectable()
 export class AuthService {
@@ -87,6 +88,7 @@ export class AuthService {
     private emailTemplatesService: EmailTemplatesService,
     private stripeService: StripeService,
     private commonService: CommonService,
+    private messageService: MessageService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -144,7 +146,7 @@ export class AuthService {
       roleId: userRole?.id,
       isEmailVerified: false,
       isPhoneVerified: false,
-      isVerified: false,
+      isVerified: true, //for test purposes while awaiting KYC implementation
       stripeCountryCode: registerDto.countryCode, // Store country code for Stripe Connect
     });
 
@@ -537,7 +539,8 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         requestsRejectedCount: requestStatusCounts.rejected,
         reviewsReceivedCount,
         reviewsGivenCount,
-        transactionsCompletedCount
+        transactionsCompletedCount,
+        unreadMessageCount: await this.messageService.getUnreadCount(user)
       };
     } else {
       // For non-USER roles (ADMIN, OPERATOR), return empty stats
@@ -553,7 +556,8 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         requestsRejectedCount: 0,
         reviewsReceivedCount: 0,
         reviewsGivenCount: 0,
-        transactionsCompletedCount: 0
+        transactionsCompletedCount: 0,
+        unreadMessageCount: 0,
       };
     }
 
@@ -932,7 +936,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
         requestsRejectedCount: requestStatusCounts.rejected,
         reviewsReceivedCount,
         reviewsGivenCount,
-        transactionsCompletedCount
+        transactionsCompletedCount,
+        unreadMessageCount: await this.messageService.getUnreadCount(user)
       };
     } else {
       // For non-USER roles (ADMIN, OPERATOR), return empty stats
@@ -949,7 +954,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
         requestsRejectedCount: 0,
         reviewsReceivedCount: 0,
         reviewsGivenCount: 0,
-        transactionsCompletedCount: 0
+        transactionsCompletedCount: 0,
+        unreadMessageCount: 0
       };
     }
 
@@ -960,6 +966,12 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
 
     // Format fullName - ensure it's always a string
     const fullName = this.commonService.formatFullName(user.firstName || '', user.lastName || '') || user.firstName || '';
+
+    // Get unread message count (for all users, not just USER role)
+    const unreadMessageCount = await this.messageService.getUnreadCount(user);
+
+    // Add unreadMessageCount to profileStats
+    profileStats.unreadMessageCount = unreadMessageCount;
 
     return {
       id: user.id,

@@ -55,6 +55,10 @@ export class ProfileStatsResponseDto {
     @ApiProperty({ example: 1 })
     @Expose()
     transactionsCompletedCount: number; // After travel is completed and the user has received the payment
+
+    @ApiProperty({ example: 5, description: 'Number of unread messages received by the user' })
+    @Expose()
+    unreadMessageCount: number;
 }
 
 export class UserProfileResponseDto {

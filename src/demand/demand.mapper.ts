@@ -1,11 +1,11 @@
 import { plainToInstance } from "class-transformer";
 import { DemandEntity } from "./demand.entity";
-import { 
-    DemandDetailResponseDto, 
-    DemandDetailAirportDto, 
-    DemandDetailUserDto, 
-    DemandDetailAirlineDto, 
-    DemandDetailImageDto, 
+import {
+    DemandDetailResponseDto,
+    DemandDetailAirportDto,
+    DemandDetailUserDto,
+    DemandDetailAirlineDto,
+    DemandDetailImageDto,
     DemandDetailReviewDto,
     DemandDetailReviewerDto,
     DemandDetailCurrencyDto
@@ -23,8 +23,8 @@ import { CommonService } from "src/common/service/common.service";
 
 @Injectable()
 export class DemandMapper {
-    constructor(private commonService: CommonService) {}
-    
+    constructor(private commonService: CommonService) { }
+
     /**
      * Transform DemandEntity to DemandResponseDto for list endpoints
      */
@@ -128,7 +128,8 @@ export class DemandMapper {
             flightNumber: demand.flightNumber,
             departureAirportId: demand.departureAirportId,
             arrivalAirportId: demand.arrivalAirportId,
-            travelDate: demand.travelDate,
+            // Format travelDate as date-only (YYYY-MM-DD) to avoid timezone issues
+            travelDate: demand.travelDate ? new Date(demand.travelDate).toISOString().split('T')[0] : null,
             weight: demand.weight ? demand.weight.toString() : '0.00',
             pricePerKg: demand.pricePerKg ? demand.pricePerKg.toString() : '0.00',
             currencyId: demand.currencyId,
@@ -163,7 +164,7 @@ export class DemandMapper {
     toListResponseDtoArray(demands: DemandEntity[]): DemandResponseDto[] {
         return demands.map(demand => this.toListResponseDto(demand));
     }
-  
+
     toDemandDetailResponse(demand: DemandEntity, reviews: ReviewEntity[]): DemandDetailResponseDto {
         // Transform airports
         const departureAirport = demand.departureAirport ? plainToInstance(DemandDetailAirportDto, {
@@ -312,7 +313,9 @@ export class DemandMapper {
             airlineId: demand.airlineId,
             departureAirportId: demand.departureAirportId,
             arrivalAirportId: demand.arrivalAirportId,
-            travelDate: demand.travelDate,
+            // Format travelDate as date-only (YYYY-MM-DD) to avoid timezone issues
+            travelDate: demand.travelDate ? new Date(demand.travelDate).toISOString().split('T')[0] : null,
+
             currencyId: demand.currencyId,
             packageKind: demand.packageKind,
             requests: demand.requests || [],

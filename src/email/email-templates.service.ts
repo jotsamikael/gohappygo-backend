@@ -1814,4 +1814,134 @@ export class EmailTemplatesService {
       </html>
     `;
   }
+
+  getRequestRejectedTemplate(userFirstName: string, event: RequestEvent): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Request Rejected - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .rejected-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+          .info-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Request Rejected</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userFirstName},</h2>
+            <p>We regret to inform you that your delivery request has been rejected by the travel/demand owner.</p>
+            
+            <div class="request-details">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${event.requestId}</p>
+              <p><strong>Type:</strong> ${event.requestType}</p>
+              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+              <p><strong>Rejected:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
+            </div>
+            
+            <div class="info-box">
+              <h3>ℹ️ Important Information</h3>
+              <p>The travel/demand owner has decided not to accept your request at this time. This could be due to various reasons such as capacity constraints, scheduling conflicts, or other considerations.</p>
+              <p><strong>Note:</strong> No payment was processed for this request, so no refund is necessary.</p>
+            </div>
+            
+            <p><strong>What can you do?</strong></p>
+            <ul>
+              <li>Browse other available travels or demands</li>
+              <li>Create a new request for a different travel</li>
+              <li>Contact support if you have any questions</li>
+            </ul>
+            
+            <p style="text-align: center;">
+              <a href="${this.baseUrl}/requests" class="action-button">Browse Available Travels</a>
+            </p>
+            
+            <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getRequestRejectedForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Request Rejected - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .rejected-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
+          .info-box { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
+          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Request Rejected</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userFirstName},</h2>
+            <p>This is a confirmation that you have rejected a request on your travel/demand.</p>
+            
+            <div class="request-details">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${event.requestId}</p>
+              <p><strong>Type:</strong> ${event.requestType}</p>
+              <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
+              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+              <p><strong>Rejected:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
+            </div>
+            
+            <div class="info-box">
+              <h3>ℹ️ Important Information</h3>
+              <p>You have successfully rejected this request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
+              <p>You can continue to receive other requests for your travel/demand.</p>
+            </div>
+            
+            <p><strong>What can you do?</strong></p>
+            <ul>
+              <li>Check your travel/demand status and available weight</li>
+              <li>Wait for new requests from other users</li>
+              <li>Contact support if you have any questions</li>
+            </ul>
+            
+            <p style="text-align: center;">
+              <a href="${this.baseUrl}/travels" class="action-button">View My Travels</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>Thank you for using GoHappyGo!</p>
+            <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
 } 

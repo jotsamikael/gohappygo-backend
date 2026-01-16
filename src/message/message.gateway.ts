@@ -339,7 +339,7 @@ import { UserService } from 'src/user/user.service';
         
         // Also send to receiver's personal room (for notifications even if not in thread)
         // This ensures the receiver gets notified even if they haven't joined the thread yet
-        const userRoomName = `user:${dto.receiverId}`;
+        const userRoomName = `user:${fullMessage.receiver.id}`; // Use actual receiver ID from message
         this.logger.log(`📡 Sending 'message-notification' to personal room ${userRoomName}`);
         this.server.to(userRoomName).emit('message-notification', {
           ...messagePayload,
@@ -347,7 +347,7 @@ import { UserService } from 'src/user/user.service';
         });
         
         // Log the actual socket IDs that should receive the message
-        this.logger.log(`📤 Message broadcasted. Sender: ${client.id} (User: ${user.id}), Receiver ID: ${dto.receiverId}, Room: ${roomName}`);
+        this.logger.log(`📤 Message broadcasted. Sender: ${client.id} (User: ${user.id}), Receiver ID: ${fullMessage.receiver.id}, Room: ${roomName}`);
   
         // Send acknowledgment to sender
         client.emit('message-sent', {

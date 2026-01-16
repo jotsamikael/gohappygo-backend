@@ -132,7 +132,9 @@ export class TravelMapper {
             airlineId: travel.airlineId,
             departureAirportId: travel.departureAirportId,
             arrivalAirportId: travel.arrivalAirportId,
-            departureDatetime: travel.departureDatetime,
+             // Format departureDatetime as date-only (YYYY-MM-DD) to avoid timezone issues
+            departureDatetime: travel.departureDatetime ? new Date(travel.departureDatetime).toISOString().split('T')[0] : null,
+
             totalWeightAllowance: travel.totalWeightAllowance ? travel.totalWeightAllowance.toString() : '0.00',
             weightAvailable: travel.weightAvailable ? travel.weightAvailable.toString() : '0.00',
             pricePerKg: travel.pricePerKg ? travel.pricePerKg.toString() : '0.00',
@@ -302,7 +304,8 @@ export class TravelMapper {
             currency: currency,
             departureAirport: departureAirport,
             arrivalAirport: arrivalAirport,
-            departureDatetime: travel.departureDatetime,
+             // Format departureDatetime as date-only (YYYY-MM-DD) to avoid timezone issues
+            departureDatetime: travel.departureDatetime ? new Date(travel.departureDatetime).toISOString().split('T')[0] : null,
             totalWeightAllowance: travel.totalWeightAllowance ? Number(travel.totalWeightAllowance) : 0,
             weightAvailable: travel.weightAvailable ? Number(travel.weightAvailable) : 0,
             pricePerKg: travel.pricePerKg ? Number(travel.pricePerKg) : 0,

@@ -139,6 +139,18 @@ export class AllEventsListener {
     }
   }
 
+  @OnEvent(UserEventType.REQUEST_REJECTED)
+  async handleRequestRejected(event: RequestEvent): Promise<void> {
+    this.logger.log(`Request rejected - ${event.requestType} - Request ID: ${event.requestId}`);
+    // Send email to requester (isForOwner=false means this is for the requester)
+    if (!event.isForOwner) {
+      await this.emailService.sendRequestRejectedConfirmation(event.userEmail, event.userFirstName, event);
+    } else {
+      // Send email to travel/demand owner (isForOwner=true means this is for the owner)
+      await this.emailService.sendRequestRejectedForOwnerConfirmation(event.userEmail, event.userFirstName, event);
+    }
+  }
+
   // Transaction Events
   @OnEvent(UserEventType.TRANSACTION_CREATED)
   async handleTransactionCreated(event: TransactionEvent): Promise<void> {

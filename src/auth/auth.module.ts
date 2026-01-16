@@ -31,6 +31,7 @@ import { CurrencyModule } from 'src/currency/currency.module';
 import { DemandModule } from 'src/demand/demand.module';
 import { TravelModule } from 'src/travel/travel.module';
 import { StripeModule } from 'src/stripe/stripe.module';
+import { MessageModule } from 'src/message/message.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { StripeModule } from 'src/stripe/stripe.module';
     EmailModule,
     PhoneVerificationModule,
     StripeModule,
+    MessageModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard], //jwt strategy, roles guard

@@ -111,20 +111,26 @@ export class RequestController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
-    summary: 'Cancel a request',
-    description: 'Cancel a request. Only the requester can cancel their request. Only non-completed requests can be cancelled. The requester will be refunded the travelerPayment amount, but the platform fee is kept.'
+    summary: 'Cancel or reject a request',
+    description: 'Cancel or reject a request based on the connected user:\n' +
+      '- If the requester calls this endpoint: Cancels the request, processes refund (travelerPayment only, fee is kept), and sets status to CANCELLED.\n' +
+      '- If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.\n' +
+      'Only non-completed requests can be cancelled/rejected. Both parties will receive email notifications.'
   })
-  @ApiParam({ name: 'id', description: 'Request ID to cancel' })
-  @ApiResponse({ status: 200, description: 'Request cancelled successfully', type: RequestResponseDto })
-  @ApiResponse({ status: 400, description: 'Bad request - request is already completed or cancelled' })
+  @ApiParam({ name: 'id', description: 'Request ID to cancel or reject' })
+  @ApiResponse({ status: 200, description: 'Request cancelled or rejected successfully', type: RequestResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request - request is already completed, cancelled, or rejected' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - only the requester can cancel the request' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only the requester or travel/demand owner can cancel/reject the request' })
   @ApiResponse({ status: 404, description: 'Request not found' })
   async cancelRequest(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: UserEntity
   ): Promise<RequestResponseDto> {
     const cancelledRequest = await this.requestService.cancelRequest(id, user);
-    return this.requestService.transformRequestToResponse(cancelledRequest);
+    // Fetch unread count for this request
+    const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([cancelledRequest.id], user.id);
+    const unreadCount = unreadCountsMap.get(cancelledRequest.id) || 0;
+    return this.requestService.transformRequestToResponse(cancelledRequest, unreadCount, user);
   }
 }

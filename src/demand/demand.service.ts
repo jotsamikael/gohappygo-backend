@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotAcceptableException, NotFoundException, forwardRef } from '@nestjs/common';
 import { DemandEntity } from './demand.entity';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/user.entity';
 import { CreateDemandDto } from './dto/createDemand.dto';
@@ -22,6 +22,8 @@ import { ErrorCode } from 'src/common/exception/error-codes';
 import { ReviewEntity } from 'src/review/review.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
+import { UploadedFileEntity } from 'src/uploaded-file/uploaded-file.entity';
+import { In } from 'typeorm';
 import { RequestStatusService } from 'src/request-status/request-status.service';
 import { RequestStatusHistoryService } from 'src/request-status-history/request-status-history.service';
 import { TransactionService } from 'src/transaction/transaction.service';
@@ -39,6 +41,7 @@ export class DemandService {
         @InjectRepository(ReviewEntity) private reviewRepository: Repository<ReviewEntity>,
         @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
         @InjectRepository(TransactionEntity) private transactionRepository: Repository<TransactionEntity>,
+        @InjectRepository(UploadedFileEntity) private uploadedFileRepository: Repository<UploadedFileEntity>,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private readonly fileUploadService: FileUploadService,
         private readonly userEventService: UserEventsService,
@@ -88,6 +91,7 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
   
   // Build the query step by step to avoid complex joins that might cause issues
   const queryBuilder = this.demandRepository.createQueryBuilder('demand')
+      .where('demand.deletedAt IS NULL') // Exclude soft-deleted demands
       .skip(skip)
       .take(limit);
 
@@ -268,7 +272,8 @@ async publishDemand(
           departureAirportId: createDemandDto.departureAirportId,
           arrivalAirportId: createDemandDto.arrivalAirportId,
           currencyId: createDemandDto.currencyId,
-          travelDate: createDemandDto.travelDate,
+           // Normalize travelDate to UTC midnight to avoid timezone issues
+          travelDate: new Date(createDemandDto.travelDate + 'T00:00:00.000Z'),
           weight: createDemandDto.weight,
           pricePerKg: createDemandDto.pricePerKg,
           packageKind: createDemandDto.packageKind,
@@ -601,9 +606,59 @@ async softDeleteDemandByUser(id: number, user?: UserEntity): Promise<DemandEntit
   return this.cancelDemand(id, user);
 }
 
-async getDemandById(id: number): Promise<DemandDetailResponseDto>  {
+async deleteDemand(id: number, user: UserEntity): Promise<void> {
+  // 1. Find the demand
   const demand = await this.demandRepository.findOne({
     where: { id },
+    relations: ['images'],
+  });
+
+  if (!demand) {
+    throw new CustomNotFoundException(`Demand with id ${id} not found`, ErrorCode.DEMAND_NOT_FOUND);
+  }
+
+  // 2. Check if user is provided and verify ownership
+  if (!user.isVerified) {
+    throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
+  }
+
+  if (demand.userId !== user.id) {
+    throw new CustomForbiddenException('You can only delete your own demands', ErrorCode.DEMAND_UNAUTHORIZED);
+  }
+
+  // 3. Check if demand is already deleted
+  if (demand.deletedAt) {
+    throw new CustomBadRequestException('Demand is already deleted', ErrorCode.DEMAND_ALREADY_CANCELLED);
+  }
+
+  // 4. Get all demand images (DEMAND_IMAGE_1, DEMAND_IMAGE_2, DEMAND_IMAGE_3)
+  const demandImages = await this.uploadedFileRepository.find({
+    where: {
+      demandId: id,
+      purpose: In([FilePurpose.DEMAND_IMAGE_1, FilePurpose.DEMAND_IMAGE_2, FilePurpose.DEMAND_IMAGE_3])
+    }
+  });
+
+  // 5. Delete all images from Cloudinary and database
+  for (const image of demandImages) {
+    try {
+      await this.fileUploadService.remove(image.id);
+    } catch (error) {
+      // Log error but continue with deletion
+      console.error(`Failed to delete image ${image.id}: ${error.message}`);
+    }
+  }
+
+  // 6. Soft delete the demand
+  await this.demandRepository.softDelete(id);
+
+  // 7. Clear cache
+  await this.clearDemandListCache();
+}
+
+async getDemandById(id: number): Promise<DemandDetailResponseDto>  {
+  const demand = await this.demandRepository.findOne({
+    where: { id, deletedAt: IsNull() }, // Exclude soft-deleted demands
     relations: ['departureAirport', 'arrivalAirport', 'airline', 'images', 'user', 'currency', 'requests'],
   });
   if (!demand) {

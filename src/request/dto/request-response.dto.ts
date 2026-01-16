@@ -1,23 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Expose } from 'class-transformer';
 import { RequestEntity } from '../request.entity';
 
 export class UserResponseDto {
   @ApiProperty({ description: 'User ID', example: 1 })
+  @Expose()
   id: number;
 
   @ApiProperty({ description: 'User first name', example: 'John' })
+  @Expose()
   firstName: string;
 
   @ApiProperty({ description: 'User last name', example: 'Doe' })
+  @Expose()
   lastName: string;
 
   @ApiProperty({ description: 'Full name formatted as "Firstname L."', example: 'John D.' })
+  @Expose()
   fullName: string;
 
   @ApiProperty({ description: 'User email', example: 'john.doe@example.com' })
+  @Expose()
   email: string;
 
   @ApiProperty({ description: 'Profile picture URL', example: 'https://example.com/profile.jpg', required: false })
+  @Expose()
   profilePictureUrl?: string | null;
 }
 
@@ -81,6 +88,15 @@ export class RequestResponseDto {
 
   @ApiProperty({ description: 'Associated demand (if applicable)', required: false })
   demand?: any;
+
+  @ApiProperty({ description: 'Number of unread messages for this request', example: 2 })
+  unReadMessages: number;
+
+  @ApiProperty({ 
+    description: 'Whether the connected user can review this request. True if request is COMPLETED and user has not yet reviewed it', 
+    example: true 
+  })
+  canReview: boolean;
 }
 
 export class PaginatedRequestsResponseDto {

@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MessageEntity } from './message.entity';
 import { Repository } from 'typeorm';
 import { UserService } from 'src/user/user.service';
 import { RequestService } from 'src/request/request.service';
+import { RequestEntity } from 'src/request/request.entity';
 import { UserEntity } from 'src/user/user.entity';
 import { SendMessageDto } from './dto/SendMessage.dto';
 import { FindThreadQueryDto } from './dto/request/find-thread-query.dto';
@@ -17,15 +18,52 @@ export class MessageService {
 
   constructor(
     @InjectRepository(MessageEntity) private messageRepository: Repository<MessageEntity>,
+    @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
     private userService: UserService,
     private requestService: RequestService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async sendMessage(sender: UserEntity, dto: SendMessageDto): Promise<MessageEntity> {
-    const request = await this.requestService.findOne({ id: dto.requestId });
-    const receiver = await this.userService.findOne({ id: dto.receiverId });
-    if (!request || !receiver) throw new NotFoundException('Request or receiver not found');
+    // Load request with all necessary relations to determine the receiver
+    const request = await this.requestRepository.findOne({
+      where: { id: dto.requestId },
+      relations: ['requester', 'travel', 'travel.user', 'demand', 'demand.user'],
+    });
+    
+    if (!request) {
+      throw new NotFoundException('Request not found');
+    }
+
+    // Automatically determine the receiver based on the request
+    // If sender is the requester, receiver is the travel/demand owner
+    // If sender is the travel/demand owner, receiver is the requester
+    let receiver: UserEntity | null = null;
+
+    if (request.requesterId === sender.id) {
+      // Sender is the requester, so receiver is the travel/demand owner
+      if (request.travelId && request.travel) {
+        receiver = request.travel.user;
+      } else if (request.demandId && request.demand) {
+        receiver = request.demand.user;
+      }
+    } else {
+      // Sender is the travel/demand owner, so receiver is the requester
+      receiver = request.requester;
+    }
+
+    if (!receiver) {
+      throw new NotFoundException('Could not determine receiver for this request');
+    }
+
+    // Validate that sender is actually part of this request
+    const isRequester = request.requesterId === sender.id;
+    const isTravelOwner = request.travelId && request.travel?.user?.id === sender.id;
+    const isDemandOwner = request.demandId && request.demand?.user?.id === sender.id;
+
+    if (!isRequester && !isTravelOwner && !isDemandOwner) {
+      throw new ForbiddenException('You are not authorized to send messages for this request');
+    }
 
     const message = this.messageRepository.create({
       content: dto.content,
@@ -168,6 +206,38 @@ export class MessageService {
     return this.messageRepository.count({
       where: { receiver: { id: user.id }, isRead: false },
     });
+  }
+
+  /**
+   * Get unread message counts for multiple requests for a specific user
+   * Returns a map of requestId -> unread count
+   */
+  async getUnreadCountsByRequestIds(requestIds: number[], userId: number): Promise<Map<number, number>> {
+    if (requestIds.length === 0) {
+      return new Map();
+    }
+
+    const results = await this.messageRepository
+      .createQueryBuilder('message')
+      .select('message.requestId', 'requestId')
+      .addSelect('COUNT(message.id)', 'count')
+      .where('message.requestId IN (:...requestIds)', { requestIds })
+      .andWhere('message.receiverId = :userId', { userId })
+      .andWhere('message.isRead = :isRead', { isRead: false })
+      .groupBy('message.requestId')
+      .getRawMany();
+
+    const unreadCountsMap = new Map<number, number>();
+    
+    // Initialize all requestIds with 0
+    requestIds.forEach(id => unreadCountsMap.set(id, 0));
+    
+    // Update with actual counts
+    results.forEach(result => {
+      unreadCountsMap.set(result.requestId, parseInt(result.count, 10));
+    });
+
+    return unreadCountsMap;
   }
 
   async getMessageById(id: number): Promise<MessageEntity> {

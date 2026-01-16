@@ -10,10 +10,11 @@ import { DemandAndTravelMapper } from './demand-and-travel.mapper';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookmarkEntity } from 'src/bookmark/entities/bookmark.entity';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   controllers: [DemandAndTravelController],
-  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, TypeOrmModule.forFeature([BookmarkEntity]), JwtModule.register({})],
+  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, TypeOrmModule.forFeature([BookmarkEntity]), JwtModule.register({}), ConfigModule],
   providers:[DemandAndTravelService, DemandAndTravelMapper],
   exports:[DemandAndTravelService]
 })

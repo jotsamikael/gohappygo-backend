@@ -244,6 +244,24 @@ export class EmailService {
     });
   }
 
+  sendRequestRejectedConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
+    const html = this.emailTemplatesService.getRequestRejectedTemplate(userFirstName, event);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Request Rejected - GoHappyGo',
+      html,
+    });
+  }
+
+  sendRequestRejectedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
+    const html = this.emailTemplatesService.getRequestRejectedForOwnerTemplate(userFirstName, event);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Request Rejected - GoHappyGo',
+      html,
+    });
+  }
+
   sendRequestCompletedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
     const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event);
     return this.sendEmail({

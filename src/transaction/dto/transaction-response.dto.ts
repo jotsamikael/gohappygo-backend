@@ -68,4 +68,10 @@ export class TransactionResponseDto {
         requestType: string;
         weight: number | null;
     } | null;
+
+    @ApiProperty({ 
+        example: true, 
+        description: 'Whether to show the "Release Funds" button. True if: status is "paid" or "awaiting_transfer", stripeTransferId is null, and user is the payee' 
+    })
+    showReleaseFundButton: boolean;
 }

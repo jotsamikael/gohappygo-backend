@@ -243,9 +243,9 @@ export class TravelResponseDto {
   @Expose()
   arrivalAirportId: number;
 
-  @ApiProperty({ example: "2025-12-12T00:00:00.000Z" })
+  @ApiProperty({ example: "2025-12-12" })
   @Expose()
-  departureDatetime: Date;
+  departureDatetime: string;    
 
   @ApiProperty({ example: "6.00" })
   @Expose()

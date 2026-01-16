@@ -228,7 +228,7 @@ export class DemandResponseDto {
   @Expose()
   arrivalAirportId: number;
 
-  @ApiProperty({ example: "2025-12-12T23:00:00.000Z" })
+  @ApiProperty({ example: "2025-12-12" })
   @Expose()
   travelDate: Date;
 

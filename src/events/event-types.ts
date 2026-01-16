@@ -35,6 +35,7 @@ export enum UserEventType {
     REQUEST_ACCEPTED = 'request.accepted',
     REQUEST_COMPLETED = 'request.completed',
     REQUEST_CANCELLED = 'request.cancelled',
+    REQUEST_REJECTED = 'request.rejected',
     
     // Transaction Events
     TRANSACTION_CREATED = 'transaction.created',

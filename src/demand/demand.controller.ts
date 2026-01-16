@@ -137,26 +137,27 @@ export class DemandController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({ 
-      summary: 'Cancel a demand',
-      description: 'Cancel a demand by setting its status to cancelled. Only the demand owner can cancel their demand. When a demand is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.'
+      summary: 'Delete a demand',
+      description: 'Permanently delete a demand and its associated images. Only the demand owner can delete their demand. Deleted demands will no longer appear in GET demand responses.'
     })
     @ApiResponse({ 
       status: 200, 
-      description: 'Demand cancelled successfully',
-      type: DemandResponseDto
+      description: 'Demand deleted successfully'
     })
     @ApiResponse({ 
       status: 400, 
-      description: 'Bad request - demand is already cancelled' 
+      description: 'Bad request - demand is already deleted' 
     })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden - not the demand owner' })
     @ApiResponse({ status: 404, description: 'Demand not found' })
+    @HttpCode(HttpStatus.OK)
     async deleteDemand(
       @Param('id', ParseIntPipe) id: number,
       @CurrentUser() user: any
-    ): Promise<DemandEntity> {
-      return await this.demandService.cancelDemand(id, user);
+    ): Promise<{ message: string }> {
+      await this.demandService.deleteDemand(id, user);
+      return { message: 'Demand deleted successfully' };
     }
 
    

@@ -1,8 +1,24 @@
 import { TransactionEntity } from "./transaction.entity";
 import { TransactionResponseDto } from "./dto/transaction-response.dto";
+import { UserEntity } from "src/user/user.entity";
 
 export class TransactionMapper {
-    toResponseDto(transaction: TransactionEntity): TransactionResponseDto {
+    toResponseDto(transaction: TransactionEntity, currentUser?: UserEntity): TransactionResponseDto {
+        // Calculate showReleaseFundButton based on the logic:
+        // Show button if ALL are true:
+        // 1. Status is 'paid' OR 'awaiting_transfer'
+        // 2. stripeTransferId is null (transfer not yet created)
+        // 3. User is the payee (not the payer)
+        let showReleaseFundButton = false;
+        
+        if (currentUser) {
+            const isPayee = transaction.payeeId === currentUser.id;
+            const isEligibleStatus = transaction.status === 'paid' || transaction.status === 'awaiting_transfer';
+            const hasNoTransfer = transaction.stripeTransferId === null;
+            
+            showReleaseFundButton = isPayee && isEligibleStatus && hasNoTransfer;
+        }
+
         return {
             id: transaction.id,
             payerId: transaction.payerId,
@@ -36,6 +52,7 @@ export class TransactionMapper {
                 requestType: transaction.request.requestType,
                 weight: transaction.request.weight ? Number(transaction.request.weight) : null,
             } : null,
+            showReleaseFundButton,
         };
     }
 }

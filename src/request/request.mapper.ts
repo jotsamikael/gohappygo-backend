@@ -2,11 +2,39 @@ import { Injectable } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { RequestEntity } from "./request.entity";
 import { RequestAcceptResponseDto, RequestTravelDto, RequestUserDto } from "./dto/request-accept-response.dto";
+import { UserResponseDto } from "./dto/request-response.dto";
+import { UserEntity } from "src/user/user.entity";
 import { CommonService } from "src/common/service/common.service";
 
 @Injectable()
 export class RequestMapper {
     constructor(private commonService: CommonService) {}
+
+    /**
+     * Map UserEntity to UserResponseDto
+     */
+    toUserResponseDto(user: UserEntity | null): UserResponseDto | null {
+        if (!user) {
+            return null;
+        }
+
+        const fullName = this.commonService.formatFullName(
+            user.firstName || '',
+            user.lastName || ''
+        ) || user.firstName || '';
+
+        return plainToInstance(UserResponseDto, {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            fullName: fullName,
+            email: user.email,
+            profilePictureUrl: user.profilePictureUrl || null
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        });
+    }
 
     toAcceptResponseDto(request: RequestEntity): RequestAcceptResponseDto {
         // Map travel if exists

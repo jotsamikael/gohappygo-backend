@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RequestEntity } from './request.entity';
 import { FindOptionsWhere, Repository } from 'typeorm';
@@ -13,7 +13,6 @@ import { TransactionService } from 'src/transaction/transaction.service';
 import { FindRequestsQueryDto } from './dto/findRequestsQuery.dto';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 import { RequestResponseDto, PaginatedRequestsResponseDto, UserResponseDto, StatusResponseDto } from './dto/request-response.dto';
 import { UserEventsService } from 'src/events/user-events.service';
 import { RequestStatusHistoryEntity } from 'src/request-status-history/RequestStatusHistory.entity';
@@ -29,6 +28,8 @@ import { AirportService } from 'src/airport/airport.service';
 import { CommonService } from 'src/common/service/common.service';
 import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.service';
 import { StripeService } from 'src/stripe/stripe.service';
+import { MessageService } from 'src/message/message.service';
+import { ReviewEntity } from 'src/review/review.entity';
 
 @Injectable()
 export class RequestService {
@@ -36,6 +37,7 @@ export class RequestService {
 
   constructor(
     @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
+    @InjectRepository(ReviewEntity) private reviewRepository: Repository<ReviewEntity>,
     private requestStatusHistoryService: RequestStatusHistoryService,
     private requestStatusService: RequestStatusService,
     private travelService: TravelService,
@@ -49,7 +51,9 @@ export class RequestService {
     private readonly airportService: AirportService,
     private readonly commonService: CommonService,
     private readonly platformPricingService: PlatformPricingService,
-    private readonly stripeService: StripeService
+    private readonly stripeService: StripeService,
+    @Inject(forwardRef(() => MessageService))
+    private readonly messageService: MessageService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -522,9 +526,16 @@ async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity>
     throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
   }
 
-  // 2. Check if user is the requester
-  if (request.requesterId !== user.id) {
-    throw new CustomForbiddenException('Only the requester can cancel this request', ErrorCode.REQUEST_UNAUTHORIZED);
+  // 2. Determine if this is a cancellation (requester) or rejection (travel/demand owner)
+  const isRequester = request.requesterId === user.id;
+  const isOwner = (request.travel && request.travel.userId === user.id) || 
+                  (request.demand && request.demand.userId === user.id);
+
+  if (!isRequester && !isOwner) {
+    throw new CustomForbiddenException(
+      'Only the requester or travel/demand owner can cancel/reject this request', 
+      ErrorCode.REQUEST_UNAUTHORIZED
+    );
   }
 
   // 3. Check if request is already COMPLETED
@@ -534,60 +545,73 @@ async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity>
   }
 
   if (request.currentStatusId === completedStatus.id) {
-    throw new CustomBadRequestException('Cannot cancel a completed request', ErrorCode.REQUEST_NOT_FOUND);
+    throw new CustomBadRequestException('Cannot cancel/reject a completed request', ErrorCode.REQUEST_NOT_FOUND);
   }
 
-  // 4. Check if request is already CANCELLED
+  // 4. Check if request is already CANCELLED or REJECTED
   const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+  const rejectedStatus = await this.requestStatusService.getRequestByStatus('REJECTED');
+  
   if (!cancelledStatus) {
     throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+  }
+  
+  if (!rejectedStatus) {
+    throw new CustomNotFoundException('REJECTED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
   }
 
   if (request.currentStatusId === cancelledStatus.id) {
     throw new CustomBadRequestException('Request is already cancelled', ErrorCode.REQUEST_NOT_FOUND);
   }
 
-  // 5. Get transaction
-  const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-  if (!transaction) {
-    throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+  if (request.currentStatusId === rejectedStatus.id) {
+    throw new CustomBadRequestException('Request is already rejected', ErrorCode.REQUEST_NOT_FOUND);
   }
 
-  // 6. Process refund (only travelerPayment, fee is kept)
-  if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-    try {
-      // Convert travelerPayment to USD (Payment Intent is in USD)
-      let travelerPaymentUSD: number;
-      if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-        travelerPaymentUSD = await this.stripeService.convertToUSD(
-          transaction.travelerPayment,
-          transaction.currencyCode || 'USD'
-        );
-      } else {
-        // If travelerPayment is not stored, calculate it from the transaction amount
-        // This shouldn't happen, but handle it gracefully
-        throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
-      }
-
-      // Refund only the travelerPayment amount (partial refund)
-      await this.stripeService.refundPaymentIntentPartial(
-        transaction.stripePaymentIntentId,
-        travelerPaymentUSD
-      );
-
-      // Update transaction status to refunded
-      await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-    } catch (error) {
-      console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-      throw new CustomBadRequestException(
-        `Failed to process refund: ${error.message}`,
-        ErrorCode.INTERNAL_ERROR
-      );
+  // 5. Handle cancellation (requester) - process refund
+  if (isRequester) {
+    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+    if (!transaction) {
+      throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
     }
-  } else if (transaction.status === 'pending') {
-    // For pending transactions, just mark as cancelled (no refund needed)
-    await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+
+    // Process refund (only travelerPayment, fee is kept)
+    if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+      try {
+        // Convert travelerPayment to USD (Payment Intent is in USD)
+        let travelerPaymentUSD: number;
+        if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+          travelerPaymentUSD = await this.stripeService.convertToUSD(
+            transaction.travelerPayment,
+            transaction.currencyCode || 'USD'
+          );
+        } else {
+          // If travelerPayment is not stored, calculate it from the transaction amount
+          // This shouldn't happen, but handle it gracefully
+          throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+        }
+
+        // Refund only the travelerPayment amount (partial refund)
+        await this.stripeService.refundPaymentIntentPartial(
+          transaction.stripePaymentIntentId,
+          travelerPaymentUSD
+        );
+
+        // Update transaction status to refunded
+        await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+      } catch (error) {
+        console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+        throw new CustomBadRequestException(
+          `Failed to process refund: ${error.message}`,
+          ErrorCode.INTERNAL_ERROR
+        );
+      }
+    } else if (transaction.status === 'pending') {
+      // For pending transactions, just mark as cancelled (no refund needed)
+      await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+    }
   }
+  // Note: For rejection (owner), no refund is processed
 
   // 7. Restore weight to travel if request was for a travel
   if (request.travelId) {
@@ -615,37 +639,56 @@ async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity>
     }
   }
 
-  // 8. Update request status to CANCELLED
-  request.currentStatusId = cancelledStatus.id;
-  request.currentStatus = cancelledStatus;
-  await this.requestRepository.save(request);
+  // 8. Update request status based on action type
+  if (isRequester) {
+    // Cancellation by requester
+    request.currentStatusId = cancelledStatus.id;
+    request.currentStatus = cancelledStatus;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+  } else {
+    // Rejection by owner
+    request.currentStatusId = rejectedStatus.id;
+    request.currentStatus = rejectedStatus;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(requestId, rejectedStatus.id);
+  }
 
-  // 9. Record status history
-  await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
-
-  // 10. Send email and notification to requester (isForOwner=false)
+  // 9. Send email and notification to requester (isForOwner=false)
   const requester = await this.userService.findOne({ id: request.requesterId });
   if (requester) {
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
     if (ownerId) {
-      this.userEventService.emitRequestCancelled(requester, request, false, ownerId);
+      if (isRequester) {
+        this.userEventService.emitRequestCancelled(requester, request, false, ownerId);
+      } else {
+        this.userEventService.emitRequestRejected(requester, request, false, ownerId);
+      }
     }
   }
 
-  // 11. Send email and notification to travel/demand owner (isForOwner=true)
+  // 10. Send email and notification to travel/demand owner (isForOwner=true)
   if (request.travelId && request.travel) {
     const travelOwner = await this.userService.findOne({ id: request.travel.userId });
     if (travelOwner) {
-      this.userEventService.emitRequestCancelled(travelOwner, request, true, request.travel.userId);
+      if (isRequester) {
+        this.userEventService.emitRequestCancelled(travelOwner, request, true, request.travel.userId);
+      } else {
+        this.userEventService.emitRequestRejected(travelOwner, request, true, request.travel.userId);
+      }
     }
   } else if (request.demandId && request.demand) {
     const demandOwner = await this.userService.findOne({ id: request.demand.userId });
     if (demandOwner) {
-      this.userEventService.emitRequestCancelled(demandOwner, request, true, request.demand.userId);
+      if (isRequester) {
+        this.userEventService.emitRequestCancelled(demandOwner, request, true, request.demand.userId);
+      } else {
+        this.userEventService.emitRequestRejected(demandOwner, request, true, request.demand.userId);
+      }
     }
   }
 
-  // 12. Clear cache
+  // 11. Clear cache
   await this.clearRequestListCache();
 
   return request;
@@ -737,6 +780,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
     const queryBuilder = this.requestRepository.createQueryBuilder('request')
       .leftJoinAndSelect('request.requester', 'requester')
       .leftJoinAndSelect('request.travel', 'travel')
+      .leftJoinAndSelect('travel.user', 'travelUser')
       .leftJoinAndSelect('request.demand', 'demand')
       .leftJoinAndSelect('request.currentStatus', 'currentStatus')
       .leftJoinAndSelect('request.requestStatusHistory', 'requestStatusHistory')
@@ -818,9 +862,16 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
     // Get the actual data
     const items = await queryBuilder.getMany();
 
+    // Batch fetch unread message counts for all requests
+    const requestIds = items.map(item => item.id);
+    const unreadCountsMap = await this.messageService.getUnreadCountsByRequestIds(requestIds, user.id);
+
     // Transform the data to include only relevant fields (async transformation)
     const transformedItems = await Promise.all(
-      items.map(request => this.transformRequestToResponse(request))
+      items.map(request => {
+        const unreadCount = unreadCountsMap.get(request.id) || 0;
+        return this.transformRequestToResponse(request, unreadCount, user);
+      })
     );
 
     const totalPages = Math.ceil(totalItems / limit);
@@ -978,7 +1029,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       relations: ['demand', 'travel', 'requestStatusHistory', 'transactions', 'messages'],
     });
   }
-  async transformRequestToResponse(request: RequestEntity): Promise<RequestResponseDto> {
+  async transformRequestToResponse(request: RequestEntity, unreadCount: number = 0, currentUser?: UserEntity): Promise<RequestResponseDto> {
     // Format requester fullName
     const requesterFullName = request.requester 
       ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
@@ -1053,6 +1104,37 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       } else {
         travel.arrivalAirport = null;
       }
+
+      // Add owner information using mapper
+      if (request.travel?.user) {
+        // Use mapper to transform user entity to UserResponseDto
+        travel.owner = this.requestMapper.toUserResponseDto(request.travel.user);
+      } else if (travel.userId) {
+        // If user relation is not loaded but userId exists, fetch the user
+        const travelOwner = await this.userService.findOne({ id: travel.userId });
+        if (travelOwner) {
+          travel.owner = this.requestMapper.toUserResponseDto(travelOwner);
+        }
+      }
+
+      // Remove the user object from travel (we only want owner)
+      if (travel.user) {
+        delete travel.user;
+      }
+    }
+
+    // Calculate canReview: true if request is COMPLETED and user hasn't reviewed it yet
+    let canReview = false;
+    if (currentUser && request.currentStatus?.status === 'COMPLETED') {
+      // Check if user has already reviewed this request
+      const existingReview = await this.reviewRepository.findOne({
+        where: {
+          requestId: request.id,
+          reviewerId: currentUser.id
+        }
+      });
+      // canReview is true only if no review exists
+      canReview = !existingReview;
     }
 
     return {
@@ -1070,7 +1152,17 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
         status: request.currentStatus?.status
       } as StatusResponseDto,
       travel: travel,
-      demand: request.demand || null
+      demand: request.demand || null,
+      unReadMessages: unreadCount,
+      canReview
     };
+  }
+
+  /**
+   * Helper method to get unread counts for requests
+   * Wraps MessageService call to avoid circular dependency issues
+   */
+  async getUnreadCountsForRequests(requestIds: number[], userId: number): Promise<Map<number, number>> {
+    return this.messageService.getUnreadCountsByRequestIds(requestIds, userId);
   }
 }

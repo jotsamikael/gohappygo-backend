@@ -55,7 +55,9 @@ export class TransactionController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({
         summary: 'Release funds to payee',
-        description: 'Release funds from Stripe to the payee. Transaction must have status "paid" and payee must have completed Stripe onboarding.'
+        description: 'Release funds from Stripe to the payee. This endpoint serves as a fallback to retry fund transfer when automatic release fails (e.g., payee onboarding incomplete). ' +
+                     'Can be called by either the payer (during request completion) or the payee (to retry after completing onboarding). ' +
+                     'Transaction must have status "paid" or "awaiting_transfer" and payee must have completed Stripe onboarding.'
     })
     @ApiParam({
         name: 'id',
@@ -66,9 +68,9 @@ export class TransactionController {
         status: 200, 
         description: 'Funds released successfully',
     })
-    @ApiResponse({ status: 400, description: 'Bad request - Transaction not in paid status or payee onboarding incomplete' })
+    @ApiResponse({ status: 400, description: 'Bad request - Transaction not in paid/awaiting_transfer status or payee onboarding incomplete' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    @ApiResponse({ status: 403, description: 'Forbidden - Only payer can release funds' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Only payer or payee can release funds' })
     @ApiResponse({ status: 404, description: 'Transaction not found' })
     async releaseFunds(
         @Param('id', ParseIntPipe) id: number,

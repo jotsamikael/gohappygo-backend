@@ -37,6 +37,27 @@ export class StripeService {
   }
 
   /**
+   * Get the appropriate business type for a given country
+   * Some countries (like UAE) only support 'company', not 'individual'
+   */
+  private getBusinessTypeForCountry(countryCode: string): 'individual' | 'company' {
+    const country = countryCode.toUpperCase();
+    
+    // Countries that only support 'company' business type
+    const companyOnlyCountries = [
+      'AE', // United Arab Emirates
+      'BR',// Brazil
+      'HK', // Hong Kong
+      'SG', // Singapore
+      'MY', // Malaysia
+      'TH', // Thailand
+      // Add other countries as needed based on Stripe's requirements
+    ];
+    
+    return companyOnlyCountries.includes(country) ? 'company' : 'individual';
+  }
+
+  /**
    * Create a Stripe Connect Custom account for a user (deferred onboarding)
    * @param user - User entity
    * @param countryCode - ISO 3166-1 alpha-2 country code (must be Stripe Connect eligible)
@@ -44,21 +65,44 @@ export class StripeService {
    */
   async createConnectAccount(user: UserEntity, countryCode: string, ipAddress: string = '127.0.0.1'): Promise<Stripe.Account> {
     try {
-      // For French platforms (and some other countries), Stripe requires using Account Tokens
-      // Create account token with business_type and individual information
-      // Note: business_profile cannot be set in account token, must be set on account after creation
-      const accountToken = await this.stripe.tokens.create({
+      const businessType = this.getBusinessTypeForCountry(countryCode);
+      
+      // Build account token based on business type
+      const accountTokenData: any = {
         account: {
           tos_shown_and_accepted: true,
-          business_type: 'individual', // Must be in the token, not in account creation
-          individual: {
-            email: user.email,
-            first_name: user.firstName,
-            last_name: user.lastName,
-            phone: user.phone,
-          },
+          business_type: businessType,
         },
-      });
+      };
+      
+      // Add appropriate fields based on business type
+      if (businessType === 'individual') {
+        accountTokenData.account.individual = {
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          phone: user.phone,
+        };
+      } else {
+        // For company type, we need company information
+        // Since we don't have company details at registration, we'll use individual's info
+        // The user will need to update this during onboarding
+        accountTokenData.account.company = {
+          name: `${user.firstName} ${user.lastName}`, // Temporary, user will update during onboarding
+        };
+        // Also include individual as the representative
+        accountTokenData.account.individual = {
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          phone: user.phone,
+        };
+      }
+      
+      // For French platforms (and some other countries), Stripe requires using Account Tokens
+      // Create account token with business_type and appropriate information
+      // Note: business_profile cannot be set in account token, must be set on account after creation
+      const accountToken = await this.stripe.tokens.create(accountTokenData);
   
       // Use the account token to create the account
       const account = await this.stripe.accounts.create({
@@ -176,6 +220,67 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Error retrieving account status: ${error.message}`, error.stack);
       throw new NotFoundException(`Failed to retrieve account status: ${error.message}`);
+    }
+  }
+
+  /**
+   * Sync account status from Stripe to database
+   * This is useful for recovering from webhook outages or missed events
+   */
+  async syncAccountStatus(accountId: string): Promise<{
+    status: 'uninitiated' | 'pending' | 'active' | 'restricted';
+    chargesEnabled: boolean;
+    transfersEnabled: boolean;
+    detailsSubmitted: boolean;
+    wasUpdated: boolean;
+  }> {
+    try {
+      this.logger.log(`[syncAccountStatus] Syncing status for account: ${accountId}`);
+      
+      // Get current status from Stripe
+      const stripeStatus = await this.getAccountStatus(accountId);
+      
+      // Find user by Stripe account ID
+      const user = await this.userService.findByStripeAccountId(accountId);
+      if (!user) {
+        this.logger.warn(`[syncAccountStatus] No user found for Stripe account ID: ${accountId}`);
+        return {
+          ...stripeStatus,
+          wasUpdated: false,
+        };
+      }
+      
+      // Check if status needs to be updated
+      const previousStatus = user.stripeAccountStatus;
+      const needsUpdate = previousStatus !== stripeStatus.status;
+      
+      if (needsUpdate) {
+        this.logger.log(`[syncAccountStatus] Status mismatch detected. Database: '${previousStatus}', Stripe: '${stripeStatus.status}'. Updating...`);
+        user.stripeAccountStatus = stripeStatus.status;
+        await this.userService.save(user);
+        this.logger.log(`[syncAccountStatus] Successfully updated user ${user.id} stripeAccountStatus from '${previousStatus}' to '${stripeStatus.status}'`);
+        
+        // If account just became active, release any pending transfers
+        if (stripeStatus.status === 'active' && previousStatus !== 'active') {
+          this.logger.log(`[syncAccountStatus] Account became active, checking for pending transfers...`);
+          try {
+            await this.releasePendingTransfersForAccount(accountId);
+          } catch (error) {
+            this.logger.error(`[syncAccountStatus] Error releasing pending transfers: ${error.message}`);
+            // Don't throw - status update succeeded
+          }
+        }
+      } else {
+        this.logger.log(`[syncAccountStatus] Status is already in sync: '${previousStatus}'`);
+      }
+      
+      return {
+        ...stripeStatus,
+        wasUpdated: needsUpdate,
+      };
+    } catch (error) {
+      this.logger.error(`[syncAccountStatus] Error syncing account status: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
