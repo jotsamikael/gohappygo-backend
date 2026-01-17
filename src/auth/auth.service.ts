@@ -587,7 +587,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     };
     return this.jwtService.sign(payload, {
       secret: 'jwt_secret',
-      expiresIn: '1440m',//24 hours
+      expiresIn: '5m',//5 minutes
     });
   }
 
@@ -671,7 +671,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
       const newAccessToken = this.generateAccessToken(user);
       
       return { 
-        accessToken: newAccessToken,
+        access_token: newAccessToken,
         message: 'Token refreshed successfully'
       };
     } catch (error) {
@@ -690,7 +690,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     };
     return this.jwtService.sign(payload, {
       secret: 'refresh_secret', // Use different secret
-      expiresIn: '7d',
+      expiresIn: '15d',
     });
   }
   private async verifyPassword(

@@ -94,6 +94,9 @@ export class VerifyPhoneResponseDto {
 export class RefreshTokenResponseDto {
   @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
   access_token: string;
+
+  @ApiProperty({ example: 'Token refreshed successfully' })
+  message: string;
 } 
 
 

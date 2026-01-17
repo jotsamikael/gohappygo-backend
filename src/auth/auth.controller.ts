@@ -24,6 +24,7 @@ import { VerifyUserAccountResponseDto } from './dto/verifyUserAccountResponse.dt
 import { ResendEmailVerificationDto } from './dto/resendEmailVerificationDto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { LoginThrottlerGuard } from './guards/login-throttler.guard';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -337,15 +338,18 @@ async getUserVerificationFiles(@Param('userId') userId: number): Promise<any> {
 
   @Post('refresh-token')
   @ApiOperation({ summary: 'Refresh access token' })
-  
+  @ApiBody({
+    type: RefreshTokenDto,
+    description: 'Refresh token to generate a new access token',
+  })
   @ApiResponse({ 
     status: 200, 
     description: 'Token refreshed successfully',
     type: RefreshTokenResponseDto
   })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto.refreshToken);
   }
 
   @Delete('delete')
