@@ -10,6 +10,8 @@ import { FindAirportsQueryDto } from './dto/find-airports-query.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
 export class AirportService implements OnModuleInit {
@@ -171,8 +173,14 @@ export class AirportService implements OnModuleInit {
     return this.airportRepository.find()
   }
 
-  findOne(id: number) {
-    return this.airportRepository.findOneBy({id})
+  async findOne(id: number): Promise<AirportEntity> {
+    const airport = await this.airportRepository.findOneBy({ id });
+    
+    if (!airport) {
+      throw new CustomNotFoundException(`Airport with ID ${id} not found`, ErrorCode.AIRPORT_NOT_FOUND);
+    }
+    
+    return airport;
   }
 
   update(id: number, updateAirportDto: UpdateAirportDto) {

@@ -48,6 +48,16 @@ export class AirportController {
     return this.airportService.getAllAirports(query);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get an airport by ID', 
+    description: 'Retrieve a single airport by its unique identifier'
+   })
+  @ApiResponse({ status: 200, description: 'Airport fetched successfully', type: AirportResponseDto })
+  @ApiResponse({ status: 404, description: 'Airport not found' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.airportService.findOne(id);
+  }
+
  
 
   @Patch(':id')
