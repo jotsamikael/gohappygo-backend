@@ -46,6 +46,20 @@ export class StatusResponseDto {
   status: string;
 }
 
+export class CurrencyResponseDto {
+  @ApiProperty({ description: 'Currency code', example: 'EUR' })
+  @Expose()
+  code: string;
+
+  @ApiProperty({ description: 'Currency name', example: 'EURO' })
+  @Expose()
+  name: string;
+
+  @ApiProperty({ description: 'Currency symbol', example: '€' })
+  @Expose()
+  symbol: string;
+}
+
 export class RequestResponseDto {
   @ApiProperty({ description: 'Request ID', example: 1 })
   id: number;
@@ -88,6 +102,13 @@ export class RequestResponseDto {
 
   @ApiProperty({ description: 'Associated demand (if applicable)', required: false })
   demand?: any;
+
+  @ApiProperty({ 
+    description: 'Currency used in the travel/demand', 
+    type: CurrencyResponseDto, 
+    required: false 
+  })
+  currency?: CurrencyResponseDto | null;
 
   @ApiProperty({ description: 'Number of unread messages for this request', example: 2 })
   unReadMessages: number;

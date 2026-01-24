@@ -15,7 +15,8 @@ import {
     DemandListAirportDto,
     DemandListUserDto,
     DemandListImageDto,
-    DemandListAirlineDto
+    DemandListAirlineDto,
+    DemandListCurrencyDto
 } from "./dto/demand-response.dto";
 import { ReviewEntity } from "src/review/review.entity";
 import { Injectable } from "@nestjs/common";
@@ -113,6 +114,16 @@ export class DemandMapper {
             enableImplicitConversion: true
         }) : null;
 
+        // Transform currency
+        const currency = demand.currency ? plainToInstance(DemandListCurrencyDto, {
+            code: demand.currency.code,
+            name: demand.currency.name,
+            symbol: demand.currency.symbol,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
         // Build the complete mapped data
         const mappedData: any = {
             id: demand.id,
@@ -140,6 +151,7 @@ export class DemandMapper {
             user: user,
             images: images,
             airline: airline,
+            currency: currency,
         };
 
         // Transform the main DTO
@@ -154,6 +166,7 @@ export class DemandMapper {
         (result as any).user = user;
         (result as any).images = images;
         (result as any).airline = airline;
+        (result as any).currency = currency;
 
         return result;
     }

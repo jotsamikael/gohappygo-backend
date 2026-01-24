@@ -781,7 +781,9 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       .leftJoinAndSelect('request.requester', 'requester')
       .leftJoinAndSelect('request.travel', 'travel')
       .leftJoinAndSelect('travel.user', 'travelUser')
+      .leftJoinAndSelect('travel.currency', 'travelCurrency')
       .leftJoinAndSelect('request.demand', 'demand')
+      .leftJoinAndSelect('demand.currency', 'demandCurrency')
       .leftJoinAndSelect('request.currentStatus', 'currentStatus')
       .leftJoinAndSelect('request.requestStatusHistory', 'requestStatusHistory')
       .leftJoinAndSelect('requestStatusHistory.requestStatus', 'requestStatus') // Fixed: was 'requestStatuses'
@@ -1121,6 +1123,27 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       if (travel.user) {
         delete travel.user;
       }
+
+      // Remove the currency object from travel (we have it at top level)
+      if (travel.currency) {
+        delete travel.currency;
+      }
+    }
+
+    // Extract currency from travel or demand
+    let currency: { code: string; name: string; symbol: string } | null = null;
+    if (request.travel?.currency) {
+      currency = {
+        code: request.travel.currency.code,
+        name: request.travel.currency.name,
+        symbol: request.travel.currency.symbol
+      };
+    } else if (request.demand?.currency) {
+      currency = {
+        code: request.demand.currency.code,
+        name: request.demand.currency.name,
+        symbol: request.demand.currency.symbol
+      };
     }
 
     // Calculate canReview: true if request is COMPLETED and user hasn't reviewed it yet
@@ -1153,6 +1176,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
       } as StatusResponseDto,
       travel: travel,
       demand: request.demand || null,
+      currency: currency,
       unReadMessages: unreadCount,
       canReview
     };

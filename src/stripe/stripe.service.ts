@@ -149,7 +149,7 @@ export class StripeService {
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
         refresh_url: `${frontendUrl}/settings/payments?refresh=true`,
-        return_url: `${frontendUrl}/settings/payments?success=true`, 
+        return_url: `${frontendUrl}/stripe-onboarding`, 
         type: 'account_onboarding',
       });
 

@@ -165,6 +165,21 @@ export class TravelListAirlineDto {
   logoUrl: string;
 }
 
+// Currency DTO for travel list response
+export class TravelListCurrencyDto {
+  @ApiProperty({ example: "EUR" })
+  @Expose()
+  code: string;
+
+  @ApiProperty({ example: "EURO" })
+  @Expose()
+  name: string;
+
+  @ApiProperty({ example: "€" })
+  @Expose()
+  symbol: string;
+}
+
 // Main Travel Response DTO
 export class TravelResponseDto {
   @ApiProperty({ example: 17 })
@@ -291,6 +306,16 @@ export class TravelResponseDto {
   @Expose()
   @Type(() => TravelListAirlineDto)
   airline: TravelListAirlineDto;
+
+  @ApiProperty({ 
+    type: TravelListCurrencyDto, 
+    nullable: true,
+    description: 'Currency used in the travel',
+    required: false 
+  })
+  @Expose()
+  @Type(() => TravelListCurrencyDto)
+  currency: TravelListCurrencyDto | null;
 
   @ApiProperty({ example: false, description: 'Whether the travel is editable (true if no requests exist)' })
   @Expose()

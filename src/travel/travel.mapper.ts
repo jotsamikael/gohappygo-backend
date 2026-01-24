@@ -4,7 +4,8 @@ import {
     TravelListAirportDto, 
     TravelListUserDto, 
     TravelListImageDto, 
-    TravelListAirlineDto 
+    TravelListAirlineDto,
+    TravelListCurrencyDto
 } from "./dto/travel-response.dto";
 import { TravelEntity } from "./travel.entity";
 import { plainToInstance } from "class-transformer";
@@ -111,6 +112,16 @@ export class TravelMapper {
             enableImplicitConversion: true
         }) : null;
 
+        // Transform currency
+        const currency = travel.currency ? plainToInstance(TravelListCurrencyDto, {
+            code: travel.currency.code,
+            name: travel.currency.name,
+            symbol: travel.currency.symbol,
+        }, {
+            excludeExtraneousValues: true,
+            enableImplicitConversion: true
+        }) : null;
+
         // Build the complete mapped data
         const mappedData: any = {
             id: travel.id,
@@ -145,6 +156,7 @@ export class TravelMapper {
             user: user,
             images: images,
             airline: airline,
+            currency: currency,
             isEditable: travel.isEditable ?? false,
         };
 
@@ -160,6 +172,7 @@ export class TravelMapper {
         (result as any).user = user;
         (result as any).images = images;
         (result as any).airline = airline;
+        (result as any).currency = currency;
 
         return result;
     }

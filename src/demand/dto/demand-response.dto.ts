@@ -174,6 +174,21 @@ export class DemandListAirlineDto {
   logoUrl: string;
 }
 
+// Currency DTO for demand list response
+export class DemandListCurrencyDto {
+  @ApiProperty({ example: "EUR" })
+  @Expose()
+  code: string;
+
+  @ApiProperty({ example: "EURO" })
+  @Expose()
+  name: string;
+
+  @ApiProperty({ example: "€" })
+  @Expose()
+  symbol: string;
+}
+
 // Main Demand Response DTO
 export class DemandResponseDto {
   @ApiProperty({ example: 19 })
@@ -276,6 +291,16 @@ export class DemandResponseDto {
   @Expose()
   @Type(() => DemandListAirlineDto)
   airline: DemandListAirlineDto;
+
+  @ApiProperty({ 
+    type: DemandListCurrencyDto, 
+    nullable: true,
+    description: 'Currency used in the demand',
+    required: false 
+  })
+  @Expose()
+  @Type(() => DemandListCurrencyDto)
+  currency: DemandListCurrencyDto | null;
 }
 
 export class CreateDemandResponseDto {
