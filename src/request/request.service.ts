@@ -30,6 +30,7 @@ import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.se
 import { StripeService } from 'src/stripe/stripe.service';
 import { MessageService } from 'src/message/message.service';
 import { ReviewEntity } from 'src/review/review.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RequestService {
@@ -53,7 +54,8 @@ export class RequestService {
     private readonly platformPricingService: PlatformPricingService,
     private readonly stripeService: StripeService,
     @Inject(forwardRef(() => MessageService))
-    private readonly messageService: MessageService
+    private readonly messageService: MessageService,
+    private readonly configService: ConfigService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -360,7 +362,13 @@ async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
   return this.requestMapper.toAcceptResponseDto(updatedRequest!);
 }
   
-
+/**
+ * Complete a request
+ * @param requestId - The ID of the request to complete
+ * @param user - The user who is completing the request
+ * @returns The completed request response dto
+ * 
+ */
 async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
   const request = await this.getRequestById(requestId);
   if (!request) {
@@ -380,6 +388,27 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
     throw new CustomForbiddenException('Only the requester can complete this request', ErrorCode.REQUEST_UNAUTHORIZED);
   }
 
+  // 1.5 Check if travel date has passed (unless CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE is true)
+  // Only compares dates, not times - allows completion on the same day regardless of time
+  const canCompleteTravelBeforeTravelDate = this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
+  console.log('canCompleteTravelBeforeTravelDate ->',canCompleteTravelBeforeTravelDate)
+  //check if travel date has passed
+  if (!canCompleteTravelBeforeTravelDate && request.travel) {
+    const travelDatetime = new Date(request.travel.departureDatetime);
+    const now = new Date();
+    
+    // Extract only the date portion (year, month, day) for comparison
+    const travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
+    const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    if (currentDate < travelDate) {
+      throw new CustomBadRequestException(
+        `Cannot complete request before the travel date (${travelDate.toISOString().split('T')[0]}). The travel has not yet departed.`,
+        ErrorCode.REQUEST_NOT_COMPLETED
+      );
+    }
+  }
+
   // 2. Get transaction and attempt fund release FIRST (before changing status)
   // This ensures that if transfer fails, the request status remains ACCEPTED
   const transaction = await this.transactionService.getTransactionByRequestId(requestId);
@@ -389,20 +418,33 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
 
   // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
   // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
-  // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid' or 'awaiting_transfer')
-  if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer')) {
+  // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds')
+  if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
     try {
       await this.transactionService.releaseFundsFromStripe(transaction.id, user);
       // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
     } catch (error) {
-      // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
+      // If transfer fails due to onboarding or missing external account, mark as awaiting_transfer and allow completion
       if (error.message.includes('transfers enabled') || 
           error.message.includes('onboarding') || 
-          error.message.includes('capability')) {
-        // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
+          error.message.includes('capability') ||
+          error.message.includes('stripe_balance.stripe_transfers') ||
+          error.message.includes('stripe_transfers feature') ||
+          error.message.includes('bank account') ||
+          error.message.includes('debit card') ||
+          error.message.includes('external account') ||
+          error.message.includes('payout method')) {
+        // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding/adds payout method
         await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
-        console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
+        console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding and adds a payout method.`);
         // Allow request completion - funds are safely held by platform
+      } else if (error.message.includes('insufficient') || 
+                 error.message.includes('available balance') ||
+                 error.message.includes('available funds')) {
+        // Insufficient balance handling - mark as awaiting_available_funds and allow completion
+        await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+        console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
+        // Allow request completion - funds will be released when available
       } else {
         // For other errors, don't allow completion
         throw new CustomBadRequestException(
@@ -433,6 +475,13 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
               await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
               console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
               // Allow request completion - funds are safely held by platform
+            } else if (error.message.includes('insufficient') || 
+                       error.message.includes('available balance') ||
+                       error.message.includes('available funds')) {
+              // NEW: Insufficient balance handling - mark as awaiting_available_funds and allow completion
+              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+              console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
+              // Allow request completion - funds will be released when available
             } else {
               // For other errors, don't allow completion
               throw new CustomBadRequestException(
@@ -513,8 +562,22 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
   const travel = await this.userService.findOne({
     id: updatedRequest.travel!.userId,
   });
+  
+  // 10. Determine fund status from transaction for seller notification
+  let fundStatus: 'pending_funds' | 'pending_onboarding' | 'released' | undefined = undefined;
+  const updatedTransaction = await this.transactionService.getTransactionByRequestId(requestId);
+  if (updatedTransaction) {
+    if (updatedTransaction.stripeTransferId) {
+      fundStatus = 'released';
+    } else if (updatedTransaction.status === 'awaiting_available_funds') {
+      fundStatus = 'pending_funds';
+    } else if (updatedTransaction.status === 'awaiting_transfer') {
+      fundStatus = 'pending_onboarding';
+    }
+  }
+  
   //also send email to the user who published the travel or demand
-  await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true);
+  await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true, fundStatus);
 
   return updatedRequest;
 }

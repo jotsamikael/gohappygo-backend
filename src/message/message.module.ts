@@ -10,12 +10,17 @@ import { RequestModule } from 'src/request/request.module';
 import { JwtModule } from '@nestjs/jwt';
 import { MessageMapper } from './message.mapper';
 import { CacheModule } from '@nestjs/cache-manager';
+import { TravelEntity } from 'src/travel/travel.entity';
+import { DemandEntity } from 'src/demand/demand.entity';
+import { EmailModule } from 'src/email/email.module';
+import { EmailTemplatesService } from 'src/email/email-templates.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MessageEntity, RequestEntity]),
+    TypeOrmModule.forFeature([MessageEntity, RequestEntity, TravelEntity, DemandEntity]),
     UserModule,
     RequestModule,
+    EmailModule,
     CacheModule.register(),
     JwtModule.register({
       secret: 'jwt_secret', // Same as your auth module
@@ -23,7 +28,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
   ],
   controllers: [MessageController],
-  providers: [MessageService, MessageGateway, MessageMapper],
+  providers: [MessageService, MessageGateway, MessageMapper, EmailTemplatesService],
   exports: [MessageService],
 })
 export class MessageModule {}

@@ -42,7 +42,7 @@ export class AirportService implements OnModuleInit {
 
       console.log(`Cache Miss---------> Fetching airports from Database ${cacheKey}`);
 
-      const { page = 1, limit = 10, name, municipality, isoCountry, iataCode, icaoCode, continent, isoRegion, type, scheduledService, orderBy = 'name:asc' } = query;
+      const { page = 1, limit = 10, name, municipality, municipalityOrName, isoCountry, iataCode, icaoCode, continent, isoRegion, type, scheduledService, orderBy = 'name:asc' } = query;
       const skip = (page - 1) * limit;
 
       // Build query
@@ -59,6 +59,14 @@ export class AirportService implements OnModuleInit {
 
       if (municipality) {
           queryBuilder.andWhere('LOWER(airport.municipality) LIKE LOWER(:municipality)', { municipality: `%${municipality}%` });
+      }
+
+      // Search by municipality or name (OR condition)
+      if (municipalityOrName) {
+          queryBuilder.andWhere(
+              '(LOWER(airport.municipality) LIKE LOWER(:municipalityOrName) OR LOWER(airport.name) LIKE LOWER(:municipalityOrName))',
+              { municipalityOrName: `%${municipalityOrName}%` }
+          );
       }
 
       if (isoCountry) {
@@ -156,8 +164,8 @@ export class AirportService implements OnModuleInit {
 
 
   generateAirportListCacheKey(query: FindAirportsQueryDto) : string{
-   const { page = 1, limit = 10, name, municipality, isoCountry, iataCode, icaoCode, continent, isoRegion, type, scheduledService, orderBy } = query;
-   return `airports:${page}:${limit}:${name}:${municipality}:${isoCountry}:${iataCode}:${icaoCode}:${continent}:${isoRegion}:${type}:${scheduledService}:${orderBy}`;
+   const { page = 1, limit = 10, name, municipality, municipalityOrName, isoCountry, iataCode, icaoCode, continent, isoRegion, type, scheduledService, orderBy } = query;
+   return `airports:${page}:${limit}:${name}:${municipality}:${municipalityOrName}:${isoCountry}:${iataCode}:${icaoCode}:${continent}:${isoRegion}:${type}:${scheduledService}:${orderBy}`;
   }
 
 

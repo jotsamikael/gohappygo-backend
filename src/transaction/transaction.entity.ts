@@ -23,10 +23,10 @@ export class TransactionEntity extends BaseEntity{
 
   @Column({
     type: 'enum',
-    enum: ['pending', 'paid', 'awaiting_transfer', 'refunded', 'cancelled'],
+    enum: ['pending', 'paid', 'awaiting_transfer', 'awaiting_available_funds', 'refunded', 'cancelled'],
     default: 'pending',
   })
-  status: 'pending' | 'paid' | 'awaiting_transfer' | 'refunded' | 'cancelled';
+  status: 'pending' | 'paid' | 'awaiting_transfer' | 'awaiting_available_funds' | 'refunded' | 'cancelled';
 
   @Column({ length: 50 })
   paymentMethod: string; // e.g., 'stripe', 'paypal', 'mobile_money'

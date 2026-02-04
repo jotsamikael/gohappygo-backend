@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserEntity } from './user/user.entity';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ScheduleModule } from '@nestjs/schedule';
 import { EventsModule } from './events/events.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { DemandModule } from './demand/demand.module';
@@ -100,6 +101,7 @@ import { AlertEntity } from './alert/entities/alert.entity';
         STRIPE_PUBLISHABLE_KEY: joi.string().optional(),
         STRIPE_WEBHOOK_SECRET: joi.string().optional(),
         FRONTEND_URL: joi.string().default('http://localhost:4200'),
+        CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE: joi.string().valid('true', 'false').default('false'),
       }),
       load: [appConfig]
     }),
@@ -116,6 +118,8 @@ import { AlertEntity } from './alert/entities/alert.entity';
         limit: 5
       }
     ]),
+    //Scheduled tasks (cron jobs)
+    ScheduleModule.forRoot(),
     //ORM - Use ConfigService to get environment variables
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

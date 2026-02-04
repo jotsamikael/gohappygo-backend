@@ -262,8 +262,8 @@ export class EmailService {
     });
   }
 
-  sendRequestCompletedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
-    const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event);
+  sendRequestCompletedForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released') {
+    const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event, fundStatus);
     return this.sendEmail({
       to: userEmail,
       subject: 'Delivery Successfully Completed - GoHappyGo',

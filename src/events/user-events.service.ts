@@ -73,8 +73,7 @@ export interface RequestEvent extends BaseUserEvent {
   requestType: 'GoAndGo' | 'GoAndGive';
   weight: number | null;
   isForOwner: boolean;
-
- 
+  fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released';
 }
 
 export interface TransactionEvent extends BaseUserEvent {
@@ -397,7 +396,7 @@ export class UserEventsService {
   }
 
 
-  emitRequestCompletedForOwner(user: UserEntity, updatedRequest: RequestEntity, isForOwner: boolean) {
+  emitRequestCompletedForOwner(user: UserEntity, updatedRequest: RequestEntity, isForOwner: boolean, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released') {
     // Determine requester name from available data
     let requesterName = 'Unknown User';
     if (updatedRequest.requester) {
@@ -416,7 +415,7 @@ export class UserEventsService {
       requestId: updatedRequest.id,
       requestType: updatedRequest.requestType,
       weight: updatedRequest.weight,
-     
+      fundStatus,
     };
     this.eventEmitter.emit(UserEventType.REQUEST_COMPLETED, event);
   }

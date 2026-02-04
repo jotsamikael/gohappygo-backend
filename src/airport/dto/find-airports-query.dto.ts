@@ -22,6 +22,15 @@ export class FindAirportsQueryDto extends PaginationQueryDto {
     municipality?: string;
 
     @ApiProperty({
+        description: 'Search by municipality or airport name (useful when you know the city but not the airport name)',
+        required: false,
+        example: 'Paris'
+    })
+    @IsOptional()
+    @IsString()
+    municipalityOrName?: string;
+
+    @ApiProperty({
         description: 'The country ISO code of the airport',
         required: false,
         example: 'US'

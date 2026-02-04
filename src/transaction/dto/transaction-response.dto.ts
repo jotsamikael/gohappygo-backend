@@ -25,7 +25,7 @@ export class TransactionResponseDto {
     @ApiProperty({ example: 80.00, nullable: true, description: 'The amount the traveler should receive (before fees and TVA)' })
     travelerPayment: number | null;
 
-    @ApiProperty({ example: 'pending', enum: ['pending', 'paid', 'awaiting_transfer', 'refunded', 'cancelled'] })
+    @ApiProperty({ example: 'pending', enum: ['pending', 'paid', 'awaiting_transfer', 'awaiting_available_funds', 'refunded', 'cancelled'] })
     status: string;
 
     @ApiProperty({ example: 'stripe' })

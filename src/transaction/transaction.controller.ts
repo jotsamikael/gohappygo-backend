@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query, UseGuards, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards, Post, HttpCode, HttpStatus, Body } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TransactionService } from './transaction.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
@@ -7,6 +7,8 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
 import { FindTransactionQueryDto } from './dto/request/find-transaction-requests-query.dto';
 import { PaginatedTransactionResponseDto } from './dto/response/paginated-transaction-response.dto';
+import { RequestPayoutDto } from './dto/request/request-payout.dto';
+import { PayoutResponseDto } from './dto/response/payout-response.dto';
 
 @ApiTags('transactions')
 @Controller('transaction')
@@ -104,5 +106,32 @@ export class TransactionController {
         @CurrentUser() user: UserEntity,
     ): Promise<{ available: number; pending: number; currency: string }> {
         return this.transactionService.getUserBalance(user);
+    }
+
+    @Post('payout')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Request payout to bank account',
+        description: 'Withdraw funds from your Stripe Connect account balance to your configured bank account. ' +
+                     'Requires a Stripe Connect account with a bank account configured. ' +
+                     'Funds will be transferred to your external bank account according to Stripe\'s payout schedule (typically 2-7 business days).'
+    })
+    @ApiResponse({ 
+        status: 200, 
+        description: 'Payout requested successfully',
+        type: PayoutResponseDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - Insufficient balance, missing bank account, or invalid amount' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    async requestPayout(
+        @CurrentUser() user: UserEntity,
+        @Body() requestPayoutDto: RequestPayoutDto,
+    ): Promise<PayoutResponseDto> {
+        return this.transactionService.requestPayout(
+            user,
+            requestPayoutDto.amount,
+        );
     }
 }

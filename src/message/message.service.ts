@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MessageEntity } from './message.entity';
 import { Repository } from 'typeorm';
@@ -10,6 +10,12 @@ import { SendMessageDto } from './dto/SendMessage.dto';
 import { FindThreadQueryDto } from './dto/request/find-thread-query.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { TravelEntity } from 'src/travel/travel.entity';
+import { DemandEntity } from 'src/demand/demand.entity';
+import { EmailService } from 'src/email/email.service';
+import { EmailTemplatesService } from 'src/email/email-templates.service';
+import { SendPublicMessageDto, AnnouncementType } from './dto/send-public-message.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MessageService {
@@ -19,8 +25,13 @@ export class MessageService {
   constructor(
     @InjectRepository(MessageEntity) private messageRepository: Repository<MessageEntity>,
     @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
+    @InjectRepository(TravelEntity) private travelRepository: Repository<TravelEntity>,
+    @InjectRepository(DemandEntity) private demandRepository: Repository<DemandEntity>,
     private userService: UserService,
     private requestService: RequestService,
+    private emailService: EmailService,
+    private emailTemplatesService: EmailTemplatesService,
+    private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -251,6 +262,93 @@ export class MessageService {
     }
     
     return message;
+  }
+
+  /**
+   * Send a public message from a visitor/user about a travel or demand
+   * This sends an email to the travel/demand owner with the message details
+   */
+  async sendPublicMessage(dto: SendPublicMessageDto): Promise<{ success: boolean; message: string }> {
+    let owner: UserEntity;
+    let departureAirport: string = 'N/A';
+    let arrivalAirport: string = 'N/A';
+    let flightNumber: string = '';
+    let pricePerKilo: string = '';
+
+    try {
+      // Get the travel or demand based on the announcement type
+      if (dto.announcementType === AnnouncementType.TRAVEL) {
+        const travel = await this.travelRepository.findOne({
+          where: { id: dto.announcementId },
+          relations: ['user', 'departureAirport', 'arrivalAirport', 'airline'],
+        });
+
+        if (!travel) {
+          throw new NotFoundException(`Travel with ID ${dto.announcementId} not found`);
+        }
+
+        owner = travel.user;
+        departureAirport = travel.departureAirport?.name || 'Unknown';
+        arrivalAirport = travel.arrivalAirport?.name || 'Unknown';
+        flightNumber = travel.flightNumber || '';
+        pricePerKilo = travel.pricePerKg ? `${travel.pricePerKg}` : '';
+      } else if (dto.announcementType === AnnouncementType.DEMAND) {
+        const demand = await this.demandRepository.findOne({
+          where: { id: dto.announcementId },
+          relations: ['user', 'departureAirport', 'arrivalAirport', 'airline'],
+        });
+
+        if (!demand) {
+          throw new NotFoundException(`Demand with ID ${dto.announcementId} not found`);
+        }
+
+        owner = demand.user;
+        departureAirport = demand.departureAirport?.name || 'Unknown';
+        arrivalAirport = demand.arrivalAirport?.name || 'Unknown';
+        flightNumber = demand.flightNumber || '';
+        pricePerKilo = demand.pricePerKg ? `${demand.pricePerKg}` : '';
+      } else {
+        throw new BadRequestException('Invalid announcement type');
+      }
+
+      if (!owner || !owner.email) {
+        throw new NotFoundException('Could not find owner or owner email for this announcement');
+      }
+
+      // Send email to the owner
+      const emailTemplate = this.emailTemplatesService.getPublicMessageTemplate(
+        `${owner.firstName} ${owner.lastName}`,
+        dto.announcementType,
+        departureAirport,
+        arrivalAirport,
+        flightNumber,
+        pricePerKilo,
+        dto.message
+      );
+
+      const emailFrom = this.configService.get<string>('EMAIL_FROM');
+
+      const emailSent = await this.emailService.sendEmail({
+        to: owner.email,
+        from: emailFrom,
+        subject: `New Message About Your ${dto.announcementType === AnnouncementType.TRAVEL ? 'Travel' : 'Demand'} - GoHappyGo`,
+        html: emailTemplate,
+      });
+
+      if (!emailSent) {
+        this.logger.warn(`Failed to send email to ${owner.email}, but message was processed`);
+      }
+
+      this.logger.log(`Public message received about ${dto.announcementType} #${dto.announcementId}, email sent to ${owner.email}`);
+
+      return {
+        success: true,
+        message: 'Message sent successfully. The announcement owner will receive an email with your message.',
+      };
+    } catch (error) {
+      this.logger.error(`Error sending public message: ${error.message}`, error);
+      throw error;
+    }
   }
 }
 

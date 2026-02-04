@@ -121,7 +121,7 @@ export class AllEventsListener {
   async handleRequestCompleted(event: RequestEvent): Promise<void> {
     this.logger.log(`Request completed by ${event.userEmail} - ${event.requestType}`);
     if(event.isForOwner){
-      await this.emailService.sendRequestCompletedForOwnerConfirmation(event.userEmail, event.userFirstName, event);
+      await this.emailService.sendRequestCompletedForOwnerConfirmation(event.userEmail, event.userFirstName, event, event.fundStatus);
     }else{
       await this.emailService.sendRequestCompletedConfirmation(event.userEmail, event.userFirstName, event);
     }

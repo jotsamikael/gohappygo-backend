@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import Stripe from 'stripe';
 import { UserEntity } from 'src/user/user.entity';
 import { UserService } from 'src/user/user.service';
@@ -25,6 +26,7 @@ export class StripeService {
     private webhookEventRepository: Repository<StripeWebhookEventEntity>,
     @InjectRepository(TransactionEntity)
     private transactionRepository: Repository<TransactionEntity>,
+    private eventEmitter: EventEmitter2,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!secretKey) {
@@ -32,7 +34,8 @@ export class StripeService {
     }
     //  apiVersion: '2025-02-24.acacia',
     this.stripe = new Stripe(secretKey || '', {
-      apiVersion: '2025-12-15.clover',
+      //apiVersion: '2025-12-15.clover',
+      apiVersion: '2025-02-24.acacia',
     });
   }
 
@@ -179,6 +182,46 @@ export class StripeService {
   }
 
   /**
+   * Get platform balance (available and pending)
+   * Returns the platform's own Stripe balance (not a connected account)
+   */
+  async getPlatformBalance(): Promise<{ available: number; pending: number; currency: string }> {
+    try {
+      const balance = await this.stripe.balance.retrieve();
+      return {
+        available: balance.available[0]?.amount ? balance.available[0].amount / 100 : 0,
+        pending: balance.pending[0]?.amount ? balance.pending[0].amount / 100 : 0,
+        currency: balance.available[0]?.currency || 'usd',
+      };
+    } catch (error) {
+      this.logger.error(`Error retrieving platform balance: ${error.message}`, error.stack);
+      throw new BadRequestException(`Failed to retrieve platform balance: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if account has external accounts (bank accounts or debit cards) configured
+   * Required for transfers to work even if transfers capability is active
+   */
+  private async hasExternalAccount(accountId: string): Promise<boolean> {
+    try {
+      const account = await this.stripe.accounts.retrieve(accountId, {
+        expand: ['external_accounts'],
+      });
+      
+      // Check if account has any external accounts (bank accounts or debit cards)
+      const externalAccounts = account.external_accounts?.data || [];
+      const hasExternalAccount = externalAccounts.length > 0;
+      
+      this.logger.log(`Account ${accountId} has ${externalAccounts.length} external account(s)`);
+      return hasExternalAccount;
+    } catch (error) {
+      this.logger.error(`Error checking external accounts: ${error.message}`, error.stack);
+      return false;
+    }
+  }
+
+  /**
    * Get account status
    */
   async getAccountStatus(accountId: string): Promise<{
@@ -203,6 +246,12 @@ export class StripeService {
       const transfersCapability = account.capabilities?.transfers;
       const hasTransferCapability = transfersCapability === 'active';
       
+      // IMPORTANT: Even if transfers capability is 'active', Stripe requires an external account
+      // (bank account or debit card) to be configured before transfers can actually work.
+      // The error "stripe_balance.stripe_transfers feature enabled" indicates missing external account.
+      const hasExternalAccount = await this.hasExternalAccount(accountId);
+      const transfersEnabled = hasTransferCapability && hasExternalAccount;
+      
       if (chargesEnabled && transfersCapability === 'active') {
         status = 'active';
       } else if (detailsSubmitted) {
@@ -214,7 +263,7 @@ export class StripeService {
       return {
         status,
         chargesEnabled,
-        transfersEnabled: hasTransferCapability || false,
+        transfersEnabled,
         detailsSubmitted,
       };
     } catch (error) {
@@ -392,19 +441,31 @@ export class StripeService {
    * @param amountUSD - Amount in USD (in dollars, will be converted to cents)
    * @param destinationAccountId - Stripe Connect account ID
    * @param sourceTransactionId - Charge ID from the original Payment Intent
+   * @param transactionId - Optional transaction ID for idempotency key generation
    */
   async createTransfer(
     amountUSD: number,
     destinationAccountId: string,
     sourceTransactionId: string,
+    transactionId?: number,
   ): Promise<Stripe.Transfer> {
     try {
+      // Check if account has external account configured before attempting transfer
+      // This prevents the "stripe_balance.stripe_transfers feature enabled" error
+      const hasExternalAccount = await this.hasExternalAccount(destinationAccountId);
+      if (!hasExternalAccount) {
+        throw new BadRequestException(
+          'Account must have a bank account or debit card configured to receive transfers. ' +
+          'Please complete Stripe onboarding and add a payout method.'
+        );
+      }
+
       // Retrieve the charge to get balance transaction ID
       const charge = await this.stripe.charges.retrieve(sourceTransactionId);
       const chargeCurrency = charge.currency.toLowerCase();
       
       this.logger.log(`Charge currency: ${chargeCurrency}, Charge amount: ${charge.amount / 100} ${charge.currency.toUpperCase()}`);
-  
+
       // Retrieve the balance transaction to get its currency
       // The transfer currency MUST match the balance transaction currency, not the charge currency
       // This is important for French platforms where balance transactions may be in EUR even if charge is in USD
@@ -417,7 +478,7 @@ export class StripeService {
       const balanceTransactionCurrency = balanceTransaction.currency.toLowerCase(); // This is what matters for transfers
       
       this.logger.log(`Balance transaction currency: ${balanceTransactionCurrency}, Balance transaction amount: ${balanceTransaction.amount / 100} ${balanceTransaction.currency.toUpperCase()}`);
-  
+
       // Retrieve the Payment Intent to get the original amount and calculate conversion ratio
       const paymentIntentId = charge.payment_intent as string;
       if (!paymentIntentId) {
@@ -429,7 +490,7 @@ export class StripeService {
       const paymentIntentCurrency = paymentIntent.currency.toLowerCase();
       
       this.logger.log(`Payment Intent currency: ${paymentIntentCurrency}, Payment Intent amount: ${paymentIntentAmount / 100} ${paymentIntent.currency.toUpperCase()}`);
-  
+
       // Calculate transfer amount based on balance transaction currency (not charge currency)
       let transferAmount: number;
       if (balanceTransactionCurrency === 'usd') {
@@ -448,19 +509,39 @@ export class StripeService {
         
         this.logger.log(`Converting transfer: USD ${amountUSD} -> ${balanceTransactionCurrency.toUpperCase()} ${transferAmount / 100} (ratio: ${conversionRatio})`);
       }
-  
+
       this.logger.log(`Creating transfer: ${transferAmount / 100} ${balanceTransactionCurrency.toUpperCase()} to account ${destinationAccountId}`);
-  
+
+      // Generate idempotency key to prevent duplicate transfers on retries
+      const idempotencyKey = transactionId 
+        ? `transaction-${transactionId}-release`
+        : `transfer-${sourceTransactionId}-${Date.now()}`;
+
       const transfer = await this.stripe.transfers.create({
         amount: transferAmount,
         currency: balanceTransactionCurrency, // MUST match balance transaction currency, not charge currency
         destination: destinationAccountId,
         source_transaction: sourceTransactionId, // Link to original charge
+      }, {
+        idempotencyKey,
       });
-  
+
       this.logger.log(`Transfer created successfully: ${transfer.id}`);
       return transfer;
     } catch (error) {
+      // Catch specific Stripe error about missing stripe_balance.stripe_transfers feature
+      if (error.message.includes('stripe_balance.stripe_transfers') ||
+          error.message.includes('stripe_transfers feature') ||
+          error.message.includes('bank account') ||
+          error.message.includes('debit card') ||
+          error.message.includes('external account')) {
+        this.logger.error(`Transfer failed: Account ${destinationAccountId} needs external account configured. Error: ${error.message}`);
+        throw new BadRequestException(
+          'Account must have a bank account or debit card configured to receive transfers. ' +
+          'Please complete Stripe onboarding and add a payout method. ' +
+          `Original error: ${error.message}`
+        );
+      }
       this.logger.error(`Error creating Transfer: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to create Transfer: ${error.message}`);
     }
@@ -593,6 +674,12 @@ export class StripeService {
         case 'account.updated':
           await this.handleAccountUpdated(event.data.object as Stripe.Account);
           break;
+        case 'balance.available':
+          // Optional: Trigger fund release processing when balance becomes available
+          // Note: Stripe may not send this event in all regions/account types
+          this.logger.log(`[handleWebhook] Balance available event received, triggering fund release processing`);
+          this.eventEmitter.emit('stripe.balance.available', event.data.object);
+          break;
         default:
           this.logger.log(`[handleWebhook] Unhandled webhook event type: ${event.type}`);
       }
@@ -700,23 +787,31 @@ export class StripeService {
     this.logger.log(`[handleAccountUpdated] Transfers capability: ${transfersCapability}`);
     this.logger.log(`[handleAccountUpdated] Previous transfers capability: ${previousTransfersCapability || 'undefined'}`);
     
-    // If transfers capability just became active (either detected via previous_attributes or by checking current status)
-    // Release pending transfers for this account
+    // IMPORTANT: Check if transfers capability is active AND external account exists
+    // Only release transfers when BOTH conditions are met
     if (transfersCapability === 'active') {
-      // Check if this is a new activation (previous was not active) or if we should check anyway
-      const shouldRelease = previousTransfersCapability !== 'active' || previousTransfersCapability === undefined;
+      // Check if external account exists
+      const hasExternalAccount = await this.hasExternalAccount(account.id);
       
-      this.logger.log(`[handleAccountUpdated] Should release pending transfers: ${shouldRelease}`);
-      
-      if (shouldRelease) {
-        this.logger.log(`[handleAccountUpdated] Transfers capability is active for account ${account.id}, checking for pending transfers`);
-        try {
-          await this.releasePendingTransfersForAccount(account.id);
-          this.logger.log(`[handleAccountUpdated] Pending transfers released successfully`);
-        } catch (error) {
-          this.logger.error(`[handleAccountUpdated] Error releasing pending transfers: ${error.message}`);
-          // Don't throw - continue to update status
+      if (hasExternalAccount) {
+        // Check if this is a new activation (previous was not active) or if we should check anyway
+        const shouldRelease = previousTransfersCapability !== 'active' || previousTransfersCapability === undefined;
+        
+        this.logger.log(`[handleAccountUpdated] External account exists: ${hasExternalAccount}`);
+        this.logger.log(`[handleAccountUpdated] Should release pending transfers: ${shouldRelease}`);
+        
+        if (shouldRelease) {
+          this.logger.log(`[handleAccountUpdated] Transfers capability is active and external account exists for account ${account.id}, releasing pending transfers`);
+          try {
+            await this.releasePendingTransfersForAccount(account.id);
+            this.logger.log(`[handleAccountUpdated] Pending transfers released successfully`);
+          } catch (error) {
+            this.logger.error(`[handleAccountUpdated] Error releasing pending transfers: ${error.message}`);
+            // Don't throw - continue to update status
+          }
         }
+      } else {
+        this.logger.log(`[handleAccountUpdated] Transfers capability is active but external account is missing. Waiting for external account to be added.`);
       }
     }
     
@@ -851,6 +946,7 @@ export class StripeService {
       travelerAmountUSD,
       payee.stripeAccountId,
       chargeId,
+      transactionId, // Pass transactionId for idempotency key
     );
 
     // Update transaction with transfer ID and status
@@ -889,6 +985,91 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Error retrieving Payment Intent: ${error.message}`, error.stack);
       throw new NotFoundException(`Failed to retrieve Payment Intent: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a payout to seller's external bank account
+   * Transfers funds from seller's Stripe Connect account balance to their bank account
+   * @param accountId - Stripe Connect account ID
+   * @param amountUSD - Amount in USD (in dollars, will be converted to cents)
+   * @param description - Optional description for the payout
+   * @returns Stripe Payout object
+   */
+  async createPayout(
+    accountId: string,
+    amountUSD: number,
+    description?: string,
+  ): Promise<Stripe.Payout> {
+    try {
+      // Check if account has external account configured
+      const hasExternalAccount = await this.hasExternalAccount(accountId);
+      if (!hasExternalAccount) {
+        throw new BadRequestException(
+          'Account must have a bank account or debit card configured to receive payouts. ' +
+          'Please add a payout method in your Stripe account settings.'
+        );
+      }
+
+      // Get account balance to verify sufficient funds
+      const balance = await this.getAccountBalance(accountId);
+      const availableBalance = balance.available[0]?.amount ? balance.available[0].amount / 100 : 0;
+      const balanceCurrency = balance.available[0]?.currency || 'usd';
+
+      // Convert amount to cents
+      const amountInCents = Math.round(amountUSD * 100);
+
+      // Check if sufficient balance available
+      if (availableBalance < amountUSD) {
+        throw new BadRequestException(
+          `Insufficient balance. Available: ${availableBalance} ${balanceCurrency.toUpperCase()}, Requested: ${amountUSD} USD`
+        );
+      }
+
+      // Get account to determine currency
+      const account = await this.stripe.accounts.retrieve(accountId);
+      const accountCurrency = account.default_currency || 'usd';
+
+      // Convert USD amount to account currency if needed
+      let payoutAmount: number;
+      if (accountCurrency.toLowerCase() === 'usd') {
+        payoutAmount = amountInCents;
+      } else {
+        // For non-USD accounts, use available balance directly
+        const availableBalanceCents = balance.available[0]?.amount || 0;
+        if (balanceCurrency.toLowerCase() !== accountCurrency.toLowerCase()) {
+          this.logger.warn(`Currency mismatch: Balance is ${balanceCurrency}, Account default is ${accountCurrency}. Using balance currency.`);
+        }
+        // Use the balance currency amount directly
+        payoutAmount = Math.min(amountInCents, availableBalanceCents);
+      }
+
+      this.logger.log(`Creating payout: ${payoutAmount / 100} ${accountCurrency.toUpperCase()} to account ${accountId}`);
+
+      // Create payout on the connected account
+      // For Custom accounts, payouts are created directly on the connected account
+      // Stripe will automatically use the default external account (bank account) configured
+      const payout = await this.stripe.payouts.create(
+        {
+          amount: payoutAmount,
+          currency: accountCurrency,
+          description: description || `Payout to ${accountId}`,
+          // For Custom accounts, Stripe automatically uses the default external account
+          // No need to specify destination
+        },
+        {
+          stripeAccount: accountId, // Create payout on the connected account
+        }
+      );
+
+      this.logger.log(`Payout created successfully: ${payout.id}`);
+      return payout;
+    } catch (error) {
+      this.logger.error(`Error creating Payout: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to create Payout: ${error.message}`);
     }
   }
 

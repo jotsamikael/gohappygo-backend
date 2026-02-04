@@ -31,7 +31,7 @@ export class EmailTemplatesService {
           <div class="content">
             <h2>Hello ${userName},</h2>
             <p>Welcome to GoHappyGo! Your account has been successfully created.</p>
-            <p>We're excited to have you join our community of travelers and package senders.</p>
+            <p>We're excited to have you join our community of travelers.</p>
             <p>To get started:</p>
             <ul>
               <li>Complete your profile</li>
@@ -258,10 +258,10 @@ export class EmailTemplatesService {
           </div>
           <div class="content">
             <h2>Hello ${userName},</h2>
-            <p>Your travel has been successfully published and is now visible to potential package senders.</p>
+            <p>Your travel has been successfully published and is now visible to  HappyTravellers.</p>
             <div class="travel-details">
               <h3>Travel Details:</h3>
-              <p><strong>Flight:</strong> ${travelData.flightNumber || 'Unknown'}</p>
+              <p><strong>Flight:</strong> ${travelData.flightNumber || 'Unknown'}.toUpperCase()</p>
               <p><strong>From:</strong> ${departureAirport}</p>
               <p><strong>To:</strong> ${arrivalAirport}</p>
               <p><strong>Date:</strong> ${departureDate}</p>
@@ -377,7 +377,7 @@ export class EmailTemplatesService {
           </div>
           <div class="content">
             <h2>Hello ${userName},</h2>
-            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The delivery process can now begin.</p>` : `<p>Great news! Your delivery request has been accepted and is ready to proceed.</p>`}
+            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The travel process can now begin.</p>` : `<p>Great news! Your travel request has been accepted and is ready to proceed.</p>`}
             
             <div class="highlight">
               <p><strong>✅ Status:</strong> <span class="success-badge">ACCEPTED</span></p>
@@ -387,8 +387,6 @@ export class EmailTemplatesService {
             <div class="request-details">
               <h3>Request Details:</h3>
               <p><strong>Request ID:</strong> #${requestData.requestId}</p>
-              <p><strong>Type:</strong> ${requestData.requestType}</p>
-              <p><strong>Package Description:</strong> ${requestData.packageDescription || 'Not specified'}</p>
               <p><strong>Weight:</strong> ${requestData.weight}kg</p>
               ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${new Date(requestData.limitDate).toLocaleDateString()}</p>` : ''}
             </div>
@@ -459,8 +457,6 @@ export class EmailTemplatesService {
             <div class="request-details">
               <h3>Request Details:</h3>
               <p><strong>Request ID:</strong> #${requestData.requestId}</p>
-              <p><strong>Type:</strong> ${requestData.requestType}</p>
-              <p><strong>Package Description:</strong> ${requestData.packageDescription || 'Not specified'}</p>
               <p><strong>Weight:</strong> ${requestData.weight}kg</p>
               ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${new Date(requestData.limitDate).toLocaleDateString()}</p>` : ''}
               <p><strong>Accepted:</strong> ${new Date(requestData.timestamp).toLocaleString()}</p>
@@ -1139,7 +1135,7 @@ export class EmailTemplatesService {
     `;
   }
 
-  getRequestCompletedForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
+  getRequestCompletedForOwnerTemplate(userFirstName: string, event: RequestEvent, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released'): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -1190,12 +1186,25 @@ export class EmailTemplatesService {
             
             <div class="earnings-section">
               <h3> Earnings Summary</h3>
-              <p>Your earnings will be processed according to our payment schedule.</p>
+              ${fundStatus === 'pending_funds' 
+                ? `<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                    <p style="margin: 0; color: #856404;"><strong>⏳ Payment Pending:</strong> Your payment is pending. Funds will be released once they become available in our Stripe account (typically within 1-2 business days). You will receive a notification email when the funds are released.</p>
+                   </div>`
+                : fundStatus === 'pending_onboarding'
+                ? `<div style="background: #d1ecf1; border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                    <p style="margin: 0; color: #0c5460;"><strong>📋 Onboarding Required:</strong> Your payment is pending. Please complete your Stripe onboarding to receive funds. Once you complete the onboarding process, your funds will be automatically released.</p>
+                    <p style="margin: 10px 0 0 0;"><a href="${this.baseUrl}/stripe/onboarding" style="color: #17a2b8; text-decoration: underline;">Complete Stripe Onboarding →</a></p>
+                   </div>`
+                : `<p>Your earnings will be processed according to our payment schedule.</p>`
+              }
             </div>
             
             <p><strong>What's next?</strong></p>
             <ul>
-              <li>Your earnings will be processed and transferred</li>
+              ${fundStatus === 'pending_funds' || fundStatus === 'pending_onboarding'
+                ? `<li>Your earnings are secured and will be transferred once ${fundStatus === 'pending_funds' ? 'funds become available' : 'you complete onboarding'}</li>`
+                : `<li>Your earnings will be processed and transferred</li>`
+              }
               <li>You may receive a rating from the client</li>
               <li>Consider taking on more delivery requests</li>
               <li>Build your reputation as a reliable traveler</li>
@@ -1705,7 +1714,7 @@ export class EmailTemplatesService {
             <div class="alert-details">
               <h3>Matched ${data.alertType} Details:</h3>
               <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
-              <p><strong>Flight Number:</strong> ${data.flightNumber}</p>
+              <p><strong>Flight Number:</strong> ${data.flightNumber}.toUpperCase()</p>
               <p><strong>Travel Date:</strong> ${data.travelDate}</p>
             </div>
 
@@ -1750,7 +1759,7 @@ export class EmailTemplatesService {
     ];
 
     if (data.flightNumber) {
-      alertDetails.push(`<p><strong>Flight Number:</strong> ${data.flightNumber}</p>`);
+      alertDetails.push(`<p><strong>Flight Number:</strong> ${data.flightNumber}.toUpperCase()</p>`);
     }
 
     if (data.travelDate) {
@@ -1938,6 +1947,353 @@ export class EmailTemplatesService {
           <div class="footer">
             <p>Thank you for using GoHappyGo!</p>
             <p>If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getPublicMessageTemplate(
+    recipientName: string,
+    announcementType: string,
+    departureAirport: string,
+    arrivalAirport: string,
+    flightNumber: string,
+    pricePerKilo: string,
+    message: string
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'} - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .announcement-details { background: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0; border-radius: 3px; }
+          .message-box { background: white; padding: 15px; border: 1px solid #ddd; border-radius: 3px; margin: 20px 0; }
+          .button { display: inline-block; padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; }
+          .sender-info { background: #f5f5f5; padding: 10px; border-radius: 3px; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          .detail-row { margin: 8px 0; }
+          .label { font-weight: bold; color: #1976D2; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📬 New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'}</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${recipientName},</h2>
+            <p>You have received a new message regarding your ${announcementType} posting on GoHappyGo.</p>
+            
+            <div class="announcement-details">
+              <h3>${announcementType === 'travel' ? '✈️ Travel Details' : '📦 Demand Details'}</h3>
+              <div class="detail-row">
+                <span class="label">Departure:</span> ${departureAirport}
+              </div>
+              <div class="detail-row">
+                <span class="label">Arrival:</span> ${arrivalAirport}
+              </div>
+              ${flightNumber ? `<div class="detail-row">
+                <span class="label">Flight Number:</span> ${flightNumber}.toUpperCase()
+              </div>` : ''}
+              ${pricePerKilo ? `<div class="detail-row">
+                <span class="label">Price per Kilo:</span> ${pricePerKilo}
+              </div>` : ''}
+            </div>
+
+            <div class="message-box">
+              <h3>💬 Message:</h3>
+              <p>${message.replace(/\n/g, '<br>')}</p>
+            </div>
+
+            <p><strong>What's next?</strong></p>
+            <ul>
+              <li>Review the message and details above</li>
+              <li>Reply to the sender by visiting your GoHappyGo dashboard</li>
+              <li>Decide if you'd like to proceed with this opportunity</li>
+            </ul>
+
+            <p style="text-align: center; margin: 30px 0;">
+              <a href="${this.baseUrl}/dashboard" class="button">View on GoHappyGo</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+            <p>This is an automated message from GoHappyGo. Please do not reply to this email.</p>
+            <p>For any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getPasswordResetTemplate(userName: string, resetCode: string): string {
+    const resetUrl = `${this.baseUrl}/reset-password?code=${resetCode}`;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Password Reset - GoHappyGo</title>
+        <style>
+          body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f4;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header { 
+            background: linear-gradient(135deg, #f44336, #d32f2f); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+          }
+          .header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: 300;
+          }
+          .header p { 
+            margin: 10px 0 0 0; 
+            font-size: 16px; 
+            opacity: 0.9;
+          }
+          .content { 
+            padding: 40px 30px; 
+            background: white;
+          }
+          .reset-section {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .reset-section h2 {
+            color: #f44336;
+            font-size: 24px;
+            margin-bottom: 10px;
+          }
+          .reset-section p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+          }
+          .reset-link-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 4px solid #f44336;
+            margin: 25px 0;
+            text-align: center;
+          }
+          .cta-button {
+            display: inline-block;
+            background: #f44336;
+            color: white;
+            padding: 15px 40px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 20px 0;
+            font-size: 16px;
+            transition: background-color 0.3s;
+          }
+          .cta-button:hover {
+            background: #d32f2f;
+          }
+          .reset-code {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            padding: 15px;
+            background: #fff3e0;
+            margin: 20px 0;
+            border-radius: 8px;
+            letter-spacing: 2px;
+            color: #e65100;
+            border: 2px dashed #ff9800;
+          }
+          .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+          }
+          .instructions h4 {
+            margin: 0 0 10px 0;
+            color: #856404;
+          }
+          .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+          }
+          .instructions li {
+            margin-bottom: 5px;
+            color: #856404;
+          }
+          .expiry-notice {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0c5460;
+          }
+          .security-warning {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #721c24;
+          }
+          .footer { 
+            text-align: center; 
+            padding: 30px 20px; 
+            background: #f8f9fa;
+            color: #666; 
+            font-size: 14px;
+            border-top: 1px solid #e9ecef;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Password Reset Request</h1>
+            <p>Reset your GoHappyGo account password</p>
+          </div>
+          
+          <div class="content">
+            <div class="reset-section">
+              <h2>Hello ${userName}! 👋</h2>
+              <p>We received a request to reset your password. Click the button below to create a new password.</p>
+            </div>
+
+            <div class="reset-link-section">
+              <p style="margin-bottom: 20px; color: #666;">Click the button below to reset your password:</p>
+              <a href="${resetUrl}" class="cta-button">Reset Password</a>
+              <p style="margin-top: 20px; font-size: 14px; color: #999;">
+                Or copy and paste this link into your browser:<br>
+                <span style="word-break: break-all; color: #666;">${resetUrl}</span>
+              </p>
+            </div>
+
+            <div class="instructions">
+              <h4>📋 How to reset your password:</h4>
+              <ul>
+                <li>Click the "Reset Password" button above</li>
+                <li>You'll be redirected to the password reset page</li>
+                <li>Enter your new password</li>
+                <li>Click "Reset Password" to complete the process</li>
+              </ul>
+            </div>
+
+            <div class="expiry-notice">
+              <strong>⏰ Important:</strong> This password reset link will expire in 10 minutes for security reasons.
+            </div>
+
+            <div class="security-warning">
+              <strong>🔒 Security Notice:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this link with anyone.
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="color: #666; font-size: 14px;">
+                If you have any questions or need assistance, please contact our support team.
+              </p>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p><strong>GoHappyGo</strong> - Connecting travelers and senders worldwide</p>
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+            <p style="font-size: 12px; color: #999;">
+              This is an automated message from GoHappyGo. Please do not reply to this email.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template for notifying seller when funds are released via cron job
+   */
+  getFundReleasedTemplate(userName: string, data: {
+    transactionId: number;
+    amount: number;
+    currency: string;
+    transferId: string;
+    requestId: number;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Funds Released - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .success-section { background: #d4edda; border: 1px solid #28a745; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .transaction-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>💰 Funds Released!</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userName},</h2>
+            <p>Great news! Your funds have been successfully released and transferred to your Stripe account.</p>
+            
+            <div class="success-section">
+              <p style="margin: 0; color: #155724;"><strong>✅ Payment Status:</strong> Funds Released</p>
+            </div>
+            
+            <div class="transaction-details">
+              <h3>Transaction Details:</h3>
+              <p><strong>Transaction ID:</strong> #${data.transactionId}</p>
+              <p><strong>Request ID:</strong> #${data.requestId}</p>
+              <p><strong>Amount:</strong> ${data.amount} ${data.currency.toUpperCase()}</p>
+              <p><strong>Transfer ID:</strong> ${data.transferId}</p>
+              <p><strong>Released:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            
+            <p><strong>What's next?</strong></p>
+            <ul>
+              <li>Funds are now available in your Stripe Connect account</li>
+              <li>You can withdraw funds according to your Stripe payout schedule</li>
+              <li>Check your Stripe dashboard for payout details</li>
+            </ul>
+            
+            <p><em>Thank you for being a trusted GoHappyGo traveler!</em></p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
           </div>
         </div>
       </body>

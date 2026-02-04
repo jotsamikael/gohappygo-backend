@@ -127,6 +127,9 @@ export class TravelService {
       .skip(skip)
       .take(limit);
 
+    // Always exclude cancelled travels from the list
+    queryBuilder.andWhere("travel.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+
     // Apply filters with debugging
     if (description) {
       queryBuilder.andWhere('LOWER(travel.description) LIKE LOWER(:description)', { description: `%${description}%` });

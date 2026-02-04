@@ -354,9 +354,9 @@ export class TransactionService {
     if (transaction.payerId !== user.id && transaction.payeeId !== user.id) {
         throw new ForbiddenException('You are not authorized to release funds for this transaction. Only the payer or payee can release funds.');
     }
-    //check if transaction status is 'paid' or 'awaiting_transfer' (funds are already collected)
-    if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
-        throw new BadRequestException('Transaction must be in paid or awaiting_transfer status to release funds');
+    //check if transaction status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds' (funds are already collected)
+    if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer' && transaction.status !== 'awaiting_available_funds') {
+        throw new BadRequestException('Transaction must be in paid, awaiting_transfer, or awaiting_available_funds status to release funds');
     }
 
     // Check if transfer already created - prevent duplicate transfers
@@ -431,17 +431,41 @@ export class TransactionService {
       );
     }
 
+    // Check platform balance before attempting transfer (for awaiting_available_funds status)
+    if (transaction.status === 'awaiting_available_funds') {
+      try {
+        const platformBalance = await this.stripeService.getPlatformBalance();
+        const transferAmountCents = Math.round(travelerAmountUSD * 100);
+        const availableCents = Math.round(platformBalance.available * 100);
+        
+        if (availableCents < transferAmountCents) {
+          throw new BadRequestException(
+            `Insufficient available balance. Available: ${platformBalance.available} ${platformBalance.currency.toUpperCase()}, Required: ${travelerAmountUSD} USD`
+          );
+        }
+      } catch (error) {
+        // If balance check fails, throw error with message containing "insufficient" or "available balance"
+        if (error.message.includes('insufficient') || error.message.includes('available balance')) {
+          throw error;
+        }
+        // For other errors, log and continue (might be temporary Stripe API issue)
+        console.log(`Warning: Could not check platform balance: ${error.message}. Proceeding with transfer attempt.`);
+      }
+    }
+
       // Create Transfer to traveler's Stripe Connect account
     try {
       const transfer = await this.stripeService.createTransfer(
         travelerAmountUSD,
         payee.stripeAccountId,
         chargeId,
+        transactionId, // Pass transactionId for idempotency key
       );
 
       // Update transaction with transfer ID and status
       await this.transactionRepository.update(transactionId, {
         stripeTransferId: transfer.id,
+        status: 'paid', // Funds successfully transferred
       });
 
       // Clear cache after releasing funds
@@ -463,7 +487,7 @@ export class TransactionService {
    /**
     * Update transaction status
     */
-   async updateTransactionStatus(transactionId: number, status: 'pending' | 'paid' | 'awaiting_transfer' | 'refunded' | 'cancelled'): Promise<void> {
+   async updateTransactionStatus(transactionId: number, status: 'pending' | 'paid' | 'awaiting_transfer' | 'awaiting_available_funds' | 'refunded' | 'cancelled'): Promise<void> {
     await this.transactionRepository.update(transactionId, { status });
     // Clear cache after status update
     await this.clearTransactionListCache();
@@ -478,8 +502,8 @@ export class TransactionService {
       throw new NotFoundException('Transaction not found');
     }
 
-    // Only process if status is awaiting_transfer or paid
-    if (transaction.status !== 'awaiting_transfer' && transaction.status !== 'paid') {
+    // Only process if status is awaiting_transfer, paid, or awaiting_available_funds
+    if (transaction.status !== 'awaiting_transfer' && transaction.status !== 'paid' && transaction.status !== 'awaiting_available_funds') {
       this.logger.warn(`Transaction ${transactionId} is in status ${transaction.status}, skipping fund release`);
       return;
     }
@@ -544,6 +568,7 @@ export class TransactionService {
         travelerAmountUSD,
         payee.stripeAccountId,
         chargeId,
+        transactionId, // Pass transactionId for idempotency key
       );
 
       // Update transaction with transfer ID and status
@@ -584,6 +609,63 @@ export class TransactionService {
       available: balance.available[0]?.amount ? balance.available[0].amount / 100 : 0,
       pending: balance.pending[0]?.amount ? balance.pending[0].amount / 100 : 0,
       currency: balance.available[0]?.currency || 'usd',
+    };
+   }
+
+   /**
+    * Request payout to seller's bank account
+    * Transfers funds from seller's Stripe Connect account balance to their external bank account
+    * @param user - User requesting the payout (must be the account owner)
+    * @param amountUSD - Amount to withdraw in USD
+    * @param description - Optional description for the payout
+    */
+   async requestPayout(
+    user: UserEntity,
+    amountUSD: number,
+    description?: string,
+  ): Promise<{ payoutId: string; amount: number; currency: string; status: string }> {
+    // Check if user has Stripe Connect account
+    if (!user.stripeAccountId) {
+      throw new BadRequestException('You must have a Stripe Connect account to request payouts. Please complete onboarding first.');
+    }
+
+    // Validate amount
+    if (amountUSD <= 0) {
+      throw new BadRequestException('Payout amount must be greater than zero');
+    }
+
+    // Get current balance
+    const balance = await this.getUserBalance(user);
+    
+    if (balance.available < amountUSD) {
+      throw new BadRequestException(
+        `Insufficient balance. Available: ${balance.available} ${balance.currency.toUpperCase()}, Requested: ${amountUSD} USD`
+      );
+    }
+
+    // Check if account can receive payouts (has external account)
+    const accountStatus = await this.stripeService.getAccountStatus(user.stripeAccountId);
+    if (!accountStatus.transfersEnabled) {
+      throw new BadRequestException(
+        'Your account must have a bank account configured to receive payouts. ' +
+        'Please complete Stripe onboarding and add a payout method.'
+      );
+    }
+
+    // Create payout
+    const payout = await this.stripeService.createPayout(
+      user.stripeAccountId,
+      amountUSD,
+      description || `Payout for ${user.email}`,
+    );
+
+    this.logger.log(`Payout requested by user ${user.id}: ${payout.id} for ${amountUSD} USD`);
+
+    return {
+      payoutId: payout.id,
+      amount: payout.amount / 100,
+      currency: payout.currency,
+      status: payout.status,
     };
    }
 }

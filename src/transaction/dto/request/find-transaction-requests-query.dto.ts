@@ -77,12 +77,12 @@ export class FindTransactionQueryDto extends PaginationQueryDto {
 
     @ApiProperty({
         description: 'Filter by transaction status',
-        enum: ['pending', 'paid', 'awaiting_transfer', 'refunded', 'cancelled'],
+        enum: ['pending', 'paid', 'awaiting_transfer', 'awaiting_available_funds', 'refunded', 'cancelled'],
         required: false
     })
     @IsOptional()
-    @IsEnum(['pending', 'paid', 'awaiting_transfer', 'refunded', 'cancelled'])
-    status?: 'pending' | 'paid' | 'awaiting_transfer' | 'refunded' | 'cancelled';
+    @IsEnum(['pending', 'paid', 'awaiting_transfer', 'awaiting_available_funds', 'refunded', 'cancelled'])
+    status?: 'pending' | 'paid' | 'awaiting_transfer' | 'awaiting_available_funds' | 'refunded' | 'cancelled';
 
     @ApiProperty({
         description: 'Sort order (field:direction)',
