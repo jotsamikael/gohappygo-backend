@@ -61,17 +61,17 @@ export class RequestService {
   //createRequest to seek travel - Updated to only require weight
   async createRequestToTravel(createRequestDto: CreateRequestToTravelDto, user: UserEntity): Promise<RequestEntity> {
     //check if user account is verified
-    if(!user.isVerified){
+    if (!user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
     }
 
     //check if travel is created by the same user as the requester
-    if(createRequestDto.travelId && createRequestDto.travelId === user.id) {
+    if (createRequestDto.travelId && createRequestDto.travelId === user.id) {
       throw new CustomBadRequestException('You cannot create a request to your own travel', ErrorCode.REQUEST_OWN_TRAVEL);
     }
 
     // Get the travel to check if it's instant and validate weight availability
-    const travel = await this.travelService.findOne({ 
+    const travel = await this.travelService.findOne({
       where: { id: createRequestDto.travelId },
       relations: ['user']
     });
@@ -83,6 +83,23 @@ export class RequestService {
     // Check if travel is still active
     if (travel.status !== 'active') {
       throw new CustomBadRequestException('Travel is no longer available', ErrorCode.TRAVEL_NOT_ACTIVE);
+    }
+
+    // Check if travel date has already passed
+    if (travel.departureDatetime) {
+      const travelDate = new Date(travel.departureDatetime);
+      const now = new Date();
+
+      // Compare dates only (ignore time)
+      const travelDateOnly = new Date(travelDate.getFullYear(), travelDate.getMonth(), travelDate.getDate());
+      const currentDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (currentDateOnly > travelDateOnly) {
+        throw new CustomBadRequestException(
+          `Cannot create request for a travel that has already departed. Travel date: ${travelDateOnly.toISOString().split('T')[0]}`,
+          ErrorCode.TRAVEL_DATE_PASSED
+        );
+      }
     }
 
     // Check if there's enough weight available
@@ -98,8 +115,7 @@ export class RequestService {
         throw new CustomBadRequestException(`This travel requires a request for the full weight allowance (${travel.totalWeightAllowance}kg). Partial requests are not allowed.`, ErrorCode.REQUEST_PARTIAL_REQUEST_NOT_ALLOWED);
       }
     }
-    
-    console.log('reached1', travel);
+
     // Use a transaction to ensure atomicity
     return await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
       const request = transactionalEntityManager.create(RequestEntity, {
@@ -112,7 +128,6 @@ export class RequestService {
         requesterId: user.id, // Add this field
         requester: user
       });
-      console.log('reached2');
 
       // Determine initial status based on travel's isInstant setting
       let initialStatus: string;
@@ -127,13 +142,13 @@ export class RequestService {
         RequestStatusEntity,
         { where: { status: initialStatus } }
       );
-      
+
       if (!reqStatus) {
         throw new CustomNotFoundException(`No request status record found for ${initialStatus}`, ErrorCode.REQUEST_STATUS_NOT_FOUND);
       }
-      
+
       request.currentStatusId = reqStatus.id;
-      
+
       const savedRequest = await transactionalEntityManager.save(RequestEntity, request);
       console.log('reached3', savedRequest);
 
@@ -153,7 +168,7 @@ export class RequestService {
       console.log('reached5 - after cache clear');
 
       // If it's an instant travel, automatically process the acceptance
-      if (travel.isInstant) { 
+      if (travel.isInstant) {
         console.log('reached6 - processing instant travel');
         // Load the request with all necessary relations for instant processing
         const requestWithRelations = await transactionalEntityManager.findOne(RequestEntity, {
@@ -161,10 +176,10 @@ export class RequestService {
           relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'requester']
         });
         console.log('reached7 - loaded relations');
-        
+
         await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager, createRequestDto.paymentMethodId);
         console.log('reached8 - after instant processing');
-        
+
         // Skip request created emails for instant travels - they'll get accepted emails instead
       } else {
         // Only emit request created events for non-instant travels
@@ -183,14 +198,14 @@ export class RequestService {
 
   // New method to handle instant travel acceptance
   private async processInstantTravelAcceptance(
-    request: RequestEntity, 
-    travel: any, 
+    request: RequestEntity,
+    travel: any,
     transactionalEntityManager: any,
     paymentMethodId?: string
   ): Promise<void> {
     try {
       console.log('processInstantTravelAcceptance - start');
-      
+
       // Update travel weight availability
       // Convert to numbers to handle decimal/string type issues from TypeORM
       const travelWeightAvailable = Number(travel.weightAvailable) || 0;
@@ -212,7 +227,7 @@ export class RequestService {
       const travelerPayment = (request.weight || 0) * travel.pricePerKg;
       const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
       const transactionAmount = pricing.totalAmount;
-      
+
       console.log('processInstantTravelAcceptance - before transaction creation');
       // Use transaction service to create transaction with Stripe integration
       // Note: We need to reload request with relations after save
@@ -220,7 +235,7 @@ export class RequestService {
         where: { id: request.id },
         relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency']
       });
-      
+
       // Create transaction using transaction service (handles Stripe if paymentMethodId provided)
       // Pass transactionalEntityManager to ensure transaction is saved within the same DB transaction
       await this.transactionService.createTransactionFromRequest(
@@ -243,190 +258,190 @@ export class RequestService {
 
     } catch (error) {
       console.error('Error processing instant travel acceptance:', error);
-      throw new   CustomBadRequestException(`Failed to process instant travel acceptance: ${error.message}`, ErrorCode.INTERNAL_ERROR);
+      throw new CustomBadRequestException(`Failed to process instant travel acceptance: ${error.message}`, ErrorCode.INTERNAL_ERROR);
     }
   }
 
-  
 
 
-async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
-  // 1. Find the request with all necessary relations including currentStatus
-  const request = await this.requestRepository.findOne({
-    where: { id: requestId },
-    relations: ['demand', 'travel', 'demand.user', 'travel.user', 'currentStatus']
-  });
 
-  if (!request) {
-    throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
-  }
+  async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
+    // 1. Find the request with all necessary relations including currentStatus
+    const request = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['demand', 'travel', 'demand.user', 'travel.user', 'currentStatus']
+    });
 
-  // 2. Check if this is an instant travel request
-  if (request.travel && request.travel.isInstant) {
-    throw new CustomBadRequestException('This request is for an instant travel and has already been automatically accepted', ErrorCode.REQUEST_ALREADY_AUTOMATICALLY_ACCEPTED);
-  }
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
 
-  // 3. Get the "ACCEPTED" status to check against current status
-  const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
-  if (!acceptedStatus) {
-    throw new CustomNotFoundException('Accepted status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-  }
+    // 2. Check if this is an instant travel request
+    if (request.travel && request.travel.isInstant) {
+      throw new CustomBadRequestException('This request is for an instant travel and has already been automatically accepted', ErrorCode.REQUEST_ALREADY_AUTOMATICALLY_ACCEPTED);
+    }
 
-  // 4. CHECK IF REQUEST IS ALREADY ACCEPTED
-  if (request.currentStatusId === acceptedStatus.id) {
-    throw new CustomBadRequestException(
-      'Request has already been accepted', 
-      ErrorCode.REQUEST_ALREADY_ACCEPTED
-    );
-  }
+    // 3. Get the "ACCEPTED" status to check against current status
+    const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
+    if (!acceptedStatus) {
+      throw new CustomNotFoundException('Accepted status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
 
-  // 5. CHECK IF REQUEST IS IN A TERMINAL STATE (cannot be accepted)
-  const terminalStatuses = ['COMPLETED', 'CANCELLED', 'DELIVERED'];
-  if (request.currentStatus && terminalStatuses.includes(request.currentStatus.status)) {
-    throw new CustomBadRequestException(
-      `Cannot accept request with status '${request.currentStatus.status}'`, 
-      ErrorCode.REQUEST_CANNOT_BE_ACCEPTED
-    );
-  }
-
-  // 6. Check if the user is authorized to accept this request
-  // User must be the creator of either the demand or travel
-  const isAuthorized = 
-    (request.demand && request.demand.user.id === user.id) ||
-    (request.travel && request.travel.user.id === user.id);
-
-  if (!isAuthorized) {
-    throw new CustomForbiddenException('Only the creator of the demand or travel can accept requests', ErrorCode.REQUEST_UNAUTHORIZED);
-  }
-
-  // 7. Update request status
-  request.currentStatusId = acceptedStatus.id;
-  request.currentStatus = acceptedStatus; // Also update the relation object
-  const savedRequest = await this.requestRepository.save(request);
-
-  // 8. Add status history record
-  await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
-
-  // 9. Handle business logic based on request type
-  if (request.travelId) {
-    // Request was addressed to a travel - update travel weight
-    await this.handleTravelRequestAcceptance(request);
-  } else if (request.demandId) {
-    // Request was addressed to a demand - update demand status
-    await this.handleDemandRequestAcceptance(request);
-  }
-
-  // 10. Create transaction automatically
-  // Calculate transaction amount using Platform Pricing Service
-  const travelerPayment = (request.weight || 0) * request.travel.pricePerKg;
-  const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
-  const transactionAmount = pricing.totalAmount;
-
-  // Reload request with currency relations for Stripe conversion (include currentStatus to verify it was saved)
-  const requestWithCurrency = await this.requestRepository.findOne({
-    where: { id: requestId },
-    relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
-  });
-
-  await this.transactionService.createTransactionFromRequest(
-    requestWithCurrency!,
-    transactionAmount,
-    request.paymentMethodId || undefined // Use stored paymentMethodId if available
-  );
-
-  // 11. Clear cache for affected users (requester and travel/demand owner)
-  const affectedUserIds = [request.requesterId];
-  if (request.travel) {
-    affectedUserIds.push(request.travel.userId);
-  } else if (request.demand) {
-    affectedUserIds.push(request.demand.userId);
-  }
-  await this.clearRequestListCacheForUsers(affectedUserIds);
-
-  // 12. emit request accepted event (send email to traveler who published the travel)
-   this.userEventService.emitRequestAccepted(user, request, false, request.travel.userId);
-
-   //get the requester
-   const requester = await this.userService.findOne({ 
-     id: request.requesterId,
-  });
-   //send email to the requester
-   await this.userEventService.emitRequestAccepted(requester!, request, true, request.travel.userId);
-
-  // Reload request with all relations for mapping (include currentStatus)
-  const updatedRequest = await this.requestRepository.findOne({
-    where: { id: requestId },
-    relations: ['travel', 'travel.user', 'demand', 'currentStatus']
-  });
-
-  return this.requestMapper.toAcceptResponseDto(updatedRequest!);
-}
-  
-/**
- * Complete a request
- * @param requestId - The ID of the request to complete
- * @param user - The user who is completing the request
- * @returns The completed request response dto
- * 
- */
-async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
-  const request = await this.getRequestById(requestId);
-  if (!request) {
-    throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
-  }
-  const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
-  if (!acceptedStatus) {
-    throw new CustomNotFoundException('Accepted status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-  }
-  //0. check if request is in ACCEPTED status
-  if (request.currentStatusId !== acceptedStatus.id) {
-    throw new CustomBadRequestException('Request is not in ACCEPTED status', ErrorCode.REQUEST_NOT_IN_ACCEPTED_STATUS);
-  }
-  // 1. Check if the user is authorized to complete this request
-  const isAuthorized = request.requesterId === user.id;
-  if (!isAuthorized) {
-    throw new CustomForbiddenException('Only the requester can complete this request', ErrorCode.REQUEST_UNAUTHORIZED);
-  }
-
-  // 1.5 Check if travel date has passed (unless CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE is true)
-  // Only compares dates, not times - allows completion on the same day regardless of time
-  const canCompleteTravelBeforeTravelDate = this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
-  console.log('canCompleteTravelBeforeTravelDate ->',canCompleteTravelBeforeTravelDate)
-  //check if travel date has passed
-  if (!canCompleteTravelBeforeTravelDate && request.travel) {
-    const travelDatetime = new Date(request.travel.departureDatetime);
-    const now = new Date();
-    
-    // Extract only the date portion (year, month, day) for comparison
-    const travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
-    const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    if (currentDate < travelDate) {
+    // 4. CHECK IF REQUEST IS ALREADY ACCEPTED
+    if (request.currentStatusId === acceptedStatus.id) {
       throw new CustomBadRequestException(
-        `Cannot complete request before the travel date (${travelDate.toISOString().split('T')[0]}). The travel has not yet departed.`,
-        ErrorCode.REQUEST_NOT_COMPLETED
+        'Request has already been accepted',
+        ErrorCode.REQUEST_ALREADY_ACCEPTED
       );
     }
+
+    // 5. CHECK IF REQUEST IS IN A TERMINAL STATE (cannot be accepted)
+    const terminalStatuses = ['COMPLETED', 'CANCELLED', 'DELIVERED'];
+    if (request.currentStatus && terminalStatuses.includes(request.currentStatus.status)) {
+      throw new CustomBadRequestException(
+        `Cannot accept request with status '${request.currentStatus.status}'`,
+        ErrorCode.REQUEST_CANNOT_BE_ACCEPTED
+      );
+    }
+
+    // 6. Check if the user is authorized to accept this request
+    // User must be the creator of either the demand or travel
+    const isAuthorized =
+      (request.demand && request.demand.user.id === user.id) ||
+      (request.travel && request.travel.user.id === user.id);
+
+    if (!isAuthorized) {
+      throw new CustomForbiddenException('Only the creator of the demand or travel can accept requests', ErrorCode.REQUEST_UNAUTHORIZED);
+    }
+
+    // 7. Update request status
+    request.currentStatusId = acceptedStatus.id;
+    request.currentStatus = acceptedStatus; // Also update the relation object
+    const savedRequest = await this.requestRepository.save(request);
+
+    // 8. Add status history record
+    await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
+
+    // 9. Handle business logic based on request type
+    if (request.travelId) {
+      // Request was addressed to a travel - update travel weight
+      await this.handleTravelRequestAcceptance(request);
+    } else if (request.demandId) {
+      // Request was addressed to a demand - update demand status
+      await this.handleDemandRequestAcceptance(request);
+    }
+
+    // 10. Create transaction automatically
+    // Calculate transaction amount using Platform Pricing Service
+    const travelerPayment = (request.weight || 0) * request.travel.pricePerKg;
+    const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
+    const transactionAmount = pricing.totalAmount;
+
+    // Reload request with currency relations for Stripe conversion (include currentStatus to verify it was saved)
+    const requestWithCurrency = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
+    });
+
+    await this.transactionService.createTransactionFromRequest(
+      requestWithCurrency!,
+      transactionAmount,
+      request.paymentMethodId || undefined // Use stored paymentMethodId if available
+    );
+
+    // 11. Clear cache for affected users (requester and travel/demand owner)
+    const affectedUserIds = [request.requesterId];
+    if (request.travel) {
+      affectedUserIds.push(request.travel.userId);
+    } else if (request.demand) {
+      affectedUserIds.push(request.demand.userId);
+    }
+    await this.clearRequestListCacheForUsers(affectedUserIds);
+
+    // 12. emit request accepted event (send email to traveler who published the travel)
+    this.userEventService.emitRequestAccepted(user, request, false, request.travel.userId);
+
+    //get the requester
+    const requester = await this.userService.findOne({
+      id: request.requesterId,
+    });
+    //send email to the requester
+    await this.userEventService.emitRequestAccepted(requester!, request, true, request.travel.userId);
+
+    // Reload request with all relations for mapping (include currentStatus)
+    const updatedRequest = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['travel', 'travel.user', 'demand', 'currentStatus']
+    });
+
+    return this.requestMapper.toAcceptResponseDto(updatedRequest!);
   }
 
-  // 2. Get transaction and attempt fund release FIRST (before changing status)
-  // This ensures that if transfer fails, the request status remains ACCEPTED
-  const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-  if (!transaction) {
-    throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
-  }
+  /**
+   * Complete a request
+   * @param requestId - The ID of the request to complete
+   * @param user - The user who is completing the request
+   * @returns The completed request response dto
+   * 
+   */
+  async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+    const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
+    if (!acceptedStatus) {
+      throw new CustomNotFoundException('Accepted status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+    //0. check if request is in ACCEPTED status
+    if (request.currentStatusId !== acceptedStatus.id) {
+      throw new CustomBadRequestException('Request is not in ACCEPTED status', ErrorCode.REQUEST_NOT_IN_ACCEPTED_STATUS);
+    }
+    // 1. Check if the user is authorized to complete this request
+    const isAuthorized = request.requesterId === user.id;
+    if (!isAuthorized) {
+      throw new CustomForbiddenException('Only the requester can complete this request', ErrorCode.REQUEST_UNAUTHORIZED);
+    }
 
-  // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
-  // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
-  // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds')
-  if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
-    try {
-      await this.transactionService.releaseFundsFromStripe(transaction.id, user);
-      // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
-    } catch (error) {
-      // If transfer fails due to onboarding or missing external account, mark as awaiting_transfer and allow completion
-      if (error.message.includes('transfers enabled') || 
-          error.message.includes('onboarding') || 
+    // 1.5 Check if travel date has passed (unless CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE is true)
+    // Only compares dates, not times - allows completion on the same day regardless of time
+    const canCompleteTravelBeforeTravelDate = this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
+    console.log('canCompleteTravelBeforeTravelDate ->', canCompleteTravelBeforeTravelDate)
+    //check if travel date has passed
+    if (!canCompleteTravelBeforeTravelDate && request.travel) {
+      const travelDatetime = new Date(request.travel.departureDatetime);
+      const now = new Date();
+
+      // Extract only the date portion (year, month, day) for comparison
+      const travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
+      const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (currentDate < travelDate) {
+        throw new CustomBadRequestException(
+          `Cannot complete request before the travel date (${travelDate.toISOString().split('T')[0]}). The travel has not yet departed.`,
+          ErrorCode.REQUEST_NOT_COMPLETED
+        );
+      }
+    }
+
+    // 2. Get transaction and attempt fund release FIRST (before changing status)
+    // This ensures that if transfer fails, the request status remains ACCEPTED
+    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+    if (!transaction) {
+      throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+    }
+
+    // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
+    // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
+    // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds')
+    if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
+      try {
+        await this.transactionService.releaseFundsFromStripe(transaction.id, user);
+        // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
+      } catch (error) {
+        // If transfer fails due to onboarding or missing external account, mark as awaiting_transfer and allow completion
+        if (error.message.includes('transfers enabled') ||
+          error.message.includes('onboarding') ||
           error.message.includes('capability') ||
           error.message.includes('stripe_balance.stripe_transfers') ||
           error.message.includes('stripe_transfers feature') ||
@@ -434,380 +449,380 @@ async completeRequest(requestId: number, user: UserEntity): Promise<RequestEntit
           error.message.includes('debit card') ||
           error.message.includes('external account') ||
           error.message.includes('payout method')) {
-        // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding/adds payout method
-        await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
-        console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding and adds a payout method.`);
-        // Allow request completion - funds are safely held by platform
-      } else if (error.message.includes('insufficient') || 
-                 error.message.includes('available balance') ||
-                 error.message.includes('available funds')) {
-        // Insufficient balance handling - mark as awaiting_available_funds and allow completion
-        await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
-        console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
-        // Allow request completion - funds will be released when available
-      } else {
-        // For other errors, don't allow completion
-        throw new CustomBadRequestException(
-          `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
-          ErrorCode.INTERNAL_ERROR
-        );
-      }
-    }
-  } else if (transaction.stripeTransferId) {
-    console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
-  } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
-    // Before throwing error, check Payment Intent status from Stripe
-    if (transaction.stripePaymentIntentId) {
-      try {
-        const paymentIntent = await this.stripeService.getPaymentIntent(transaction.stripePaymentIntentId);
-        if (paymentIntent.status === 'succeeded') {
-          // Payment succeeded but status not updated yet - update it and proceed
-          await this.transactionService.updateTransactionStatus(transaction.id, 'paid');
-          // Retry the fund release
-          try {
-            await this.transactionService.releaseFundsFromStripe(transaction.id, user);
-          } catch (error) {
-            // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
-            if (error.message.includes('transfers enabled') || 
-                error.message.includes('onboarding') || 
-                error.message.includes('capability')) {
-              // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
-              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
-              console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
-              // Allow request completion - funds are safely held by platform
-            } else if (error.message.includes('insufficient') || 
-                       error.message.includes('available balance') ||
-                       error.message.includes('available funds')) {
-              // NEW: Insufficient balance handling - mark as awaiting_available_funds and allow completion
-              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
-              console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
-              // Allow request completion - funds will be released when available
-            } else {
-              // For other errors, don't allow completion
-              throw new CustomBadRequestException(
-                `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
-                ErrorCode.INTERNAL_ERROR
-              );
-            }
-          }
+          // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding/adds payout method
+          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+          console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding and adds a payout method.`);
+          // Allow request completion - funds are safely held by platform
+        } else if (error.message.includes('insufficient') ||
+          error.message.includes('available balance') ||
+          error.message.includes('available funds')) {
+          // Insufficient balance handling - mark as awaiting_available_funds and allow completion
+          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+          console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
+          // Allow request completion - funds will be released when available
         } else {
-          // Payment actually not succeeded
-          console.log(`Transaction ${transaction.id} is ${transaction.status}, Payment Intent status: ${paymentIntent.status}. Payment not yet successful. Cannot release funds.`);
+          // For other errors, don't allow completion
           throw new CustomBadRequestException(
-            `Transaction payment is not yet successful (Payment Intent status: ${paymentIntent.status}). Cannot release funds.`,
+            `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
             ErrorCode.INTERNAL_ERROR
           );
         }
-      } catch (error) {
-        // If we can't check Payment Intent, fall back to original behavior
-        console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds. Error checking Payment Intent: ${error.message}`);
+      }
+    } else if (transaction.stripeTransferId) {
+      console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
+    } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
+      // Before throwing error, check Payment Intent status from Stripe
+      if (transaction.stripePaymentIntentId) {
+        try {
+          const paymentIntent = await this.stripeService.getPaymentIntent(transaction.stripePaymentIntentId);
+          if (paymentIntent.status === 'succeeded') {
+            // Payment succeeded but status not updated yet - update it and proceed
+            await this.transactionService.updateTransactionStatus(transaction.id, 'paid');
+            // Retry the fund release
+            try {
+              await this.transactionService.releaseFundsFromStripe(transaction.id, user);
+            } catch (error) {
+              // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
+              if (error.message.includes('transfers enabled') ||
+                error.message.includes('onboarding') ||
+                error.message.includes('capability')) {
+                // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
+                await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+                console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
+                // Allow request completion - funds are safely held by platform
+              } else if (error.message.includes('insufficient') ||
+                error.message.includes('available balance') ||
+                error.message.includes('available funds')) {
+                // NEW: Insufficient balance handling - mark as awaiting_available_funds and allow completion
+                await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+                console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
+                // Allow request completion - funds will be released when available
+              } else {
+                // For other errors, don't allow completion
+                throw new CustomBadRequestException(
+                  `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
+                  ErrorCode.INTERNAL_ERROR
+                );
+              }
+            }
+          } else {
+            // Payment actually not succeeded
+            console.log(`Transaction ${transaction.id} is ${transaction.status}, Payment Intent status: ${paymentIntent.status}. Payment not yet successful. Cannot release funds.`);
+            throw new CustomBadRequestException(
+              `Transaction payment is not yet successful (Payment Intent status: ${paymentIntent.status}). Cannot release funds.`,
+              ErrorCode.INTERNAL_ERROR
+            );
+          }
+        } catch (error) {
+          // If we can't check Payment Intent, fall back to original behavior
+          console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds. Error checking Payment Intent: ${error.message}`);
+          throw new CustomBadRequestException(
+            `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+            ErrorCode.INTERNAL_ERROR
+          );
+        }
+      } else {
+        // No Payment Intent - throw error as before
+        console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
         throw new CustomBadRequestException(
           `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
           ErrorCode.INTERNAL_ERROR
         );
       }
-    } else {
-      // No Payment Intent - throw error as before
-      console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
-      throw new CustomBadRequestException(
-        `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
-        ErrorCode.INTERNAL_ERROR
-      );
-    }
-  }
-
-  // 4. Only update request status to completed if transfer succeeded
-  const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
-  if (!completedStatus) {
-    throw new NotFoundException('Completed status not found');
-  }
-  console.log("completed request status->",completedStatus)
-  
-  // Update the status ID directly on the entity
-  request.currentStatusId = completedStatus.id;
-  request.currentStatus = completedStatus;
-  const savedRequest = await this.requestRepository.save(request);
-
-  console.log("updates request ->",savedRequest)
-
-  
-  // 5. Add status history record (IMPORTANT: This was missing!)
-  await this.requestStatusHistoryService.record(requestId, completedStatus.id);
-  
-  // 6. Clear cache for affected users (requester and travel/demand owner)
-  const affectedUserIds = [user.id]; // Requester
-  // getRequestById already loads travel and demand relations, so we can use them here
-  if (request.travel) {
-    affectedUserIds.push(request.travel.userId);
-  } else if (request.demand) {
-    affectedUserIds.push(request.demand.userId);
-  }
-  // Clear cache early so users see updated data
-  await this.clearRequestListCacheForUsers(affectedUserIds);
-
-  // 6. Fetch the request again with updated relations including currentStatus
-  const updatedRequest = await this.requestRepository.findOne({
-    where: { id: requestId },
-    relations: ['transactions', 'demand', 'travel', 'demand.user', 'travel.user', 'currentStatus', 'requester']
-  });
-
-  if (!updatedRequest) {
-    throw new CustomNotFoundException('Updated Request not found', ErrorCode.REQUEST_NOT_FOUND);
-  }
-
-  // 8. Send email to the requester
-  this.userEventService.emitRequestCompleted(user, updatedRequest, false);
-
-  // 9. Get user who published the travel or demand
-  const travel = await this.userService.findOne({
-    id: updatedRequest.travel!.userId,
-  });
-  
-  // 10. Determine fund status from transaction for seller notification
-  let fundStatus: 'pending_funds' | 'pending_onboarding' | 'released' | undefined = undefined;
-  const updatedTransaction = await this.transactionService.getTransactionByRequestId(requestId);
-  if (updatedTransaction) {
-    if (updatedTransaction.stripeTransferId) {
-      fundStatus = 'released';
-    } else if (updatedTransaction.status === 'awaiting_available_funds') {
-      fundStatus = 'pending_funds';
-    } else if (updatedTransaction.status === 'awaiting_transfer') {
-      fundStatus = 'pending_onboarding';
-    }
-  }
-  
-  //also send email to the user who published the travel or demand
-  await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true, fundStatus);
-
-  return updatedRequest;
-}
-
-async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
-  // 1. Get request with all necessary relations
-  const request = await this.getRequestById(requestId);
-  if (!request) {
-    throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
-  }
-
-  // 2. Determine if this is a cancellation (requester) or rejection (travel/demand owner)
-  const isRequester = request.requesterId === user.id;
-  const isOwner = (request.travel && request.travel.userId === user.id) || 
-                  (request.demand && request.demand.userId === user.id);
-
-  if (!isRequester && !isOwner) {
-    throw new CustomForbiddenException(
-      'Only the requester or travel/demand owner can cancel/reject this request', 
-      ErrorCode.REQUEST_UNAUTHORIZED
-    );
-  }
-
-  // 3. Check if request is already COMPLETED
-  const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
-  if (!completedStatus) {
-    throw new CustomNotFoundException('Completed status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-  }
-
-  if (request.currentStatusId === completedStatus.id) {
-    throw new CustomBadRequestException('Cannot cancel/reject a completed request', ErrorCode.REQUEST_NOT_FOUND);
-  }
-
-  // 4. Check if request is already CANCELLED or REJECTED
-  const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
-  const rejectedStatus = await this.requestStatusService.getRequestByStatus('REJECTED');
-  
-  if (!cancelledStatus) {
-    throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-  }
-  
-  if (!rejectedStatus) {
-    throw new CustomNotFoundException('REJECTED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-  }
-
-  if (request.currentStatusId === cancelledStatus.id) {
-    throw new CustomBadRequestException('Request is already cancelled', ErrorCode.REQUEST_NOT_FOUND);
-  }
-
-  if (request.currentStatusId === rejectedStatus.id) {
-    throw new CustomBadRequestException('Request is already rejected', ErrorCode.REQUEST_NOT_FOUND);
-  }
-
-  // 5. Handle cancellation (requester) - process refund
-  if (isRequester) {
-    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-    if (!transaction) {
-      throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
     }
 
-    // Process refund (only travelerPayment, fee is kept)
-    if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-      try {
-        // Convert travelerPayment to USD (Payment Intent is in USD)
-        let travelerPaymentUSD: number;
-        if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-          travelerPaymentUSD = await this.stripeService.convertToUSD(
-            transaction.travelerPayment,
-            transaction.currencyCode || 'USD'
-          );
-        } else {
-          // If travelerPayment is not stored, calculate it from the transaction amount
-          // This shouldn't happen, but handle it gracefully
-          throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
-        }
-
-        // Refund only the travelerPayment amount (partial refund)
-        await this.stripeService.refundPaymentIntentPartial(
-          transaction.stripePaymentIntentId,
-          travelerPaymentUSD
-        );
-
-        // Update transaction status to refunded
-        await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-      } catch (error) {
-        console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-        throw new CustomBadRequestException(
-          `Failed to process refund: ${error.message}`,
-          ErrorCode.INTERNAL_ERROR
-        );
-      }
-    } else if (transaction.status === 'pending') {
-      // For pending transactions, just mark as cancelled (no refund needed)
-      await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+    // 4. Only update request status to completed if transfer succeeded
+    const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
+    if (!completedStatus) {
+      throw new NotFoundException('Completed status not found');
     }
-  }
-  // Note: For rejection (owner), no refund is processed
+    console.log("completed request status->", completedStatus)
 
-  // 7. Restore weight to travel if request was for a travel
-  if (request.travelId) {
-    const travel = await this.travelService.findOne({
-      where: { id: request.travelId }
+    // Update the status ID directly on the entity
+    request.currentStatusId = completedStatus.id;
+    request.currentStatus = completedStatus;
+    const savedRequest = await this.requestRepository.save(request);
+
+    console.log("updates request ->", savedRequest)
+
+
+    // 5. Add status history record (IMPORTANT: This was missing!)
+    await this.requestStatusHistoryService.record(requestId, completedStatus.id);
+
+    // 6. Clear cache for affected users (requester and travel/demand owner)
+    const affectedUserIds = [user.id]; // Requester
+    // getRequestById already loads travel and demand relations, so we can use them here
+    if (request.travel) {
+      affectedUserIds.push(request.travel.userId);
+    } else if (request.demand) {
+      affectedUserIds.push(request.demand.userId);
+    }
+    // Clear cache early so users see updated data
+    await this.clearRequestListCacheForUsers(affectedUserIds);
+
+    // 6. Fetch the request again with updated relations including currentStatus
+    const updatedRequest = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['transactions', 'demand', 'travel', 'demand.user', 'travel.user', 'currentStatus', 'requester']
     });
 
-    if (travel) {
-      // Convert to numbers to handle decimal/string type issues from TypeORM
-      const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-      const requestWeight = Number(request.weight) || 0;
-      
-      // Add the request weight back to available weight
-      const newAvailableWeight = travelWeightAvailable + requestWeight;
-      
-      // Update travel weight
-      travel.weightAvailable = newAvailableWeight;
-      
-      // If travel was 'filled', change status back to 'active' since weight is now available
-      if (travel.status === 'filled' && newAvailableWeight > 0) {
-        travel.status = 'active';
-      }
-
-      await this.travelService.save(travel);
+    if (!updatedRequest) {
+      throw new CustomNotFoundException('Updated Request not found', ErrorCode.REQUEST_NOT_FOUND);
     }
-  }
 
-  // 8. Update request status based on action type
-  if (isRequester) {
-    // Cancellation by requester
-    request.currentStatusId = cancelledStatus.id;
-    request.currentStatus = cancelledStatus;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
-  } else {
-    // Rejection by owner
-    request.currentStatusId = rejectedStatus.id;
-    request.currentStatus = rejectedStatus;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(requestId, rejectedStatus.id);
-  }
+    // 8. Send email to the requester
+    this.userEventService.emitRequestCompleted(user, updatedRequest, false);
 
-  // 9. Send email and notification to requester (isForOwner=false)
-  const requester = await this.userService.findOne({ id: request.requesterId });
-  if (requester) {
-    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
-    if (ownerId) {
-      if (isRequester) {
-        this.userEventService.emitRequestCancelled(requester, request, false, ownerId);
-      } else {
-        this.userEventService.emitRequestRejected(requester, request, false, ownerId);
+    // 9. Get user who published the travel or demand
+    const travel = await this.userService.findOne({
+      id: updatedRequest.travel!.userId,
+    });
+
+    // 10. Determine fund status from transaction for seller notification
+    let fundStatus: 'pending_funds' | 'pending_onboarding' | 'released' | undefined = undefined;
+    const updatedTransaction = await this.transactionService.getTransactionByRequestId(requestId);
+    if (updatedTransaction) {
+      if (updatedTransaction.stripeTransferId) {
+        fundStatus = 'released';
+      } else if (updatedTransaction.status === 'awaiting_available_funds') {
+        fundStatus = 'pending_funds';
+      } else if (updatedTransaction.status === 'awaiting_transfer') {
+        fundStatus = 'pending_onboarding';
       }
     }
+
+    //also send email to the user who published the travel or demand
+    await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true, fundStatus);
+
+    return updatedRequest;
   }
 
-  // 10. Send email and notification to travel/demand owner (isForOwner=true)
-  if (request.travelId && request.travel) {
-    const travelOwner = await this.userService.findOne({ id: request.travel.userId });
-    if (travelOwner) {
-      if (isRequester) {
-        this.userEventService.emitRequestCancelled(travelOwner, request, true, request.travel.userId);
-      } else {
-        this.userEventService.emitRequestRejected(travelOwner, request, true, request.travel.userId);
+  async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {
+    // 1. Get request with all necessary relations
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // 2. Determine if this is a cancellation (requester) or rejection (travel/demand owner)
+    const isRequester = request.requesterId === user.id;
+    const isOwner = (request.travel && request.travel.userId === user.id) ||
+      (request.demand && request.demand.userId === user.id);
+
+    if (!isRequester && !isOwner) {
+      throw new CustomForbiddenException(
+        'Only the requester or travel/demand owner can cancel/reject this request',
+        ErrorCode.REQUEST_UNAUTHORIZED
+      );
+    }
+
+    // 3. Check if request is already COMPLETED
+    const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
+    if (!completedStatus) {
+      throw new CustomNotFoundException('Completed status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    if (request.currentStatusId === completedStatus.id) {
+      throw new CustomBadRequestException('Cannot cancel/reject a completed request', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // 4. Check if request is already CANCELLED or REJECTED
+    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+    const rejectedStatus = await this.requestStatusService.getRequestByStatus('REJECTED');
+
+    if (!cancelledStatus) {
+      throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    if (!rejectedStatus) {
+      throw new CustomNotFoundException('REJECTED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    if (request.currentStatusId === cancelledStatus.id) {
+      throw new CustomBadRequestException('Request is already cancelled', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    if (request.currentStatusId === rejectedStatus.id) {
+      throw new CustomBadRequestException('Request is already rejected', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // 5. Handle cancellation (requester) - process refund
+    if (isRequester) {
+      const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+      if (!transaction) {
+        throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+      }
+
+      // Process refund (only travelerPayment, fee is kept)
+      if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+        try {
+          // Convert travelerPayment to USD (Payment Intent is in USD)
+          let travelerPaymentUSD: number;
+          if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+            travelerPaymentUSD = await this.stripeService.convertToUSD(
+              transaction.travelerPayment,
+              transaction.currencyCode || 'USD'
+            );
+          } else {
+            // If travelerPayment is not stored, calculate it from the transaction amount
+            // This shouldn't happen, but handle it gracefully
+            throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+          }
+
+          // Refund only the travelerPayment amount (partial refund)
+          await this.stripeService.refundPaymentIntentPartial(
+            transaction.stripePaymentIntentId,
+            travelerPaymentUSD
+          );
+
+          // Update transaction status to refunded
+          await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+        } catch (error) {
+          console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+          throw new CustomBadRequestException(
+            `Failed to process refund: ${error.message}`,
+            ErrorCode.INTERNAL_ERROR
+          );
+        }
+      } else if (transaction.status === 'pending') {
+        // For pending transactions, just mark as cancelled (no refund needed)
+        await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
       }
     }
-  } else if (request.demandId && request.demand) {
-    const demandOwner = await this.userService.findOne({ id: request.demand.userId });
-    if (demandOwner) {
-      if (isRequester) {
-        this.userEventService.emitRequestCancelled(demandOwner, request, true, request.demand.userId);
-      } else {
-        this.userEventService.emitRequestRejected(demandOwner, request, true, request.demand.userId);
+    // Note: For rejection (owner), no refund is processed
+
+    // 7. Restore weight to travel if request was for a travel
+    if (request.travelId) {
+      const travel = await this.travelService.findOne({
+        where: { id: request.travelId }
+      });
+
+      if (travel) {
+        // Convert to numbers to handle decimal/string type issues from TypeORM
+        const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+        const requestWeight = Number(request.weight) || 0;
+
+        // Add the request weight back to available weight
+        const newAvailableWeight = travelWeightAvailable + requestWeight;
+
+        // Update travel weight
+        travel.weightAvailable = newAvailableWeight;
+
+        // If travel was 'filled', change status back to 'active' since weight is now available
+        if (travel.status === 'filled' && newAvailableWeight > 0) {
+          travel.status = 'active';
+        }
+
+        await this.travelService.save(travel);
       }
     }
+
+    // 8. Update request status based on action type
+    if (isRequester) {
+      // Cancellation by requester
+      request.currentStatusId = cancelledStatus.id;
+      request.currentStatus = cancelledStatus;
+      await this.requestRepository.save(request);
+      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+    } else {
+      // Rejection by owner
+      request.currentStatusId = rejectedStatus.id;
+      request.currentStatus = rejectedStatus;
+      await this.requestRepository.save(request);
+      await this.requestStatusHistoryService.record(requestId, rejectedStatus.id);
+    }
+
+    // 9. Send email and notification to requester (isForOwner=false)
+    const requester = await this.userService.findOne({ id: request.requesterId });
+    if (requester) {
+      const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+      if (ownerId) {
+        if (isRequester) {
+          this.userEventService.emitRequestCancelled(requester, request, false, ownerId);
+        } else {
+          this.userEventService.emitRequestRejected(requester, request, false, ownerId);
+        }
+      }
+    }
+
+    // 10. Send email and notification to travel/demand owner (isForOwner=true)
+    if (request.travelId && request.travel) {
+      const travelOwner = await this.userService.findOne({ id: request.travel.userId });
+      if (travelOwner) {
+        if (isRequester) {
+          this.userEventService.emitRequestCancelled(travelOwner, request, true, request.travel.userId);
+        } else {
+          this.userEventService.emitRequestRejected(travelOwner, request, true, request.travel.userId);
+        }
+      }
+    } else if (request.demandId && request.demand) {
+      const demandOwner = await this.userService.findOne({ id: request.demand.userId });
+      if (demandOwner) {
+        if (isRequester) {
+          this.userEventService.emitRequestCancelled(demandOwner, request, true, request.demand.userId);
+        } else {
+          this.userEventService.emitRequestRejected(demandOwner, request, true, request.demand.userId);
+        }
+      }
+    }
+
+    // 11. Clear cache
+    await this.clearRequestListCache();
+
+    return request;
   }
 
-  // 11. Clear cache
-  await this.clearRequestListCache();
+  // Helper method for travel requests
+  private async handleTravelRequestAcceptance(request: RequestEntity): Promise<void> {
+    const travel = await this.travelService.findOne({
+      where: { id: request.travelId! }
+    });
 
-  return request;
-}
+    if (!travel) {
+      throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
+    }
 
-// Helper method for travel requests
-private async handleTravelRequestAcceptance(request: RequestEntity): Promise<void> {
-  const travel = await this.travelService.findOne({
-    where: { id: request.travelId! }
-  });
+    // Convert to numbers to handle decimal/string type issues from TypeORM
+    const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+    const requestWeight = Number(request.weight) || 0;
 
-  if (!travel) {
-    throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
+    // Subtract the request weight from available weight
+    const newAvailableWeight = travelWeightAvailable - requestWeight;
+
+    if (newAvailableWeight < 0) {
+      throw new CustomBadRequestException(
+        `Insufficient weight available in travel. Only ${travelWeightAvailable}kg available, but ${requestWeight}kg requested.`,
+        ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE_IN_TRAVEL
+      );
+    }
+
+    // Update travel weight
+    travel.weightAvailable = newAvailableWeight;
+
+    // Check if travel is now filled (use small epsilon for floating point comparison)
+    if (Math.abs(newAvailableWeight) < 0.01) {
+      travel.status = 'filled';
+    }
+
+    await this.travelService.save(travel);
   }
 
-  // Convert to numbers to handle decimal/string type issues from TypeORM
-  const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-  const requestWeight = Number(request.weight) || 0;
-  
-  // Subtract the request weight from available weight
-  const newAvailableWeight = travelWeightAvailable - requestWeight;
-  
-  if (newAvailableWeight < 0) {
-    throw new CustomBadRequestException(
-      `Insufficient weight available in travel. Only ${travelWeightAvailable}kg available, but ${requestWeight}kg requested.`, 
-      ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE_IN_TRAVEL
-    );
+  // Helper method for demand requests
+  private async handleDemandRequestAcceptance(request: RequestEntity): Promise<void> {
+    const demand = await this.demandService.findOne({
+      where: { id: request.demandId! }
+    });
+
+    if (!demand) {
+      throw new CustomNotFoundException('Demand not found', ErrorCode.DEMAND_NOT_FOUND);
+    }
+
+    // Update demand status to resolved
+    demand.status = 'resolved';
+    await this.demandService.save(demand);
   }
 
-  // Update travel weight
-  travel.weightAvailable = newAvailableWeight;
-
-  // Check if travel is now filled (use small epsilon for floating point comparison)
-  if (Math.abs(newAvailableWeight) < 0.01) {
-    travel.status = 'filled';
-  }
-
-  await this.travelService.save(travel);
-}
-
-// Helper method for demand requests
-private async handleDemandRequestAcceptance(request: RequestEntity): Promise<void> {
-  const demand = await this.demandService.findOne({
-    where: { id: request.demandId! }
-  });
-
-  if (!demand) {
-    throw new CustomNotFoundException('Demand not found', ErrorCode.DEMAND_NOT_FOUND);
-  }
-
-  // Update demand status to resolved
-  demand.status = 'resolved';
-  await this.demandService.save(demand);
-}
-
-async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<PaginatedRequestsResponseDto> {
+  async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<PaginatedRequestsResponseDto> {
     // Generate cache key
     const cacheKey = this.generateRequestListCacheKey(query, user.id);
     this.requestListCacheKeys.add(cacheKey);
@@ -1084,7 +1099,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
   async getRequestById(id: number): Promise<RequestEntity | null> {
     return await this.requestRepository.findOne({
       where: { id },
-      relations: ['demand', 'travel','demand.user', 'travel.user','requester', 'currentStatus', 'requestStatusHistory', 'transactions', 'messages'],
+      relations: ['demand', 'travel', 'demand.user', 'travel.user', 'requester', 'currentStatus', 'requestStatusHistory', 'transactions', 'messages'],
     });
   }
 
@@ -1096,7 +1111,7 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
   }
   async transformRequestToResponse(request: RequestEntity, unreadCount: number = 0, currentUser?: UserEntity): Promise<RequestResponseDto> {
     // Format requester fullName
-    const requesterFullName = request.requester 
+    const requesterFullName = request.requester
       ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
       : '';
 
@@ -1119,12 +1134,12 @@ async getAllRequests(query: FindRequestsQueryDto, user: UserEntity): Promise<Pag
 
     // Build travel object with airline and airport information
     let travel: any = request.travel ? { ...request.travel } : null;
-    
+
     if (travel) {
       if (travel.flightNumber) {
         // Get airline from flight number
         const airline = await this.airlineService.findByFlightNumber(travel.flightNumber);
-        
+
         if (airline) {
           travel.airline = {
             airlineId: airline.id,
