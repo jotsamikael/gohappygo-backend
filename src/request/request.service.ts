@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RequestEntity } from './request.entity';
 import { FindOptionsWhere, Repository } from 'typeorm';
@@ -31,9 +31,12 @@ import { StripeService } from 'src/stripe/stripe.service';
 import { MessageService } from 'src/message/message.service';
 import { ReviewEntity } from 'src/review/review.entity';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from 'src/email/email.service';
+import { RequestEvent } from 'src/events/user-events.service';
 
 @Injectable()
 export class RequestService {
+  private readonly logger = new Logger(RequestService.name);
   private requestListCacheKeys: Set<string> = new Set();
 
   constructor(
@@ -55,7 +58,8 @@ export class RequestService {
     private readonly stripeService: StripeService,
     @Inject(forwardRef(() => MessageService))
     private readonly messageService: MessageService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly emailService: EmailService
   ) { }
 
   //createRequest to seek travel - Updated to only require weight
@@ -96,7 +100,7 @@ export class RequestService {
 
       if (currentDateOnly > travelDateOnly) {
         throw new CustomBadRequestException(
-          `Cannot create request for a travel that has already departed. Travel date: ${travelDateOnly.toISOString().split('T')[0]}`,
+          `Cannot create request for a travel that has already departed. Travel date: ${travelDateOnly}`,
           ErrorCode.TRAVEL_DATE_PASSED
         );
       }
@@ -149,6 +153,44 @@ export class RequestService {
 
       request.currentStatusId = reqStatus.id;
 
+      // If it's an instant travel, validate payment BEFORE creating request and deducting weight
+      let validatedPaymentIntentId: string | undefined = undefined;
+      if (travel.isInstant && createRequestDto.paymentMethodId) {
+        console.log('reached6 - validating payment for instant travel');
+        
+        // Load travel with currency relation for conversion
+        const travelWithCurrency = await this.travelService.findOne({
+          where: { id: travel.id },
+          relations: ['currency', 'user']
+        });
+
+        // Calculate transaction amount for payment validation
+        const travelerPayment = (createRequestDto.weight || 0) * travelWithCurrency!.pricePerKg;
+        const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
+        const transactionAmount = pricing.totalAmount;
+
+        // Convert amount to USD for Stripe
+        const currencyCode = travelWithCurrency!.currency?.code || 'USD';
+        const convertedAmountUSD = await this.stripeService.convertToUSD(transactionAmount, currencyCode);
+        const platformFeeUSD = await this.stripeService.convertToUSD(pricing.fee, currencyCode);
+
+        // Validate and confirm payment synchronously BEFORE creating request
+        // If payment fails, transaction will rollback and request won't be created
+        const validatedPaymentIntent = await this.stripeService.validateAndConfirmPaymentIntent(
+          convertedAmountUSD,
+          createRequestDto.paymentMethodId,
+          platformFeeUSD,
+          {
+            requestType: 'instant_travel',
+            travelId: travel.id.toString(),
+            requesterId: user.id.toString(),
+            payeeId: travelWithCurrency!.userId.toString(),
+          },
+        );
+        validatedPaymentIntentId = validatedPaymentIntent.id;
+        console.log('reached7 - payment validated successfully, Payment Intent ID:', validatedPaymentIntentId);
+      }
+
       const savedRequest = await transactionalEntityManager.save(RequestEntity, request);
       console.log('reached3', savedRequest);
 
@@ -169,16 +211,16 @@ export class RequestService {
 
       // If it's an instant travel, automatically process the acceptance
       if (travel.isInstant) {
-        console.log('reached6 - processing instant travel');
+        console.log('reached8 - processing instant travel');
         // Load the request with all necessary relations for instant processing
         const requestWithRelations = await transactionalEntityManager.findOne(RequestEntity, {
           where: { id: savedRequest.id },
           relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'requester']
         });
-        console.log('reached7 - loaded relations');
+        console.log('reached9 - loaded relations');
 
-        await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager, createRequestDto.paymentMethodId);
-        console.log('reached8 - after instant processing');
+        await this.processInstantTravelAcceptance(requestWithRelations!, travel, transactionalEntityManager, createRequestDto.paymentMethodId, validatedPaymentIntentId);
+        console.log('reached10 - after instant processing');
 
         // Skip request created emails for instant travels - they'll get accepted emails instead
       } else {
@@ -201,7 +243,8 @@ export class RequestService {
     request: RequestEntity,
     travel: any,
     transactionalEntityManager: any,
-    paymentMethodId?: string
+    paymentMethodId?: string,
+    validatedPaymentIntentId?: string
   ): Promise<void> {
     try {
       console.log('processInstantTravelAcceptance - start');
@@ -236,13 +279,15 @@ export class RequestService {
         relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency']
       });
 
-      // Create transaction using transaction service (handles Stripe if paymentMethodId provided)
-      // Pass transactionalEntityManager to ensure transaction is saved within the same DB transaction
+      // Create transaction using transaction service
+      // If payment was already validated (validatedPaymentIntentId provided), use that Payment Intent ID
+      // Otherwise, create new Payment Intent (for backward compatibility)
       await this.transactionService.createTransactionFromRequest(
         requestWithRelations!,
         transactionAmount,
-        paymentMethodId,
-        transactionalEntityManager
+        validatedPaymentIntentId ? undefined : paymentMethodId, // Don't create new Payment Intent if already validated
+        transactionalEntityManager,
+        validatedPaymentIntentId // Pass validated Payment Intent ID
       );
       console.log('processInstantTravelAcceptance - after transaction creation');
 
@@ -263,13 +308,11 @@ export class RequestService {
   }
 
 
-
-
   async acceptRequest(requestId: number, user: UserEntity): Promise<any> {
-    // 1. Find the request with all necessary relations including currentStatus
+    // 1. Find the request with all necessary relations including currentStatus and currency
     const request = await this.requestRepository.findOne({
       where: { id: requestId },
-      relations: ['demand', 'travel', 'demand.user', 'travel.user', 'currentStatus']
+      relations: ['demand', 'travel', 'demand.user', 'travel.user', 'travel.currency', 'demand.currency', 'currentStatus']
     });
 
     if (!request) {
@@ -314,15 +357,55 @@ export class RequestService {
       throw new CustomForbiddenException('Only the creator of the demand or travel can accept requests', ErrorCode.REQUEST_UNAUTHORIZED);
     }
 
-    // 7. Update request status
+    const pricePerKg = request.travel?.pricePerKg ?? request.demand?.pricePerKg ?? 0;
+    const requiresPayment = Number(pricePerKg) > 0;
+
+    // 7. Require payment when travel/demand has a price: cancel and notify buyer if missing or if validation fails
+    let validatedPaymentIntentId: string | undefined = undefined;
+    if (requiresPayment && !request.paymentMethodId) {
+      await this.cancelRequestDueToPaymentFailure(requestId, request, 'Payment method is required. Please create a new request with a valid payment method.');
+      throw new CustomBadRequestException(
+        'Payment method is required to accept this request.',
+        ErrorCode.PAYMENT_PROCESSING_FAILED,
+      );
+    }
+    if (request.paymentMethodId) {
+      try {
+        const travelerPayment = (request.weight || 0) * Number(pricePerKg);
+        const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
+        const transactionAmount = pricing.totalAmount;
+        const currencyCode = request.travel?.currency?.code || request.demand?.currency?.code || 'USD';
+        const convertedAmountUSD = await this.stripeService.convertToUSD(transactionAmount, currencyCode);
+        const platformFeeUSD = await this.stripeService.convertToUSD(pricing.fee, currencyCode);
+        const validatedPaymentIntent = await this.stripeService.validateAndConfirmPaymentIntent(
+          convertedAmountUSD,
+          request.paymentMethodId,
+          platformFeeUSD,
+          {
+            requestType: 'non_instant_travel',
+            requestId: request.id.toString(),
+            requesterId: request.requesterId.toString(),
+            payeeId: (request.travelId ? request.travel.user.id : request.demand.user.id).toString(),
+          },
+        );
+        validatedPaymentIntentId = validatedPaymentIntent.id;
+        console.log(`Payment validated successfully for request ${requestId}, Payment Intent ID: ${validatedPaymentIntentId}`);
+      } catch (paymentErr: unknown) {
+        const paymentErrorMessage = paymentErr instanceof Error ? paymentErr.message : 'Your payment could not be processed.';
+        await this.cancelRequestDueToPaymentFailure(requestId, request, paymentErrorMessage);
+        throw paymentErr;
+      }
+    }
+
+    // 8. Update request status to ACCEPTED
     request.currentStatusId = acceptedStatus.id;
-    request.currentStatus = acceptedStatus; // Also update the relation object
+    request.currentStatus = acceptedStatus;
     const savedRequest = await this.requestRepository.save(request);
 
-    // 8. Add status history record
+    // 9. Add status history record
     await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
 
-    // 9. Handle business logic based on request type
+    // 10. Handle business logic based on request type (only if payment validated or no payment required)
     if (request.travelId) {
       // Request was addressed to a travel - update travel weight
       await this.handleTravelRequestAcceptance(request);
@@ -331,9 +414,9 @@ export class RequestService {
       await this.handleDemandRequestAcceptance(request);
     }
 
-    // 10. Create transaction automatically
+    // 11. Create transaction automatically
     // Calculate transaction amount using Platform Pricing Service
-    const travelerPayment = (request.weight || 0) * request.travel.pricePerKg;
+    const travelerPayment = (request.weight || 0) * Number(pricePerKg);
     const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
     const transactionAmount = pricing.totalAmount;
 
@@ -346,10 +429,12 @@ export class RequestService {
     await this.transactionService.createTransactionFromRequest(
       requestWithCurrency!,
       transactionAmount,
-      request.paymentMethodId || undefined // Use stored paymentMethodId if available
+      validatedPaymentIntentId ? undefined : request.paymentMethodId || undefined, // Don't create new Payment Intent if already validated
+      undefined, // No transactionalEntityManager needed here
+      validatedPaymentIntentId // Pass validated Payment Intent ID
     );
 
-    // 11. Clear cache for affected users (requester and travel/demand owner)
+    // 12. Clear cache for affected users (requester and travel/demand owner)
     const affectedUserIds = [request.requesterId];
     if (request.travel) {
       affectedUserIds.push(request.travel.userId);
@@ -358,15 +443,15 @@ export class RequestService {
     }
     await this.clearRequestListCacheForUsers(affectedUserIds);
 
-    // 12. emit request accepted event (send email to traveler who published the travel)
-    this.userEventService.emitRequestAccepted(user, request, false, request.travel.userId);
+    // 13. emit request accepted event (send email to traveler who published the travel)
+    this.userEventService.emitRequestAccepted(user, request, true, request.travel.userId);
 
     //get the requester
     const requester = await this.userService.findOne({
       id: request.requesterId,
     });
     //send email to the requester
-    await this.userEventService.emitRequestAccepted(requester!, request, true, request.travel.userId);
+    await this.userEventService.emitRequestAccepted(requester!, request, false, request.travel.userId);
 
     // Reload request with all relations for mapping (include currentStatus)
     const updatedRequest = await this.requestRepository.findOne({
@@ -595,6 +680,78 @@ export class RequestService {
     await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true, fundStatus);
 
     return updatedRequest;
+  }
+
+  /**
+   * Cancel a request due to payment failure (e.g. card declined or missing payment method).
+   * Updates DB explicitly, records history, notifies buyer by email, and clears cache.
+   */
+  private async cancelRequestDueToPaymentFailure(
+    requestId: number,
+    request: RequestEntity,
+    paymentErrorMessage: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[Payment-failure] cancelRequestDueToPaymentFailure called: requestId=${requestId}, requesterId=${request.requesterId}, errorLength=${paymentErrorMessage?.length ?? 0}`,
+    );
+    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+    if (!cancelledStatus) {
+      throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+    await this.requestRepository.update(requestId, { currentStatusId: cancelledStatus.id });
+    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+    this.logger.log(`[Payment-failure] Loading requester: id=${request.requesterId}`);
+    const requester = await this.userService.findOne({ id: request.requesterId });
+    if (!requester) {
+      this.logger.warn(
+        `cancelRequestDueToPaymentFailure: requester not found for requestId=${requestId}, requesterId=${request.requesterId}. Payment-failure email not sent.`,
+      );
+    } else {
+      this.logger.log(`[Payment-failure] Requester found: userId=${requester.id}, email=${requester.email ?? '(null)'}`);
+      request.requester = requester;
+      request.currentStatusId = cancelledStatus.id;
+      request.currentStatus = cancelledStatus;
+      const ownerId = request.travel?.userId ?? request.demand?.userId ?? 0;
+      const eventPayload: RequestEvent = {
+        userId: requester.id,
+        userFirstName: requester.firstName,
+        userEmail: requester.email,
+        timestamp: new Date(),
+        requesterId: request.requesterId,
+        requesterName: `${requester.firstName} ${requester.lastName?.charAt(0) ?? ''}.`,
+        ownerId,
+        requestId: request.id,
+        requestType: request.requestType,
+        weight: request.weight,
+        isForOwner: false,
+      };
+      this.logger.log(`Sending payment-failure email to requester: ${requester.email} (requestId=${requestId})`);
+      try {
+        const sent = await this.emailService.sendRequestCancelledDueToPaymentFailureConfirmation(
+          requester.email,
+          requester.firstName,
+          eventPayload,
+          paymentErrorMessage,
+        );
+        if (!sent) {
+          this.logger.warn(
+            `Payment-failure email was not sent to ${requester.email} (requestId=${requestId}). Check EMAIL_* env or logs above.`,
+          );
+        } else {
+          this.logger.log(`Payment-failure email sent to ${requester.email} (requestId=${requestId})`);
+        }
+      } catch (err) {
+        this.logger.error(
+          `Failed to send payment-failure email to ${requester.email} (requestId=${requestId}):`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+      this.userEventService.emitRequestCancelled(requester, request, false, ownerId, paymentErrorMessage, true);
+    }
+    const affectedUserIds = [request.requesterId];
+    if (request.travel) affectedUserIds.push(request.travel.userId);
+    else if (request.demand) affectedUserIds.push(request.demand.userId);
+    await this.clearRequestListCacheForUsers(affectedUserIds);
   }
 
   async cancelRequest(requestId: number, user: UserEntity): Promise<RequestEntity> {

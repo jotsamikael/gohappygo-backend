@@ -43,15 +43,22 @@ export class EmailService {
       return;
     }
 
+    const host = this.configService.get<string>('EMAIL_HOST');
+    const port = this.configService.get<number>('EMAIL_PORT');
+    const secure = this.configService.get<boolean>('EMAIL_SECURE');
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('EMAIL_HOST'),
-      port: this.configService.get<number>('EMAIL_PORT'),
-      secure: this.configService.get<boolean>('EMAIL_SECURE'),
+      host,
+      port,
+      secure: secure ?? port === 465,
       auth: {
         user: emailUser,
         pass: emailPass,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
+    this.logger.log(`Email transporter created: host=${host}, port=${port}, secure=${secure ?? port === 465}`);
 
     // Verify connection
     this.transporter.verify((error, success) => {
@@ -65,27 +72,54 @@ export class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     if (!this.transporter) {
-      this.logger.warn('Email not configured. Skipping email send.');
+      this.logger.warn(
+        `[Email] NOT CONFIGURED (set EMAIL_USER and EMAIL_PASSWORD). Skipping. Subject: "${options.subject}", to: ${options.to}. This is likely why payment-failure email is not received.`,
+      );
       return false;
     }
 
-    try {
-      const mailOptions = {
-        from: options.from || this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
-        to: options.to, // Recipient email address
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        attachments: options.attachments,
-      };
-  // Debug log to verify recipient
-  this.logger.log(`Sending email to: ${options.to}, from: ${mailOptions.from}`);
+    const mailOptions = {
+      from: options.from || this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      attachments: options.attachments,
+    };
+    const htmlLength = typeof options.html === 'string' ? options.html.length : 0;
+    this.logger.log(
+      `[Email] Sending: to=${options.to}, subject="${options.subject}", htmlLength=${htmlLength}, from=${mailOptions.from ?? '(default)'}`,
+    );
 
+    try {
       const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent successfully: ${info.messageId}`);
+      this.logger.log(`[Email] Sent successfully: messageId=${info.messageId}`);
       return true;
     } catch (error) {
-      this.logger.error('Failed to send email:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const isTransient =
+        /socket disconnected|ECONNRESET|ETIMEDOUT|ECONNREFUSED|TLS|connection/i.test(msg);
+      if (isTransient) {
+        this.logger.warn(
+          `[Email] Transient error, retrying once in 2s: ${msg}`,
+        );
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const info = await this.transporter.sendMail(mailOptions);
+          this.logger.log(`[Email] Sent successfully on retry: messageId=${info.messageId}`);
+          return true;
+        } catch (retryError) {
+          this.logger.error(
+            `[Email] Send failed on retry: to=${options.to}, subject="${options.subject}"`,
+            retryError instanceof Error ? retryError.stack : retryError,
+          );
+          return false;
+        }
+      }
+      this.logger.error(
+        `[Email] Send failed: to=${options.to}, subject="${options.subject}"`,
+        error instanceof Error ? error.stack : error,
+      );
       return false;
     }
   }
@@ -233,6 +267,43 @@ export class EmailService {
       subject: 'Request Cancelled - GoHappyGo',
       html,
     });
+  }
+
+  async sendRequestCancelledDueToPaymentFailureConfirmation(
+    userEmail: string,
+    userFirstName: string,
+    event: RequestEvent,
+    paymentErrorMessage: string,
+  ): Promise<boolean> {
+    this.logger.log(
+      `[Payment-failure email] Building and sending: to=${userEmail}, requestId=${event.requestId}, hasHtmlInputs=${!!userFirstName && !!paymentErrorMessage}`,
+    );
+    let html: string;
+    try {
+      html = this.emailTemplatesService.getRequestCancelledDueToPaymentFailureTemplate(
+        userFirstName,
+        event,
+        paymentErrorMessage,
+      );
+      this.logger.log(`[Payment-failure email] Template built: htmlLength=${html?.length ?? 0}`);
+    } catch (err) {
+      this.logger.error(
+        `[Payment-failure email] Template build failed: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      return false;
+    }
+    if (!html || html.length === 0) {
+      this.logger.warn('[Payment-failure email] Template returned empty html');
+      return false;
+    }
+    const result = await this.sendEmail({
+      to: userEmail,
+      subject: 'Your GoHappyGo request – action needed',
+      html,
+    });
+    this.logger.log(`[Payment-failure email] sendEmail result: ${result}`);
+    return result;
   }
 
   sendRequestCancelledForOwnerConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {

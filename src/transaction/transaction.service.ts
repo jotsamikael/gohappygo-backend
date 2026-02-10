@@ -36,6 +36,7 @@ export class TransactionService {
        transactionAmount: number,
        paymentMethodId?: string,
        transactionalEntityManager?: any,
+       validatedPaymentIntentId?: string,
      ): Promise<TransactionEntity> {
         // Get travel or demand to determine currency
         const travel = request.travel;
@@ -105,9 +106,15 @@ export class TransactionService {
 
         let paymentIntent: Stripe.PaymentIntent | null = null;
         let stripePaymentIntentId: string | undefined = undefined;
+        let transactionStatus: 'paid' | 'pending' = 'pending';
 
-        // Create Payment Intent if paymentMethodId is provided
-        if (paymentMethodId) {
+        // If validatedPaymentIntentId is provided, payment was already confirmed synchronously
+        // Set status to 'paid' immediately and use the provided Payment Intent ID
+        if (validatedPaymentIntentId) {
+          stripePaymentIntentId = validatedPaymentIntentId;
+          transactionStatus = 'paid'; // Payment already confirmed
+        } else if (paymentMethodId) {
+          // Create Payment Intent if paymentMethodId is provided (legacy/async flow)
           try {
             paymentIntent = await this.stripeService.createPaymentIntent(
               convertedAmountUSD,
@@ -120,6 +127,8 @@ export class TransactionService {
               },
             );
             stripePaymentIntentId = paymentIntent.id;
+            // For async flow, status is 'pending' (webhook will update to 'paid')
+            transactionStatus = paymentIntent.status === 'succeeded' ? 'paid' : 'pending';
           } catch (error) {
             throw new BadRequestException(`Failed to create payment: ${error.message}`);
           }
@@ -130,8 +139,8 @@ export class TransactionService {
               requestId: request.id,
               payerId: request.requesterId, // The person who made the request pays
               payeeId: request.travelId ? request.travel.user.id : request.demand.user.id, // Travel creator or demand creator receives payment
-              status: paymentIntent?.status === 'succeeded' ? 'paid' : 'pending', // Payment needs to be processed
-              paymentMethod: paymentMethodId ? 'stripe' : 'platform',
+              status: transactionStatus, // 'paid' if validated synchronously, 'pending' if async
+              paymentMethod: (paymentMethodId || validatedPaymentIntentId) ? 'stripe' : 'platform',
               amount: originalAmount,
               stripePaymentIntentId,
               currencyCode,
@@ -143,8 +152,8 @@ export class TransactionService {
               requestId: request.id,
               payerId: request.requesterId, // The person who made the request pays
               payeeId: request.travelId ? request.travel.user.id : request.demand.user.id, // Travel creator or demand creator receives payment
-              status: paymentIntent?.status === 'succeeded' ? 'paid' : 'pending', // Payment needs to be processed
-              paymentMethod: paymentMethodId ? 'stripe' : 'platform',
+              status: transactionStatus, // 'paid' if validated synchronously, 'pending' if async
+              paymentMethod: (paymentMethodId || validatedPaymentIntentId) ? 'stripe' : 'platform',
               amount: originalAmount,
               stripePaymentIntentId,
               currencyCode,

@@ -134,5 +134,9 @@ export class UserProfileResponseDto {
     @ApiProperty({ example: null, nullable: true })
     @Expose()
     stripeCountryCode: string | null;
+
+    @ApiProperty({ example: '0 EUR', description: 'Available balance in Stripe account with currency (e.g., "0 EUR", "100.50 USD")', nullable: true })
+    @Expose()
+    stripeAvailableBalance: string | null;
 }
 

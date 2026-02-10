@@ -973,6 +973,24 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
     // Add unreadMessageCount to profileStats
     profileStats.unreadMessageCount = unreadMessageCount;
 
+    // Get Stripe available balance
+    let stripeAvailableBalance: string | null = null;
+    if (user.stripeAccountId) {
+      try {
+        const balance = await this.stripeService.getAccountBalance(user.stripeAccountId);
+        // Convert from cents to dollars (Stripe returns amounts in cents)
+        const amount = balance.available[0]?.amount ? balance.available[0].amount / 100 : 0;
+        // Get currency (Stripe returns lowercase like 'eur', 'usd') and convert to uppercase
+        const currency = balance.available[0]?.currency?.toUpperCase() || 'USD';
+        // Format amount with 2 decimal places
+        stripeAvailableBalance = `${amount.toFixed(2)} ${currency}`;
+      } catch (error) {
+        this.logger.warn(`Failed to retrieve Stripe balance for user ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+        // Set to null on error - balance retrieval failure shouldn't break the endpoint
+        stripeAvailableBalance = null;
+      }
+    }
+
     return {
       id: user.id,
       email: excludeSensitiveData ? null : user.email,
@@ -991,6 +1009,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       stripeAccountId: user.stripeAccountId || null,
       stripeAccountStatus: user.stripeAccountStatus || 'uninitiated',
       stripeCountryCode: user.stripeCountryCode || null,
+      stripeAvailableBalance,
     };
   }
 

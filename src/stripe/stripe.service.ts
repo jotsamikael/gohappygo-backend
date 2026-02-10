@@ -10,6 +10,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { StripeWebhookEventEntity } from './entities/stripe-webhook-event.entity';
 import { TransactionEntity } from 'src/transaction/transaction.entity';
+import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
 export class StripeService {
@@ -394,6 +396,7 @@ export class StripeService {
       paymentMethodId: string,
       platformFeeUSD: number,
       metadata?: Record<string, string>,
+      confirmSynchronously: boolean = false,
     ): Promise<Stripe.PaymentIntent> {
       try {
         // Convert dollars to cents (Stripe requires amounts in smallest currency unit)
@@ -402,8 +405,8 @@ export class StripeService {
         // Get frontend URL for return_url
         const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app';
     
-        // Create Payment Intent without confirming
-        const paymentIntent = await this.stripe.paymentIntents.create({
+        // Create Payment Intent
+        const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
           amount: amountInCents,
           currency: 'usd',
           payment_method: paymentMethodId,
@@ -417,18 +420,27 @@ export class StripeService {
           },
           // No application_fee_amount - funds stay on platform account (escrow model)
           // Platform fee is calculated separately and stays on platform when we transfer
-        });
+        };
+
+        // If synchronous confirmation is requested, add confirm: true
+        if (confirmSynchronously) {
+          paymentIntentParams.confirm = true;
+          paymentIntentParams.return_url = `${frontendUrl}/?payment_status=success`;
+        }
+
+        const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentParams);
     
-        // Confirm asynchronously (don't await - let it process in background)
+        // If not synchronous, confirm asynchronously (don't await - let it process in background)
         // The webhook will handle the success/failure
-        // Add return_url even though allow_redirects is 'never' (Stripe requires it)
-        this.stripe.paymentIntents.confirm(paymentIntent.id, {
-          payment_method: paymentMethodId,
-          //return_url: `${frontendUrl}/payment/success?payment_intent=${paymentIntent.id}`,
-          return_url: `${frontendUrl}/?payment_status=success`,
-        }).catch(error => {
-          this.logger.error(`Error confirming Payment Intent ${paymentIntent.id}: ${error.message}`, error.stack);
-        });
+        if (!confirmSynchronously) {
+          // Add return_url even though allow_redirects is 'never' (Stripe requires it)
+          this.stripe.paymentIntents.confirm(paymentIntent.id, {
+            payment_method: paymentMethodId,
+            return_url: `${frontendUrl}/?payment_status=success`,
+          }).catch(error => {
+            this.logger.error(`Error confirming Payment Intent ${paymentIntent.id}: ${error.message}`, error.stack);
+          });
+        }
     
         return paymentIntent;
       } catch (error) {
@@ -436,6 +448,147 @@ export class StripeService {
         throw new BadRequestException(`Failed to create Payment Intent: ${error.message}`);
       }
     }
+  /**
+   * Validate and confirm Payment Intent synchronously
+   * This method creates and confirms a Payment Intent in one call, awaiting the result.
+   * Used for fraud protection - payment must succeed before creating requests/reserving weight.
+   * 
+   * @param amountUSD - Amount in USD (in dollars, will be converted to cents)
+   * @param paymentMethodId - Stripe Payment Method ID
+   * @param platformFeeUSD - Platform fee in USD (in dollars, will be converted to cents)
+   * @param metadata - Additional metadata to attach
+   * @returns Confirmed Payment Intent with status 'succeeded' or throws error
+   * @throws CustomBadRequestException with specific error codes for different failure types
+   */
+  async validateAndConfirmPaymentIntent(
+    amountUSD: number,
+    paymentMethodId: string,
+    platformFeeUSD: number,
+    metadata?: Record<string, string>,
+  ): Promise<Stripe.PaymentIntent> {
+    try {
+      // Create and confirm Payment Intent synchronously
+      const paymentIntent = await this.createPaymentIntent(
+        amountUSD,
+        paymentMethodId,
+        platformFeeUSD,
+        metadata,
+        true, // confirmSynchronously = true
+      );
+
+      // Check payment status
+      if (paymentIntent.status === 'succeeded') {
+        this.logger.log(`Payment Intent ${paymentIntent.id} confirmed successfully`);
+        return paymentIntent;
+      }
+
+      // Handle requires_action (3D Secure)
+      if (paymentIntent.status === 'requires_action') {
+        this.logger.warn(`Payment Intent ${paymentIntent.id} requires action (3D Secure)`);
+        throw new CustomBadRequestException(
+          'Payment requires additional authentication. Please complete 3D Secure authentication.',
+          ErrorCode.PAYMENT_PROCESSING_FAILED,
+        );
+      }
+
+      // Handle other failure statuses
+      const errorMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
+      const errorCode = paymentIntent.last_payment_error?.code;
+      
+      // Map Stripe error codes to application error codes
+      const mappedError = this.mapStripeErrorToApplicationError(errorCode, errorMessage);
+      throw new CustomBadRequestException(mappedError.message, mappedError.errorCode as ErrorCode);
+
+    } catch (error) {
+      // If it's already a CustomBadRequestException, re-throw it
+      if (error instanceof CustomBadRequestException) {
+        throw error;
+      }
+
+      // If it's a BadRequestException from createPaymentIntent, wrap it
+      if (error instanceof BadRequestException) {
+        // Try to extract error code from message or use generic
+        throw new CustomBadRequestException(
+          error.message,
+          ErrorCode.PAYMENT_PROCESSING_FAILED,
+        );
+      }
+
+      // Handle Stripe API errors
+      if (error.type === 'StripeCardError' || error.type === 'StripeInvalidRequestError') {
+        const stripeError = error as Stripe.errors.StripeCardError | Stripe.errors.StripeInvalidRequestError;
+        const mappedError = this.mapStripeErrorToApplicationError(stripeError.code, stripeError.message);
+        throw new CustomBadRequestException(mappedError.message, mappedError.errorCode as ErrorCode);
+      }
+
+      // Generic error handling
+      this.logger.error(`Error validating payment: ${error.message}`, error.stack);
+      throw new CustomBadRequestException(
+        `Failed to validate payment: ${error.message}`,
+        ErrorCode.PAYMENT_PROCESSING_FAILED,
+      );
+    }
+  }
+
+  /**
+   * Map Stripe error codes to application error codes and user-friendly messages
+   * @param stripeErrorCode - Stripe error code (e.g., 'card_declined', 'insufficient_funds')
+   * @param stripeErrorMessage - Original Stripe error message
+   * @returns Object with errorCode and message
+   */
+  private mapStripeErrorToApplicationError(
+    stripeErrorCode?: string,
+    stripeErrorMessage?: string,
+  ): { errorCode: string; message: string } {
+    const defaultMessage = stripeErrorMessage || 'Payment processing failed. Please try again or use a different payment method.';
+
+    // Map common Stripe error codes
+    switch (stripeErrorCode) {
+      case 'card_declined':
+        return {
+          errorCode: 'PAYMENT_CARD_DECLINED',
+          message: 'Your card was declined. Please try another payment method.',
+        };
+      
+      case 'insufficient_funds':
+        return {
+          errorCode: 'PAYMENT_INSUFFICIENT_FUNDS',
+          message: 'Insufficient funds. Please use a different card or add funds to your account.',
+        };
+      
+      case 'expired_card':
+        return {
+          errorCode: 'PAYMENT_CARD_EXPIRED',
+          message: 'Your card has expired. Please use a different payment method.',
+        };
+      
+      case 'incorrect_number':
+      case 'invalid_number':
+      case 'invalid_expiry_month':
+      case 'invalid_expiry_year':
+      case 'invalid_cvc':
+        return {
+          errorCode: 'PAYMENT_INVALID_CARD',
+          message: 'Invalid card details. Please check your card information and try again.',
+        };
+      
+      case 'processing_error':
+      case 'api_connection_error':
+      case 'api_error':
+      case 'authentication_required':
+        return {
+          errorCode: 'PAYMENT_PROCESSING_FAILED',
+          message: defaultMessage,
+        };
+      
+      default:
+        return {
+          errorCode: 'PAYMENT_PROCESSING_FAILED',
+          message: defaultMessage,
+        };
+    }
+  }
+
   /**
    * Create Transfer to connected account (release escrow funds)
    * @param amountUSD - Amount in USD (in dollars, will be converted to cents)
@@ -735,8 +888,58 @@ export class StripeService {
    */
   private async handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     this.logger.error(`Payment Intent failed: ${paymentIntent.id}`);
-    // Transaction status will be updated by the service that created it
-    // Could emit event to notify user
+    this.logger.error(`Payment Intent failure reason: ${paymentIntent.last_payment_error?.message || 'Unknown'}`);
+    this.logger.error(`Payment Intent failure code: ${paymentIntent.last_payment_error?.code || 'Unknown'}`);
+
+    try {
+      // Find transaction by stripePaymentIntentId
+      const transaction = await this.transactionRepository.findOne({
+        where: { stripePaymentIntentId: paymentIntent.id },
+        relations: ['request'],
+      });
+
+      if (!transaction) {
+        this.logger.warn(`No transaction found for failed Payment Intent ${paymentIntent.id}`);
+        return;
+      }
+
+      this.logger.log(`Found transaction ${transaction.id} for failed Payment Intent ${paymentIntent.id}`);
+
+      // Update transaction status to 'failed' (or we could use 'cancelled' status)
+      // Note: We don't have 'failed' status in enum, so we'll use 'cancelled'
+      await this.transactionRepository.update(transaction.id, {
+        status: 'cancelled' as any,
+      });
+      this.logger.log(`Transaction ${transaction.id} status updated to 'cancelled'`);
+
+      // Find associated request
+      if (transaction.requestId) {
+        // Note: Request relation might not be loaded, so we need to fetch it separately if needed
+        // For now, we'll log the requestId and let the application handle cleanup if needed
+        this.logger.log(`Associated request ID: ${transaction.requestId}`);
+
+        // Note: With synchronous payment validation, this webhook should rarely fire for new requests
+        // This is mainly for edge cases and legacy data where payment was async
+        // The request should already be in a terminal state or not created if payment failed synchronously
+      }
+
+      // Log failure details for debugging
+      this.logger.error(`Payment failure details:`, {
+        paymentIntentId: paymentIntent.id,
+        transactionId: transaction.id,
+        requestId: transaction.requestId,
+        errorMessage: paymentIntent.last_payment_error?.message,
+        errorCode: paymentIntent.last_payment_error?.code,
+        declineCode: paymentIntent.last_payment_error?.decline_code,
+      });
+
+      // TODO: Could emit event to notify user about payment failure
+      // this.eventEmitter.emit('payment.failed', { transactionId: transaction.id, requestId: transaction.requestId });
+
+    } catch (error) {
+      this.logger.error(`Error handling Payment Intent failure: ${error.message}`, error.stack);
+      // Don't throw - webhook processing should continue even if cleanup fails
+    }
   }
 
   /**

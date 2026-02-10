@@ -74,6 +74,10 @@ export interface RequestEvent extends BaseUserEvent {
   weight: number | null;
   isForOwner: boolean;
   fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released';
+  /** When set, request was cancelled due to payment failure (e.g. card declined). Used for buyer notification email. */
+  cancellationReason?: string;
+  /** When true, payment-failure email was already sent by caller (e.g. request.service); listener should skip sending. */
+  emailAlreadySent?: boolean;
 }
 
 export interface TransactionEvent extends BaseUserEvent {
@@ -444,7 +448,14 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.REQUEST_COMPLETED, event);
   }
 
-  emitRequestCancelled(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {
+  emitRequestCancelled(
+    user: UserEntity,
+    requestData: RequestEntity,
+    isForOwner: boolean,
+    ownerId: number,
+    cancellationReason?: string,
+    emailAlreadySent?: boolean,
+  ): void {
     // Determine requester name from available data
     let requesterName = 'Unknown User';
     if (requestData.requester) {
@@ -463,6 +474,8 @@ export class UserEventsService {
       requestId: requestData.id,
       requestType: requestData.requestType,
       weight: requestData.weight,
+      ...(cancellationReason && { cancellationReason }),
+      ...(emailAlreadySent && { emailAlreadySent }),
     };
     this.eventEmitter.emit(UserEventType.REQUEST_CANCELLED, event);
   }

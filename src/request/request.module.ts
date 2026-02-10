@@ -19,6 +19,7 @@ import { AirportModule } from 'src/airport/airport.module';
 import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.module';
 import { StripeModule } from 'src/stripe/stripe.module';
 import { MessageModule } from 'src/message/message.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { MessageModule } from 'src/message/message.module';
     AirportModule,
     PlatformPricingModule,
     StripeModule,
-    forwardRef(() => MessageModule)
+    forwardRef(() => MessageModule),
+    EmailModule
   ],
   controllers: [RequestController],
   providers: [RequestService, RequestMapper],

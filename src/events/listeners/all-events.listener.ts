@@ -132,7 +132,20 @@ export class AllEventsListener {
     this.logger.log(`Request cancelled - ${event.requestType} - Request ID: ${event.requestId}`);
     // Send email to requester (isForOwner=false means this is for the requester)
     if (!event.isForOwner) {
-      await this.emailService.sendRequestCancelledConfirmation(event.userEmail, event.userFirstName, event);
+      // Skip if caller already sent payment-failure email (e.g. cancelRequestDueToPaymentFailure)
+      if (event.cancellationReason && event.emailAlreadySent) {
+        return;
+      }
+      if (event.cancellationReason) {
+        await this.emailService.sendRequestCancelledDueToPaymentFailureConfirmation(
+          event.userEmail,
+          event.userFirstName,
+          event,
+          event.cancellationReason,
+        );
+      } else {
+        await this.emailService.sendRequestCancelledConfirmation(event.userEmail, event.userFirstName, event);
+      }
     } else {
       // Send email to travel/demand owner (isForOwner=true means this is for the owner)
       await this.emailService.sendRequestCancelledForOwnerConfirmation(event.userEmail, event.userFirstName, event);

@@ -1,11 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RequestEvent } from 'src/events/user-events.service';
 
 @Injectable()
 export class EmailTemplatesService {
- 
-
+  private readonly logger = new Logger(EmailTemplatesService.name);
   private readonly baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  /** Escape HTML entities so dynamic content cannot break the email HTML. */
+  private escapeHtml(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return '';
+    const s = String(value);
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   getWelcomeTemplate(userName: string): string {
     return `
@@ -448,11 +459,6 @@ export class EmailTemplatesService {
               <p>This request is now active and ready for coordination.</p>
             </div>
             
-            <div class="requester-info">
-              <h3>Requester Information:</h3>
-              <p><strong>Name:</strong> ${requestData.requesterName || requestData.userFirstName || 'Unknown'}</p>
-              <p><strong>Email:</strong> ${requestData.userEmail || 'Not provided'}</p>
-            </div>
             
             <div class="request-details">
               <h3>Request Details:</h3>
@@ -1133,6 +1139,82 @@ export class EmailTemplatesService {
       </body>
       </html>
     `;
+  }
+
+  /**
+   * Template when a request could not be completed because payment could not be processed (e.g. when seller accepts).
+   * Wording is softened (no "cancelled", "payment failed" in headings) to reduce Gmail filtering.
+   */
+  getRequestCancelledDueToPaymentFailureTemplate(userFirstName: string, event: RequestEvent, paymentErrorMessage: string): string {
+    this.logger.log(
+      `[Payment-failure template] Building: requestId=${event?.requestId ?? 'n/a'}, hasFirstName=${!!userFirstName}, hasMessage=${!!paymentErrorMessage}`,
+    );
+    const safeName = this.escapeHtml(userFirstName);
+    const safeMessage = this.escapeHtml(paymentErrorMessage);
+    const safeRequestId = this.escapeHtml(event.requestId);
+    const safeRequestType = this.escapeHtml(event.requestType);
+    const safeWeight = event.weight != null ? this.escapeHtml(String(event.weight)) + 'kg' : 'N/A';
+    const safeBaseUrl = this.escapeHtml(this.baseUrl);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Your GoHappyGo request – action needed</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .details-box { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
+          .request-info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .action-button { background: #17a2b8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Your GoHappyGo request – action needed</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${safeName},</h2>
+            <p>We were unable to complete your delivery request because we could not process the payment when the traveler tried to accept it.</p>
+
+            <div class="details-box">
+              <h3>Details</h3>
+              <p>${safeMessage}</p>
+            </div>
+
+            <div class="request-info">
+              <h3>Request</h3>
+              <p><strong>Request ID:</strong> #${safeRequestId}</p>
+              <p><strong>Type:</strong> ${safeRequestType}</p>
+              <p><strong>Weight:</strong> ${safeWeight}</p>
+            </div>
+
+            <p><strong>Next steps</strong></p>
+            <ul>
+              <li>Update your payment method (for example, use a different card or ensure sufficient funds)</li>
+              <li>Create a new request for the same or another trip</li>
+              <li>Contact support if you need help</li>
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="${safeBaseUrl}/requests" class="action-button">Create a new request</a>
+            </p>
+
+            <p><em>No charge was made. You can submit a new request with an updated payment method when you are ready.</em></p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    this.logger.log(`[Payment-failure template] Built: htmlLength=${html.length}`);
+    return html;
   }
 
   getRequestCompletedForOwnerTemplate(userFirstName: string, event: RequestEvent, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released'): string {
