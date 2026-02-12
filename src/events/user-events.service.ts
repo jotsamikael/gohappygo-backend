@@ -538,4 +538,92 @@ export class UserEventsService {
 
     this.eventEmitter.emit(UserEventType.KYC_COMPLETED, event);
   }
+
+  emitCancellationConfirmationRequested(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
+    let requesterName = 'Unknown User';
+    if (requestData.requester) {
+      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
+    }
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner: true,
+    };
+    this.eventEmitter.emit(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED, event);
+  }
+
+  emitCancellationConfirmed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
+    let requesterName = 'Unknown User';
+    if (requestData.requester) {
+      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
+    }
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner: false,
+    };
+    this.eventEmitter.emit(UserEventType.CANCELLATION_CONFIRMED, event);
+  }
+
+  emitCancellationDisputed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
+    let requesterName = 'Unknown User';
+    if (requestData.requester) {
+      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
+    }
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner: false,
+    };
+    this.eventEmitter.emit(UserEventType.CANCELLATION_DISPUTED, event);
+  }
+
+  emitRequestAutoCompleted(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {
+    let requesterName = 'Unknown User';
+    if (requestData.requester) {
+      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
+    }
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner: isForOwner,
+    };
+    this.eventEmitter.emit(UserEventType.REQUEST_AUTO_COMPLETED, event);
+  }
 }

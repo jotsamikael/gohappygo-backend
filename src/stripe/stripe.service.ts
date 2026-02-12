@@ -145,17 +145,38 @@ export class StripeService {
   }
 
   /**
-   * Create an Account Link for onboarding
+   * Create an Account Link for onboarding or updating account
+   * Uses 'account_update' for existing accounts that need verification/updates
+   * Uses 'account_onboarding' for new accounts
    */
   async createAccountLink(accountId: string): Promise<string> {
     try {
       const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app';
       
+      // Retrieve account to determine link type
+      const account = await this.stripe.accounts.retrieve(accountId);
+      
+      // Determine link type:
+      // - If account has been onboarded before (details_submitted = true), use 'account_update'
+      // - This ensures verification documents and other requirements are shown
+      // - If account is new (details_submitted = false), use 'account_onboarding'
+      const linkType = account.details_submitted ? 'account_update' : 'account_onboarding';
+      
+      // Check if there are pending requirements (like verification documents)
+      const hasPendingRequirements = account.requirements?.currently_due && 
+        account.requirements.currently_due.length > 0;
+      
+      this.logger.log(
+        `Creating account link for account ${accountId}: ` +
+        `type=${linkType}, details_submitted=${account.details_submitted}, ` +
+        `hasPendingRequirements=${hasPendingRequirements}`
+      );
+      
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
         refresh_url: `${frontendUrl}/settings/payments?refresh=true`,
         return_url: `${frontendUrl}/stripe-onboarding`, 
-        type: 'account_onboarding',
+        type: linkType,
       });
 
       return accountLink.url;
@@ -180,6 +201,72 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Error retrieving account balance: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to retrieve account balance: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get account requirements (currently_due, past_due, and eventually_due)
+   * Returns null if there are no requirements
+   */
+  async getAccountRequirements(accountId: string): Promise<{
+    hasRequirements: boolean;
+    currentlyDue: string[];
+    pastDue: string[];
+    eventuallyDue: string[];
+  } | null> {
+    try {
+      const account = await this.stripe.accounts.retrieve(accountId);
+      
+      // Check if requirements object exists
+      if (!account.requirements) {
+        this.logger.debug(`No requirements object found for account ${accountId}`);
+        return null;
+      }
+      
+      const currentlyDue = account.requirements.currently_due || [];
+      const pastDue = account.requirements.past_due || [];
+      const eventuallyDue = account.requirements.eventually_due || [];
+      
+      // Check if there are any requirements at all
+      const hasAnyRequirements = currentlyDue.length > 0 || pastDue.length > 0 || eventuallyDue.length > 0;
+      
+      // Also check if account is restricted/disabled due to requirements
+      const isRestricted = account.requirements.disabled_reason !== null && account.requirements.disabled_reason !== undefined;
+      
+      // Log the account structure for debugging
+      this.logger.log(`Account requirements check for ${accountId}:`, {
+        hasRequirements: hasAnyRequirements || isRestricted,
+        currentlyDueCount: currentlyDue.length,
+        pastDueCount: pastDue.length,
+        eventuallyDueCount: eventuallyDue.length,
+        currentlyDue: currentlyDue,
+        pastDue: pastDue,
+        eventuallyDue: eventuallyDue,
+        disabledReason: account.requirements.disabled_reason,
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      });
+      
+      // Return null only if there are truly no requirements
+      if (!hasAnyRequirements && !isRestricted) {
+        this.logger.debug(`No requirements found for account ${accountId}`);
+        return null;
+      }
+      
+      // If there are requirements (even if only in eventually_due), return them
+      this.logger.log(`Found requirements for account ${accountId}: currently_due=${currentlyDue.length}, past_due=${pastDue.length}, eventually_due=${eventuallyDue.length}, disabled_reason=${account.requirements.disabled_reason || 'none'}`);
+      
+      return {
+        hasRequirements: hasAnyRequirements || isRestricted,
+        currentlyDue: currentlyDue,
+        pastDue: pastDue,
+        eventuallyDue: eventuallyDue,
+      };
+    } catch (error) {
+      this.logger.error(`Error retrieving account requirements for ${accountId}: ${error.message}`, error.stack);
+      // Return null on error - requirements retrieval failure shouldn't break the endpoint
+      return null;
     }
   }
 

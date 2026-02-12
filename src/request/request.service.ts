@@ -33,6 +33,7 @@ import { ReviewEntity } from 'src/review/review.entity';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
 import { RequestEvent } from 'src/events/user-events.service';
+import { UserEventType } from 'src/events/event-types';
 
 @Injectable()
 export class RequestService {
@@ -803,47 +804,98 @@ export class RequestService {
       throw new CustomBadRequestException('Request is already rejected', ErrorCode.REQUEST_NOT_FOUND);
     }
 
-    // 5. Handle cancellation (requester) - process refund
+    // 4.5 Check if request is already in PENDING_CANCELLATION_CONFIRMATION
+    const pendingCancellationStatus = await this.requestStatusService.getRequestByStatus('PENDING_CANCELLATION_CONFIRMATION');
+    if (pendingCancellationStatus && request.currentStatusId === pendingCancellationStatus.id) {
+      throw new CustomBadRequestException('Cancellation confirmation is already pending. Please wait for seller response.', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // 5. Handle cancellation (requester) - check travel date and process accordingly
     if (isRequester) {
-      const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-      if (!transaction) {
-        throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+      // Determine if cancellation is before or during/after travel date
+      let isBeforeTravelDate = false;
+      let travelDate: Date | null = null;
+
+      if (request.travel && request.travel.departureDatetime) {
+        const travelDatetime = new Date(request.travel.departureDatetime);
+        travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
+        const currentDate = new Date();
+        const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        isBeforeTravelDate = currentDateOnly < travelDate;
+      } else if (request.demand && request.demand.travelDate) {
+        const demandTravelDate = new Date(request.demand.travelDate);
+        travelDate = new Date(demandTravelDate.getFullYear(), demandTravelDate.getMonth(), demandTravelDate.getDate());
+        const currentDate = new Date();
+        const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        isBeforeTravelDate = currentDateOnly < travelDate;
       }
 
-      // Process refund (only travelerPayment, fee is kept)
-      if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-        try {
-          // Convert travelerPayment to USD (Payment Intent is in USD)
-          let travelerPaymentUSD: number;
-          if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-            travelerPaymentUSD = await this.stripeService.convertToUSD(
-              transaction.travelerPayment,
-              transaction.currencyCode || 'USD'
-            );
-          } else {
-            // If travelerPayment is not stored, calculate it from the transaction amount
-            // This shouldn't happen, but handle it gracefully
-            throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
-          }
-
-          // Refund only the travelerPayment amount (partial refund)
-          await this.stripeService.refundPaymentIntentPartial(
-            transaction.stripePaymentIntentId,
-            travelerPaymentUSD
-          );
-
-          // Update transaction status to refunded
-          await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-        } catch (error) {
-          console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-          throw new CustomBadRequestException(
-            `Failed to process refund: ${error.message}`,
-            ErrorCode.INTERNAL_ERROR
-          );
+      // If cancellation is BEFORE travel date: immediate cancellation with refund
+      if (isBeforeTravelDate) {
+        const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+        if (!transaction) {
+          throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
         }
-      } else if (transaction.status === 'pending') {
-        // For pending transactions, just mark as cancelled (no refund needed)
-        await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+
+        // Process refund (only travelerPayment, fee is kept)
+        if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+          try {
+            // Convert travelerPayment to USD (Payment Intent is in USD)
+            let travelerPaymentUSD: number;
+            if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+              travelerPaymentUSD = await this.stripeService.convertToUSD(
+                transaction.travelerPayment,
+                transaction.currencyCode || 'USD'
+              );
+            } else {
+              throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+            }
+
+            // Refund only the travelerPayment amount (partial refund)
+            await this.stripeService.refundPaymentIntentPartial(
+              transaction.stripePaymentIntentId,
+              travelerPaymentUSD
+            );
+
+            // Update transaction status to refunded
+            await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+          } catch (error) {
+            console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+            throw new CustomBadRequestException(
+              `Failed to process refund: ${error.message}`,
+              ErrorCode.INTERNAL_ERROR
+            );
+          }
+        } else if (transaction.status === 'pending') {
+          // For pending transactions, just mark as cancelled (no refund needed)
+          await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+        }
+      } else {
+        // If cancellation is DURING/AFTER travel date: require seller confirmation
+        // Set status to PENDING_CANCELLATION_CONFIRMATION
+        if (!pendingCancellationStatus) {
+          throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+        }
+
+        request.currentStatusId = pendingCancellationStatus.id;
+        request.currentStatus = pendingCancellationStatus;
+        request.cancellationRequestedAt = new Date();
+        await this.requestRepository.save(request);
+        await this.requestStatusHistoryService.record(requestId, pendingCancellationStatus.id);
+
+        // Send email and notification to seller requesting confirmation
+        const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+        if (ownerId) {
+          const owner = await this.userService.findOne({ id: ownerId });
+          if (owner) {
+            // Emit event for cancellation confirmation request
+            this.userEventService.emitCancellationConfirmationRequested(owner, request, ownerId);
+          }
+        }
+
+        // Clear cache and return early (don't process refund or change status to CANCELLED yet)
+        await this.clearRequestListCache();
+        return request;
       }
     }
     // Note: For rejection (owner), no refund is processed
@@ -927,6 +979,305 @@ export class RequestService {
     await this.clearRequestListCache();
 
     return request;
+  }
+
+  /**
+   * Seller confirms cancellation of a request cancelled during/after travel date
+   */
+  async confirmCancellationBySeller(requestId: number, user: UserEntity): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // Validate seller is the travel/demand owner
+    const isOwner = (request.travel && request.travel.userId === user.id) ||
+      (request.demand && request.demand.userId === user.id);
+
+    if (!isOwner) {
+      throw new CustomForbiddenException(
+        'Only the travel/demand owner can confirm cancellation',
+        ErrorCode.REQUEST_UNAUTHORIZED
+      );
+    }
+
+    // Validate request is in PENDING_CANCELLATION_CONFIRMATION status
+    const pendingCancellationStatus = await this.requestStatusService.getRequestByStatus('PENDING_CANCELLATION_CONFIRMATION');
+    if (!pendingCancellationStatus) {
+      throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    if (request.currentStatusId !== pendingCancellationStatus.id) {
+      throw new CustomBadRequestException(
+        'Request is not pending cancellation confirmation',
+        ErrorCode.REQUEST_NOT_FOUND
+      );
+    }
+
+    // Check if already confirmed or disputed
+    if (request.cancellationConfirmedAt || request.cancellationDisputedAt) {
+      throw new CustomBadRequestException(
+        'Cancellation has already been confirmed or disputed',
+        ErrorCode.REQUEST_NOT_FOUND
+      );
+    }
+
+    // Get cancelled status
+    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+    if (!cancelledStatus) {
+      throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    // Check if funds were already transferred
+    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+    let fundsAlreadyTransferred = false;
+    if (transaction && transaction.stripeTransferId) {
+      fundsAlreadyTransferred = true;
+      // Notify admin - funds were already transferred, manual intervention needed
+      this.logger.warn(
+        `Cancellation confirmed but funds already transferred for request ${requestId}. Admin intervention required.`
+      );
+      // Still proceed with cancellation confirmation, but admin will need to handle refund manually
+    }
+
+    // Process refund if funds not yet transferred
+    if (!fundsAlreadyTransferred && transaction) {
+      if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+        try {
+          let travelerPaymentUSD: number;
+          if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+            travelerPaymentUSD = await this.stripeService.convertToUSD(
+              transaction.travelerPayment,
+              transaction.currencyCode || 'USD'
+            );
+          } else {
+            throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+          }
+
+          await this.stripeService.refundPaymentIntentPartial(
+            transaction.stripePaymentIntentId,
+            travelerPaymentUSD
+          );
+
+          await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+        } catch (error) {
+          this.logger.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+          throw new CustomBadRequestException(
+            `Failed to process refund: ${error.message}`,
+            ErrorCode.INTERNAL_ERROR
+          );
+        }
+      }
+    }
+
+    // Update request status and cancellation tracking
+    request.currentStatusId = cancelledStatus.id;
+    request.currentStatus = cancelledStatus;
+    request.cancellationConfirmedAt = new Date();
+    request.cancellationConfirmedBy = user.id;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+
+    // Restore weight to travel if applicable
+    if (request.travelId) {
+      const travel = await this.travelService.findOne({ where: { id: request.travelId } });
+      if (travel) {
+        const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+        const requestWeight = Number(request.weight) || 0;
+        const newAvailableWeight = travelWeightAvailable + requestWeight;
+        travel.weightAvailable = newAvailableWeight;
+        if (travel.status === 'filled' && newAvailableWeight > 0) {
+          travel.status = 'active';
+        }
+        await this.travelService.save(travel);
+      }
+    }
+
+    // Send emails to both parties
+    const requester = await this.userService.findOne({ id: request.requesterId });
+    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+    
+    if (requester && ownerId) {
+      this.userEventService.emitCancellationConfirmed(user, request, ownerId);
+    }
+
+    // Clear cache
+    await this.clearRequestListCache();
+
+    return request;
+  }
+
+  /**
+   * Seller disputes cancellation (claims service was fulfilled)
+   */
+  async disputeCancellationBySeller(requestId: number, user: UserEntity): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    // Validate seller is the travel/demand owner
+    const isOwner = (request.travel && request.travel.userId === user.id) ||
+      (request.demand && request.demand.userId === user.id);
+
+    if (!isOwner) {
+      throw new CustomForbiddenException(
+        'Only the travel/demand owner can dispute cancellation',
+        ErrorCode.REQUEST_UNAUTHORIZED
+      );
+    }
+
+    // Validate request is in PENDING_CANCELLATION_CONFIRMATION status
+    const pendingCancellationStatus = await this.requestStatusService.getRequestByStatus('PENDING_CANCELLATION_CONFIRMATION');
+    if (!pendingCancellationStatus) {
+      throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    if (request.currentStatusId !== pendingCancellationStatus.id) {
+      throw new CustomBadRequestException(
+        'Request is not pending cancellation confirmation',
+        ErrorCode.REQUEST_NOT_FOUND
+      );
+    }
+
+    // Check if already confirmed or disputed
+    if (request.cancellationConfirmedAt || request.cancellationDisputedAt) {
+      throw new CustomBadRequestException(
+        'Cancellation has already been confirmed or disputed',
+        ErrorCode.REQUEST_NOT_FOUND
+      );
+    }
+
+    // Set dispute timestamp
+    request.cancellationDisputedAt = new Date();
+    request.cancellationConfirmedBy = user.id;
+    await this.requestRepository.save(request);
+
+    // Send email to admin with dispute details
+    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+    if (ownerId) {
+      this.userEventService.emitCancellationDisputed(user, request, ownerId);
+    }
+
+    // Send email to buyer
+    const requester = await this.userService.findOne({ id: request.requesterId });
+    if (requester && ownerId) {
+      // Emit event for buyer notification
+      const buyerEvent: RequestEvent = {
+        userId: requester.id,
+        userFirstName: requester.firstName,
+        userEmail: requester.email,
+        timestamp: new Date(),
+        requesterId: request.requesterId,
+        requesterName: `${requester.firstName} ${requester.lastName?.charAt(0) ?? ''}.`,
+        ownerId: ownerId,
+        requestId: request.id,
+        requestType: request.requestType,
+        weight: request.weight,
+        isForOwner: false,
+      };
+      this.userEventService['eventEmitter'].emit(UserEventType.CANCELLATION_DISPUTED, buyerEvent);
+    }
+
+    // Clear cache
+    await this.clearRequestListCache();
+
+    return request;
+  }
+
+  /**
+   * Auto-complete requests that haven't been completed after specified days past travel date
+   */
+  async autoCompleteRequests(): Promise<{ completed: number; errors: number }> {
+    const autoCompleteDays = this.configService.get<number>('AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE', 7);
+    const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
+    if (!acceptedStatus) {
+      this.logger.error('ACCEPTED status not found');
+      return { completed: 0, errors: 0 };
+    }
+
+    const now = new Date();
+    const cutoffDate = new Date(now);
+    cutoffDate.setDate(cutoffDate.getDate() - autoCompleteDays);
+
+    // Find requests that should be auto-completed
+    const requestsToComplete = await this.requestRepository
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.travel', 'travel')
+      .leftJoinAndSelect('request.demand', 'demand')
+      .leftJoinAndSelect('request.requester', 'requester')
+      .where('request.currentStatusId = :acceptedStatusId', { acceptedStatusId: acceptedStatus.id })
+      .andWhere(
+        '(travel.departureDatetime IS NOT NULL AND DATE(travel.departureDatetime) <= DATE(:cutoffDate)) OR ' +
+        '(demand.travelDate IS NOT NULL AND DATE(demand.travelDate) <= DATE(:cutoffDate))',
+        { cutoffDate: cutoffDate.toISOString().split('T')[0] }
+      )
+      .getMany();
+
+    let completed = 0;
+    let errors = 0;
+
+    for (const request of requestsToComplete) {
+      try {
+        const requester = await this.userService.findOne({ id: request.requesterId });
+        if (!requester) {
+          this.logger.warn(`Requester not found for request ${request.id}`);
+          errors++;
+          continue;
+        }
+
+        // Complete the request (similar to completeRequest but without user validation)
+        const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
+        if (!completedStatus) {
+          this.logger.error('COMPLETED status not found');
+          errors++;
+          continue;
+        }
+
+        // Release funds if not already released
+        const transaction = await this.transactionService.getTransactionByRequestId(request.id);
+        if (transaction && !transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
+          try {
+            // Use the same logic as completeRequest for fund release
+            const payee = request.travelId 
+              ? await this.userService.findOne({ id: request.travel.userId })
+              : (request.demandId ? await this.userService.findOne({ id: request.demand.userId }) : null);
+            
+            if (payee) {
+              await this.transactionService.releaseFundsFromStripe(transaction.id, payee);
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to release funds for transaction ${transaction.id}: ${error.message}`);
+            // Continue with completion even if fund release fails (similar to completeRequest error handling)
+            // Transaction may be marked as awaiting_transfer or awaiting_available_funds
+          }
+        }
+
+        // Update request status
+        request.currentStatusId = completedStatus.id;
+        request.currentStatus = completedStatus;
+        await this.requestRepository.save(request);
+        await this.requestStatusHistoryService.record(request.id, completedStatus.id);
+
+        // Send emails to both parties
+        const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
+        if (ownerId) {
+          const owner = await this.userService.findOne({ id: ownerId });
+          if (owner) {
+            this.userEventService.emitRequestAutoCompleted(requester, request, false, ownerId);
+            this.userEventService.emitRequestAutoCompleted(owner, request, true, ownerId);
+          }
+        }
+
+        completed++;
+      } catch (error) {
+        this.logger.error(`Failed to auto-complete request ${request.id}: ${error.message}`);
+        errors++;
+      }
+    }
+
+    this.logger.log(`Auto-completion completed: ${completed} requests completed, ${errors} errors`);
+    return { completed, errors };
   }
 
   // Helper method for travel requests

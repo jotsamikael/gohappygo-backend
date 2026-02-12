@@ -36,6 +36,10 @@ export enum UserEventType {
     REQUEST_COMPLETED = 'request.completed',
     REQUEST_CANCELLED = 'request.cancelled',
     REQUEST_REJECTED = 'request.rejected',
+    CANCELLATION_CONFIRMATION_REQUESTED = 'request.cancellation_confirmation_requested',
+    CANCELLATION_CONFIRMED = 'request.cancellation_confirmed',
+    CANCELLATION_DISPUTED = 'request.cancellation_disputed',
+    REQUEST_AUTO_COMPLETED = 'request.auto_completed',
     
     // Transaction Events
     TRANSACTION_CREATED = 'transaction.created',

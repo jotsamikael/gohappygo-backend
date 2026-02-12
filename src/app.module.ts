@@ -76,6 +76,7 @@ import { StripeWebhookEventEntity } from './stripe/entities/stripe-webhook-event
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { AlertModule } from './alert/alert.module';
 import { AlertEntity } from './alert/entities/alert.entity';
+import { RequestSchedulerModule } from './request/request-scheduler.module';
 
 @Module({
   imports: [
@@ -102,6 +103,9 @@ import { AlertEntity } from './alert/entities/alert.entity';
         STRIPE_WEBHOOK_SECRET: joi.string().optional(),
         FRONTEND_URL: joi.string().default('http://localhost:4200'),
         CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE: joi.string().valid('true', 'false').default('false'),
+        AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE: joi.number().default(7),
+        CANCELLATION_CONFIRMATION_DAYS: joi.number().default(7),
+        ADMIN_EMAIL: joi.string().email().optional()
       }),
       load: [appConfig]
     }),
@@ -223,7 +227,8 @@ import { AlertEntity } from './alert/entities/alert.entity';
       SupportModule,
       PlatformPricingModule,
       StripeModule,
-      AlertModule
+      AlertModule,
+      RequestSchedulerModule
   ],
   controllers: [AppController, UserController],
   providers: [AppService],

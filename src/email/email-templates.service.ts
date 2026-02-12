@@ -2382,4 +2382,407 @@ export class EmailTemplatesService {
       </html>
     `;
   }
+
+  /**
+   * Template for seller to confirm cancellation request
+   */
+  getCancellationConfirmationRequestTemplate(userName: string, requestData: any, isReminder: boolean = false): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const requestType = requestData.requestType || 'N/A';
+    const weight = requestData.weight != null ? `${requestData.weight}kg` : 'N/A';
+    const requesterName = requestData.requester?.firstName || requestData.requesterName || 'the requester';
+    const baseUrl = this.baseUrl;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${isReminder ? 'Reminder: ' : ''}Cancellation Confirmation Required - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .action-button { background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 5px; }
+          .danger-button { background: #f44336; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${isReminder ? '⏰ Reminder: ' : ''}Cancellation Confirmation Required</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userName},</h2>
+            ${isReminder ? '<p><strong>This is a reminder.</strong> Please respond to the cancellation request below.</p>' : ''}
+            <p>${requesterName} has requested to cancel their delivery request. Since the travel date has passed, we need your confirmation to proceed.</p>
+
+            <div class="alert-box">
+              <p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>
+            </div>
+
+            <div class="request-info">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${requestId}</p>
+              <p><strong>Type:</strong> ${requestType}</p>
+              <p><strong>Weight:</strong> ${weight}</p>
+            </div>
+
+            <p><strong>What happens next?</strong></p>
+            <ul>
+              <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
+              <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/requests/${requestId}/confirm-cancellation" class="action-button">Confirm Cancellation</a>
+              <a href="${baseUrl}/requests/${requestId}/dispute-cancellation" class="action-button danger-button">Dispute (Service Fulfilled)</a>
+            </p>
+
+            <p><em>You have ${process.env.CANCELLATION_CONFIRMATION_DAYS || 7} days to respond. If no response is received, our admin team will be notified.</em></p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template when seller confirms cancellation
+   */
+  getCancellationConfirmedTemplate(userName: string, requestData: any): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const baseUrl = this.baseUrl;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Cancellation Confirmed - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .success-box { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; }
+          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Cancellation Confirmed</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userName},</h2>
+            <p>The seller has confirmed the cancellation of your request.</p>
+
+            <div class="success-box">
+              <p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>
+            </div>
+
+            <div class="request-info">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${requestId}</p>
+            </div>
+
+            <p>You can create a new request when you're ready to try again.</p>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template when seller disputes cancellation
+   */
+  getCancellationDisputedTemplate(userName: string, requestData: any): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const baseUrl = this.baseUrl;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Cancellation Disputed - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚠️ Cancellation Disputed</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${userName},</h2>
+            <p>The seller has disputed your cancellation request, claiming that the service was fulfilled.</p>
+
+            <div class="alert-box">
+              <p><strong>Admin Review:</strong> Our admin team will review this dispute and contact you within 2-3 business days.</p>
+            </div>
+
+            <div class="request-info">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${requestId}</p>
+            </div>
+
+            <p>If you have any evidence or additional information, please contact our support team.</p>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/support" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Contact Support</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template for admin notification when seller doesn't respond to cancellation confirmation
+   */
+  getAdminCancellationPendingTemplate(adminName: string, requests: any[]): string {
+    const baseUrl = this.baseUrl;
+    const requestsList = requests.map(req => {
+      const requestId = req.id || req.requestId || 'N/A';
+      const requesterName = req.requester?.firstName || req.requesterName || 'Unknown';
+      const requestedDate = req.cancellationRequestedAt ? new Date(req.cancellationRequestedAt).toLocaleDateString() : 'N/A';
+      return `<li>Request #${requestId} - Requester: ${requesterName} - Requested: ${requestedDate}</li>`;
+    }).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Admin Alert: Pending Cancellation Confirmations - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #f44336; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-box { background: #ffebee; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f44336; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🚨 Admin Alert: Pending Cancellation Confirmations</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${adminName},</h2>
+            <p>There are <strong>${requests.length}</strong> cancellation confirmation request(s) that have passed the deadline without seller response.</p>
+
+            <div class="alert-box">
+              <p><strong>Action Required:</strong> Please review these requests and take appropriate action.</p>
+            </div>
+
+            <h3>Pending Requests:</h3>
+            <ul>
+              ${requestsList}
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/admin/requests/pending-cancellations" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Review Requests</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template for admin notification when seller disputes cancellation
+   */
+  getAdminCancellationDisputedTemplate(adminName: string, requestData: any): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const requesterName = requestData.requester?.firstName || requestData.requesterName || 'Unknown';
+    const sellerName = requestData.travel?.user?.firstName || requestData.demand?.user?.firstName || 'Unknown';
+    const baseUrl = this.baseUrl;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Admin Alert: Cancellation Disputed - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚠️ Cancellation Disputed - Admin Review Required</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${adminName},</h2>
+            <p>A seller has disputed a cancellation request, claiming the service was fulfilled.</p>
+
+            <div class="alert-box">
+              <p><strong>Review Required:</strong> Please investigate this dispute and make a decision.</p>
+            </div>
+
+            <div class="request-info">
+              <h3>Request Details:</h3>
+              <p><strong>Request ID:</strong> #${requestId}</p>
+              <p><strong>Requester:</strong> ${requesterName}</p>
+              <p><strong>Seller:</strong> ${sellerName}</p>
+            </div>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/admin/requests/${requestId}" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Review Request</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2024 GoHappyGo. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Template when request is auto-completed
+   */
+  getAutoCompletionNotificationTemplate(userName: string, requestData: any, isForOwner: boolean): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const requestType = requestData.requestType || 'N/A';
+    const weight = requestData.weight != null ? `${requestData.weight}kg` : 'N/A';
+    const baseUrl = this.baseUrl;
+
+    if (isForOwner) {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Request Auto-Completed - GoHappyGo</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f9f9f9; }
+            .success-box { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; }
+            .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Request Auto-Completed</h1>
+            </div>
+            <div class="content">
+              <h2>Hello ${userName},</h2>
+              <p>The request has been automatically completed by the system.</p>
+
+              <div class="success-box">
+                <p><strong>Funds Released:</strong> Payment has been released to your Stripe Connect account.</p>
+              </div>
+
+              <div class="request-info">
+                <h3>Request Details:</h3>
+                <p><strong>Request ID:</strong> #${requestId}</p>
+                <p><strong>Type:</strong> ${requestType}</p>
+                <p><strong>Weight:</strong> ${weight}</p>
+              </div>
+
+              <p><em>The request was auto-completed because the buyer did not complete it within ${process.env.AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE || 7} days after the travel date.</em></p>
+            </div>
+            <div class="footer">
+              <p>© 2024 GoHappyGo. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Request Auto-Completed - GoHappyGo</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f9f9f9; }
+            .info-box { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .request-info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Request Auto-Completed</h1>
+            </div>
+            <div class="content">
+              <h2>Hello ${userName},</h2>
+              <p>Your request has been automatically completed by the system.</p>
+
+              <div class="info-box">
+                <p><strong>Note:</strong> Since you did not complete the request within ${process.env.AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE || 7} days after the travel date, the system has automatically marked it as completed.</p>
+              </div>
+
+              <div class="request-info">
+                <h3>Request Details:</h3>
+                <p><strong>Request ID:</strong> #${requestId}</p>
+                <p><strong>Type:</strong> ${requestType}</p>
+                <p><strong>Weight:</strong> ${weight}</p>
+              </div>
+
+              <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>
+            </div>
+            <div class="footer">
+              <p>© 2024 GoHappyGo. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    }
+  }
 } 

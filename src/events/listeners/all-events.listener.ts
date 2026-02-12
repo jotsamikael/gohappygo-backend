@@ -219,4 +219,67 @@ export class AllEventsListener {
       html,
     });
   }
+
+  @OnEvent(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED)
+  async handleCancellationConfirmationRequested(event: RequestEvent): Promise<void> {
+    this.logger.log(`Cancellation confirmation requested - Request ID: ${event.requestId}`);
+    // Send email to seller (isForOwner=true means this is for the owner/seller)
+    if (event.isForOwner) {
+      await this.emailService.sendCancellationConfirmationRequest(event.userEmail, event.userFirstName, event);
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
+  async handleCancellationConfirmed(event: RequestEvent): Promise<void> {
+    this.logger.log(`Cancellation confirmed - Request ID: ${event.requestId}`);
+    // Send email to buyer (isForOwner=false means this is for the requester/buyer)
+    if (!event.isForOwner) {
+      await this.emailService.sendCancellationConfirmed(event.userEmail, event.userFirstName, event);
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_DISPUTED)
+  async handleCancellationDisputed(event: RequestEvent): Promise<void> {
+    this.logger.log(`Cancellation disputed - Request ID: ${event.requestId}`);
+    // Send email to buyer
+    if (!event.isForOwner) {
+      await this.emailService.sendCancellationDisputed(event.userEmail, event.userFirstName, event);
+    }
+    
+    // Send email to admin (need to get admin users)
+    try {
+      const adminUsers = await this.getAdminUsers();
+      for (const admin of adminUsers) {
+        await this.emailService.sendAdminCancellationDisputed(admin.email, admin.firstName, event);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send admin notification for disputed cancellation: ${error.message}`);
+    }
+  }
+
+  @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)
+  async handleRequestAutoCompleted(event: RequestEvent): Promise<void> {
+    this.logger.log(`Request auto-completed - Request ID: ${event.requestId}`);
+    // Send email to both parties
+    await this.emailService.sendAutoCompletionNotification(
+      event.userEmail,
+      event.userFirstName,
+      event,
+      event.isForOwner
+    );
+  }
+
+  /**
+   * Helper method to get admin users
+   */
+  private async getAdminUsers(): Promise<any[]> {
+    try {
+      // This is a simplified version - in production, inject UserService or RoleService
+      // For now, we'll use a basic approach
+      return [];
+    } catch (error) {
+      this.logger.error(`Error fetching admin users: ${error.message}`);
+      return [];
+    }
+  }
 } 

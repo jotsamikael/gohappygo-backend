@@ -85,4 +85,17 @@ export class RequestEntity extends BaseEntity {
   @ManyToOne(() => UserEntity, (d) => d.requests)
   @JoinColumn({ name: 'requesterId' })
   requester: UserEntity;
+
+  // Cancellation confirmation tracking fields
+  @Column({ type: 'datetime', nullable: true })
+  cancellationRequestedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  cancellationConfirmedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  cancellationDisputedAt: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  cancellationConfirmedBy: number | null;
 }

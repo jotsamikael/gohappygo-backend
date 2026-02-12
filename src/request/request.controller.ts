@@ -113,7 +113,7 @@ export class RequestController {
   @ApiOperation({ 
     summary: 'Cancel or reject a request',
     description: 'Cancel or reject a request based on the connected user:\n' +
-      '- If the requester calls this endpoint: Cancels the request, processes refund (travelerPayment only, fee is kept), and sets status to CANCELLED.\n' +
+      '- If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.\n' +
       '- If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.\n' +
       'Only non-completed requests can be cancelled/rejected. Both parties will receive email notifications.'
   })
@@ -132,5 +132,51 @@ export class RequestController {
     const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([cancelledRequest.id], user.id);
     const unreadCount = unreadCountsMap.get(cancelledRequest.id) || 0;
     return this.requestService.transformRequestToResponse(cancelledRequest, unreadCount, user);
+  }
+
+  @Post(':id/confirm-cancellation')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Seller confirms cancellation',
+    description: 'Seller confirms that a cancellation request is valid (service was not fulfilled). Processes refund to buyer (minus platform fee) and marks request as CANCELLED.'
+  })
+  @ApiParam({ name: 'id', description: 'Request ID to confirm cancellation for' })
+  @ApiResponse({ status: 200, description: 'Cancellation confirmed successfully', type: RequestResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request - request is not pending cancellation confirmation or already confirmed/disputed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only the travel/demand owner can confirm cancellation' })
+  @ApiResponse({ status: 404, description: 'Request not found' })
+  async confirmCancellation(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: UserEntity
+  ): Promise<RequestResponseDto> {
+    const confirmedRequest = await this.requestService.confirmCancellationBySeller(id, user);
+    const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([confirmedRequest.id], user.id);
+    const unreadCount = unreadCountsMap.get(confirmedRequest.id) || 0;
+    return this.requestService.transformRequestToResponse(confirmedRequest, unreadCount, user);
+  }
+
+  @Post(':id/dispute-cancellation')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Seller disputes cancellation',
+    description: 'Seller disputes a cancellation request, claiming the service was fulfilled. Admin team will review the dispute.'
+  })
+  @ApiParam({ name: 'id', description: 'Request ID to dispute cancellation for' })
+  @ApiResponse({ status: 200, description: 'Cancellation disputed successfully', type: RequestResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request - request is not pending cancellation confirmation or already confirmed/disputed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only the travel/demand owner can dispute cancellation' })
+  @ApiResponse({ status: 404, description: 'Request not found' })
+  async disputeCancellation(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: UserEntity
+  ): Promise<RequestResponseDto> {
+    const disputedRequest = await this.requestService.disputeCancellationBySeller(id, user);
+    const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([disputedRequest.id], user.id);
+    const unreadCount = unreadCountsMap.get(disputedRequest.id) || 0;
+    return this.requestService.transformRequestToResponse(disputedRequest, unreadCount, user);
   }
 }

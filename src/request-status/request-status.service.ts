@@ -61,6 +61,11 @@ constructor(@InjectRepository(RequestStatusEntity) private requestStatusReposito
         status: 'EXPIRED',
         comment: 'After travel is published and the user is waiting for a traveler to accept the request and the request is not accepted within the time limit',
       },
+      {
+        label: 'Pending Cancellation Confirmation',
+        status: 'PENDING_CANCELLATION_CONFIRMATION',
+        comment: 'Request cancelled by buyer during/after travel date, awaiting seller confirmation',
+      },
     ];
 
     for (const requestStatus of defaultRequestatus) {

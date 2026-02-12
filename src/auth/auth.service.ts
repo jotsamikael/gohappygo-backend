@@ -1088,4 +1088,34 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
     const files = await this.fileUploadService.getUserVerificationFiles(userId);
     return files.length >= 3; // SELFIE, ID_FRONT, ID_BACK
   }
+
+  /**
+   * Get Stripe requirements for the current user
+   * Returns null if there are no requirements or if user doesn't have a Stripe account
+   */
+  async getStripeRequirements(userId: number): Promise<{
+    hasRequirements: boolean;
+    currentlyDue: string[];
+    pastDue: string[];
+    eventuallyDue: string[];
+  } | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new CustomNotFoundException('User not found', ErrorCode.USER_NOT_FOUND);
+    }
+
+    if (!user.stripeAccountId) {
+      return null;
+    }
+
+    try {
+      return await this.stripeService.getAccountRequirements(user.stripeAccountId);
+    } catch (error) {
+      this.logger.warn(`Failed to retrieve Stripe requirements for user ${userId}: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
 }

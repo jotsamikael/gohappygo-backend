@@ -25,6 +25,7 @@ import { ResendEmailVerificationDto } from './dto/resendEmailVerificationDto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { StripeRequirementsResponseDto } from 'src/stripe/dto/stripe-requirements-response.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -296,6 +297,27 @@ async uploadVerificationDocuments(
     const isViewingOtherUser = userId !== undefined && (user === null || userId !== user.id);
     
     return this.authService.getUserProfileWithStats(targetUserId, isViewingOtherUser);
+  }
+
+  @Get('check-stripe-requirement')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Check Stripe account requirements for current user',
+    description: 'Get Stripe account requirements (currently_due and past_due) for the authenticated user. Returns null if there are no requirements or if the user does not have a Stripe account.'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Stripe requirements retrieved successfully',
+    type: StripeRequirementsResponseDto,
+    isArray: false
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async checkStripeRequirement(
+    @CurrentUser() user: UserEntity
+  ): Promise<StripeRequirementsResponseDto | null> {
+    return this.authService.getStripeRequirements(user.id);
   }
 
   @Get('admin/verification-files/:userId')

@@ -341,5 +341,59 @@ export class EmailService {
       html,
     });
   }
+
+  async sendCancellationConfirmationRequest(userEmail: string, userFirstName: string, requestData: any, isReminder: boolean = false): Promise<boolean> {
+    const html = this.emailTemplatesService.getCancellationConfirmationRequestTemplate(userFirstName, requestData, isReminder);
+    return this.sendEmail({
+      to: userEmail,
+      subject: isReminder ? 'Reminder: Cancellation Confirmation Required - GoHappyGo' : 'Cancellation Confirmation Required - GoHappyGo',
+      html,
+    });
+  }
+
+  async sendCancellationConfirmed(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
+    const html = this.emailTemplatesService.getCancellationConfirmedTemplate(userFirstName, requestData);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Cancellation Confirmed - GoHappyGo',
+      html,
+    });
+  }
+
+  async sendCancellationDisputed(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
+    const html = this.emailTemplatesService.getCancellationDisputedTemplate(userFirstName, requestData);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Cancellation Disputed - GoHappyGo',
+      html,
+    });
+  }
+
+  async sendAdminCancellationPending(adminEmail: string, adminFirstName: string, requests: any[]): Promise<boolean> {
+    const html = this.emailTemplatesService.getAdminCancellationPendingTemplate(adminFirstName, requests);
+    return this.sendEmail({
+      to: adminEmail,
+      subject: `Admin Alert: ${requests.length} Pending Cancellation Confirmation(s) - GoHappyGo`,
+      html,
+    });
+  }
+
+  async sendAdminCancellationDisputed(adminEmail: string, adminFirstName: string, requestData: any): Promise<boolean> {
+    const html = this.emailTemplatesService.getAdminCancellationDisputedTemplate(adminFirstName, requestData);
+    return this.sendEmail({
+      to: adminEmail,
+      subject: 'Admin Alert: Cancellation Disputed - GoHappyGo',
+      html,
+    });
+  }
+
+  async sendAutoCompletionNotification(userEmail: string, userFirstName: string, requestData: any, isForOwner: boolean): Promise<boolean> {
+    const html = this.emailTemplatesService.getAutoCompletionNotificationTemplate(userFirstName, requestData, isForOwner);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Request Auto-Completed - GoHappyGo',
+      html,
+    });
+  }
  
 }
