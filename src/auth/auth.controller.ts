@@ -26,6 +26,8 @@ import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { StripeRequirementsResponseDto } from 'src/stripe/dto/stripe-requirements-response.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -356,6 +358,70 @@ async getUserVerificationFiles(@Param('userId') userId: number): Promise<any> {
     return this.authService.verifyUserAccount(idUser, verifyUserAccountDto, admin);
   }
 
+  @Post('forgot-password')
+  @ApiOperation({ 
+    summary: 'Request password reset',
+    description: 'Send a password reset link to the provided email address if it exists. Always returns success for security reasons.'
+  })
+  @ApiBody({
+    type: ForgotPasswordDto,
+    description: 'User email address',
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'If the email exists, a password reset link has been sent',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { 
+          type: 'string', 
+          example: 'If the email exists, a password reset link has been sent to your email address.' 
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid email format' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ 
+    summary: 'Reset password with reset code',
+    description: 'Reset user password using the reset code from the email link. The code should be provided as a query parameter.'
+  })
+  @ApiQuery({
+    name: 'code',
+    required: true,
+    type: String,
+    description: 'Password reset code from email link',
+    example: '123456'
+  })
+  @ApiBody({
+    type: ResetPasswordDto,
+    description: 'New password',
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Password reset successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { 
+          type: 'string', 
+          example: 'Password has been reset successfully' 
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid or expired reset code' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async resetPassword(
+    @Query('code') code: string,
+    @Body() resetPasswordDto: ResetPasswordDto
+  ) {
+    return this.authService.resetPassword(code, resetPasswordDto);
+  }
   
 
   @Post('refresh-token')

@@ -49,6 +49,9 @@ import { StripeService } from 'src/stripe/stripe.service';
 import { Logger } from '@nestjs/common';
 import { CommonService } from 'src/common/service/common.service';
 import { MessageService } from 'src/message/message.service';
+import { PasswordResetService } from 'src/password-reset/password-reset.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -83,6 +86,7 @@ export class AuthService {
     private userAccountVerificationService: UserVerificationAuditService,
     private emailVerificationService: EmailVerificationService,
     private phoneVerificationService: PhoneVerificationService,
+    private passwordResetService: PasswordResetService,
     private smsService: SmsService,
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
@@ -146,7 +150,7 @@ export class AuthService {
       roleId: userRole?.id,
       isEmailVerified: false,
       isPhoneVerified: false,
-      isVerified: true, //for test purposes while awaiting KYC implementation
+      isVerified: false, //set for test purposes while awaiting KYC implementation
       stripeCountryCode: registerDto.countryCode, // Store country code for Stripe Connect
     });
 
@@ -1001,6 +1005,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       profilePictureUrl: user.profilePictureUrl || null,
       bio: user.bio || null,
       isPhoneVerified: user.isPhoneVerified,
+      isEmailVerified: user.isEmailVerified,
       isVerified: user.isVerified,
       isAwaitingVerification,
       recentCurrency,
@@ -1117,5 +1122,76 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       this.logger.warn(`Failed to retrieve Stripe requirements for user ${userId}: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
+  }
+
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    // Find user by email (don't reveal if email exists for security)
+    const user = await this.userService.findByField('email', forgotPasswordDto.email);
+    
+    // If user exists, process password reset
+    if (user) {
+      // Generate 6-digit reset code
+      const resetCode = this.generate6DigitCode().toString();
+      
+      // Invalidate previous reset codes for this user
+      await this.passwordResetService.invalidatePreviousCodes(user.id);
+      
+      // Save new reset code with expiration (10 minutes)
+      await this.passwordResetService.recordPasswordReset(user, resetCode);
+      
+      // Send password reset email with full reset link
+      await this.sendPasswordResetEmail(user, resetCode);
+    }
+    
+    // Always return success message (don't reveal if email exists)
+    return {
+      message: 'If the email exists, a password reset link has been sent to your email address.',
+    };
+  }
+
+  async resetPassword(code: string, resetPasswordDto: ResetPasswordDto) {
+    // Find reset code (getResetCodeByCode already filters: not expired, not used)
+    const reset = await this.passwordResetService.getResetCodeByCode(code);
+    
+    if (!reset) {
+      throw new CustomBadRequestException(
+        'Invalid, expired, or already used reset code',
+        ErrorCode.AUTH_INVALID_CREDENTIALS,
+      );
+    }
+    
+    // Get user from reset record
+    const user = reset.user;
+    if (!user) {
+      throw new CustomNotFoundException(
+        'User not found',
+        ErrorCode.USER_NOT_FOUND,
+      );
+    }
+    
+    // Hash new password
+    const hashedPassword = await this.hashPassword(resetPasswordDto.password);
+    
+    // Update user password
+    user.password = hashedPassword;
+    await this.userService.save(user);
+    
+    // Mark reset code as used
+    await this.passwordResetService.markAsUsed(reset);
+    
+    this.logger.log(`Password reset successful for user ${user.id} (${user.email})`);
+    
+    return {
+      message: 'Password has been reset successfully',
+    };
+  }
+  private async sendPasswordResetEmail(user: UserEntity, resetCode: string) {
+    const emailTemplate = this.emailTemplatesService.getPasswordResetTemplate(user.firstName, resetCode);
+    await this.emailService.sendEmail({
+      to: user.email,
+      subject: 'Password Reset - GoHappyGo',
+      html: emailTemplate
+    });
   }
 }

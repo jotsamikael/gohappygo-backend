@@ -398,44 +398,45 @@ export class RequestService {
       }
     }
 
-    // 8. Update request status to ACCEPTED
-    request.currentStatusId = acceptedStatus.id;
-    request.currentStatus = acceptedStatus;
-    const savedRequest = await this.requestRepository.save(request);
-
-    // 9. Add status history record
-    await this.requestStatusHistoryService.record(requestId, acceptedStatus.id);
-
-    // 10. Handle business logic based on request type (only if payment validated or no payment required)
-    if (request.travelId) {
-      // Request was addressed to a travel - update travel weight
-      await this.handleTravelRequestAcceptance(request);
-    } else if (request.demandId) {
-      // Request was addressed to a demand - update demand status
-      await this.handleDemandRequestAcceptance(request);
-    }
-
-    // 11. Create transaction automatically
-    // Calculate transaction amount using Platform Pricing Service
+    // 8–11. Update status, record history, and create transaction in a single DB transaction
+    // so we never have ACCEPTED without a corresponding transaction
     const travelerPayment = (request.weight || 0) * Number(pricePerKg);
     const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
     const transactionAmount = pricing.totalAmount;
 
-    // Reload request with currency relations for Stripe conversion (include currentStatus to verify it was saved)
-    const requestWithCurrency = await this.requestRepository.findOne({
-      where: { id: requestId },
-      relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
+    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      // 8. Update request status to ACCEPTED
+      request.currentStatusId = acceptedStatus.id;
+      request.currentStatus = acceptedStatus;
+      await transactionalEntityManager.save(RequestEntity, request);
+
+      // 9. Add status history record (same transaction)
+      await this.requestStatusHistoryService.record(requestId, acceptedStatus.id, transactionalEntityManager);
+
+      // 10. Reload request with currency relations for Stripe conversion
+      const requestWithCurrency = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        relations: ['travel', 'travel.user', 'travel.currency', 'demand', 'demand.user', 'demand.currency', 'currentStatus']
+      });
+
+      // 11. Create transaction (same transaction; rollback if this fails)
+      await this.transactionService.createTransactionFromRequest(
+        requestWithCurrency!,
+        transactionAmount,
+        validatedPaymentIntentId ? undefined : request.paymentMethodId || undefined,
+        transactionalEntityManager,
+        validatedPaymentIntentId
+      );
     });
 
-    await this.transactionService.createTransactionFromRequest(
-      requestWithCurrency!,
-      transactionAmount,
-      validatedPaymentIntentId ? undefined : request.paymentMethodId || undefined, // Don't create new Payment Intent if already validated
-      undefined, // No transactionalEntityManager needed here
-      validatedPaymentIntentId // Pass validated Payment Intent ID
-    );
+    // 12. Handle business logic based on request type (after transaction succeeds)
+    if (request.travelId) {
+      await this.handleTravelRequestAcceptance(request);
+    } else if (request.demandId) {
+      await this.handleDemandRequestAcceptance(request);
+    }
 
-    // 12. Clear cache for affected users (requester and travel/demand owner)
+    // 13. Clear cache for affected users (requester and travel/demand owner)
     const affectedUserIds = [request.requesterId];
     if (request.travel) {
       affectedUserIds.push(request.travel.userId);
@@ -830,45 +831,48 @@ export class RequestService {
         isBeforeTravelDate = currentDateOnly < travelDate;
       }
 
-      // If cancellation is BEFORE travel date: immediate cancellation with refund
+      // If cancellation is BEFORE travel date: immediate cancellation with refund (if transaction exists)
       if (isBeforeTravelDate) {
         const transaction = await this.transactionService.getTransactionByRequestId(requestId);
         if (!transaction) {
-          throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
-        }
+          // Request accepted but no transaction (e.g. legacy/orphan). Allow cancellation without refund.
+          this.logger.warn(
+            `Cancelling request ${requestId} with no corresponding transaction (accepted-without-transaction case).`
+          );
+        } else {
+          // Process refund (only travelerPayment, fee is kept)
+          if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+            try {
+              // Convert travelerPayment to USD (Payment Intent is in USD)
+              let travelerPaymentUSD: number;
+              if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+                travelerPaymentUSD = await this.stripeService.convertToUSD(
+                  transaction.travelerPayment,
+                  transaction.currencyCode || 'USD'
+                );
+              } else {
+                throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+              }
 
-        // Process refund (only travelerPayment, fee is kept)
-        if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-          try {
-            // Convert travelerPayment to USD (Payment Intent is in USD)
-            let travelerPaymentUSD: number;
-            if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-              travelerPaymentUSD = await this.stripeService.convertToUSD(
-                transaction.travelerPayment,
-                transaction.currencyCode || 'USD'
+              // Refund only the travelerPayment amount (partial refund)
+              await this.stripeService.refundPaymentIntentPartial(
+                transaction.stripePaymentIntentId,
+                travelerPaymentUSD
               );
-            } else {
-              throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
+
+              // Update transaction status to refunded
+              await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+            } catch (error) {
+              console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+              throw new CustomBadRequestException(
+                `Failed to process refund: ${error.message}`,
+                ErrorCode.INTERNAL_ERROR
+              );
             }
-
-            // Refund only the travelerPayment amount (partial refund)
-            await this.stripeService.refundPaymentIntentPartial(
-              transaction.stripePaymentIntentId,
-              travelerPaymentUSD
-            );
-
-            // Update transaction status to refunded
-            await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-          } catch (error) {
-            console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-            throw new CustomBadRequestException(
-              `Failed to process refund: ${error.message}`,
-              ErrorCode.INTERNAL_ERROR
-            );
+          } else if (transaction.status === 'pending') {
+            // For pending transactions, just mark as cancelled (no refund needed)
+            await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
           }
-        } else if (transaction.status === 'pending') {
-          // For pending transactions, just mark as cancelled (no refund needed)
-          await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
         }
       } else {
         // If cancellation is DURING/AFTER travel date: require seller confirmation

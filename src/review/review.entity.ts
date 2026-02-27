@@ -22,7 +22,7 @@ export class ReviewEntity extends BaseEntity{
   @Column('decimal', { precision: 2, scale: 1 })
   rating: number; // 1.0 to 5.0 (allows half stars: 1.0, 1.5, 2.0, 2.5, etc.)
 
-  @Column({ type: 'text', nullable: true })
+  @Column({nullable: true })
   comment: string;
 
   @ManyToOne(() => UserEntity, (user) => user.id)

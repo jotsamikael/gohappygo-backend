@@ -98,6 +98,10 @@ export class UserProfileResponseDto {
     @Expose()
     isPhoneVerified: boolean;
 
+    @ApiProperty({ example: true, description: 'Whether the user\'s email address has been verified' })
+    @Expose()
+    isEmailVerified: boolean;
+
     @ApiProperty({ example: true })
     @Expose()
     isVerified: boolean;

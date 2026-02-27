@@ -32,6 +32,7 @@ import { DemandModule } from 'src/demand/demand.module';
 import { TravelModule } from 'src/travel/travel.module';
 import { StripeModule } from 'src/stripe/stripe.module';
 import { MessageModule } from 'src/message/message.module';
+import { PasswordResetModule } from 'src/password-reset/password-reset.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { MessageModule } from 'src/message/message.module';
     DemandModule,
     EmailVerificationModule,
     PhoneVerificationModule,
+    PasswordResetModule,
     RoleModule,
     FileUploadModule,
     UserVerificationAuditModule,

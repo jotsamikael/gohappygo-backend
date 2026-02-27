@@ -28,7 +28,7 @@ export class CreateReviewDto{
     description: 'Comment',
     example: 'This is a comment',
     minLength: 1,
-    maxLength: 2500
+    maxLength: 250
   })
   @IsOptional()
   comment: string;
