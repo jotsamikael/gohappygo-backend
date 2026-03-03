@@ -1,5 +1,8 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { DeepPartial } from 'typeorm';
 import { FirebaseConfig } from './firebase.config';
 import { UserEntity } from '../user/user.entity';
 import { Repository } from 'typeorm';
@@ -68,25 +71,31 @@ export class FirebaseAuthService {
       
       await this.usersRepository.save(user);
     } else {
-      // Create new user
-      user = this.usersRepository.create({
+      // Create new user (social sign-in - Google/Facebook)
+      // Phone: use unique placeholder until user completes registration (phone has unique constraint)
+      // Password: store random bcrypt hash (social users never log in with password)
+      // stripeCountryCode: null - set when user completes auth/complete-registration
+      const passwordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const newUserData: DeepPartial<UserEntity> = {
         firebaseUid: firebaseUser.uid,
         email: firebaseUser.email,
         isEmailVerified: firebaseUser.emailVerified,
-        //profilePictureUrl: firebaseUser.photoURL,
+        profilePictureUrl: firebaseUser.photoURL || undefined,
         firstName: firebaseUser.displayName?.split(' ')[0] || 'User',
         lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
-        username: firebaseUser.email.split('@')[0],
-        phone: '', // Will be filled later
-        password: '', // Not needed for Firebase auth
-        roleId: 1, // Default role
+        username: firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.slice(0, 8)}`,
+        phone: `social_${firebaseUser.uid}`,
+        password: passwordPlaceholder,
+        roleId: 1,
         kycStatus: 'uninitiated',
         kycProvider: null,
         kycReference: null,
         kycUpdatedAt: null,
         isVerified: false,
         isPhoneVerified: false,
-      });
+        stripeCountryCode: undefined,
+      };
+      user = this.usersRepository.create(newUserData);
 
       await this.usersRepository.save(user);
     }

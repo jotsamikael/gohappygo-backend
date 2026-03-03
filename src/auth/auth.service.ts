@@ -9,7 +9,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterWithEmailDto } from './dto/register-with-email.dto';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { UserEventsService } from 'src/events/user-events.service';
@@ -52,6 +54,8 @@ import { MessageService } from 'src/message/message.service';
 import { PasswordResetService } from 'src/password-reset/password-reset.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { FirebaseAuthService } from 'src/firebase/firebase-auth.service';
+import { CompleteSocialRegistrationDto } from './dto/complete-social-registration.dto';
 
 @Injectable()
 export class AuthService {
@@ -93,6 +97,7 @@ export class AuthService {
     private stripeService: StripeService,
     private commonService: CommonService,
     private messageService: MessageService,
+    private firebaseAuthService: FirebaseAuthService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -186,6 +191,98 @@ export class AuthService {
     };
   }
 
+  /**
+   * Register with email only (unified two-step flow).
+   * Creates user with placeholder phone, no Stripe account.
+   * Returns JWT + needsRegistrationCompletion: true.
+   * User completes profile via POST /auth/complete-registration.
+   */
+  async registerWithEmail(dto: RegisterWithEmailDto) {
+    const userRole = await this.roleService.getUserRoleIdByCode('USER');
+
+    const existingEmailUser = await this.userService.findByField('email', dto.email, true);
+    if (existingEmailUser?.deletedAt) {
+      await this.userService.restoreUserAccount(existingEmailUser.id);
+      const tokens = this.generateToken(existingEmailUser);
+      const { password, ...result } = existingEmailUser;
+      const needsRegistrationCompletion = !existingEmailUser.stripeAccountId;
+      return { user: result, ...tokens, needsRegistrationCompletion };
+    }
+    if (existingEmailUser) {
+      throw new CustomConflictException('Email is already in use.', ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS);
+    }
+
+    const hashedPassword = await this.hashPassword(dto.password);
+    const placeholderPhone = `email_${crypto.randomUUID()}`;
+    const newUser = this.usersRepository.create({
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName ?? '',
+      phone: placeholderPhone,
+      password: hashedPassword,
+      bio: 'I am a Happy traveler',
+      profilePictureUrl: 'https://res.cloudinary.com/dgdy4huuc/image/upload/v1760627196/gohappygo/profile-preview_sjwdus.png',
+      roleId: userRole?.id ?? 1,
+      isEmailVerified: false,
+      isPhoneVerified: false,
+      isVerified: false,
+      stripeCountryCode: undefined,
+    });
+
+    const savedUser = await this.usersRepository.save(newUser) as UserEntity;
+
+    // Send email verification (non-blocking for unified flow)
+    const emailVerificationCode = this.generate6DigitCode();
+    await this.emailVerificationService.recordEmailVerification(savedUser, emailVerificationCode.toString());
+    await this.sendEmailVerification(savedUser, emailVerificationCode.toString());
+
+    const userWithRole = await this.usersRepository.findOne({
+      where: { id: savedUser.id },
+      relations: ['role'],
+    });
+    if (!userWithRole) {
+      throw new CustomNotFoundException('User not found', ErrorCode.USER_NOT_FOUND);
+    }
+
+    const tokens = this.generateToken(userWithRole);
+    const { password, ...result } = userWithRole;
+
+    let recentCurrency: CurrencyResponseDto | null = null;
+    if (userWithRole.role?.code === UserRole.USER) {
+      const currencyData = await this.getMostRecentCurrencyForUser(userWithRole.id);
+      if (currencyData) {
+        const currency = await this.currencyService.findOne(currencyData.id);
+        if (currency) {
+          recentCurrency = { id: currency.id, name: currency.name, symbol: currency.symbol, code: currency.code };
+        }
+      }
+    }
+
+    const profileStats: ProfileStatsResponseDto = {
+      demandsCount: 0,
+      travelsCount: 0,
+      bookMarkTravelCount: 0,
+      bookMarkDemandCount: 0,
+      requestsCompletedCount: 0,
+      requestsNegotiatingCount: 0,
+      requestsCancelledCount: 0,
+      requestsAcceptedCount: 0,
+      requestsRejectedCount: 0,
+      reviewsReceivedCount: 0,
+      reviewsGivenCount: 0,
+      transactionsCompletedCount: 0,
+      unreadMessageCount: 0,
+    };
+
+    const needsRegistrationCompletion = !userWithRole.stripeAccountId;
+
+    return {
+      user: { ...result, recentCurrency, profileStats },
+      ...tokens,
+      needsRegistrationCompletion,
+    };
+  }
+
   async verifyEmail(verifyEmailDto: VerifyEmailDto) {
     const user = await this.userService.findByField('email', verifyEmailDto.email);
     
@@ -196,11 +293,11 @@ export class AuthService {
     const latestVerification = await this.emailVerificationService.getLatestValidEmailVerificationCode(user);
     
     if (!latestVerification) {
-      throw new CustomBadRequestException('No valid email verification code found', ErrorCode.FAILED_TO_UPLOAD_FILES);
+      throw new CustomBadRequestException('No valid email verification code found', ErrorCode.AUTH_INVALID_VERIFICATION_CODE);
     }
 
     if (latestVerification.code !== verifyEmailDto.verificationCode) {
-      throw new CustomBadRequestException('Invalid email verification code', ErrorCode.FAILED_TO_UPLOAD_FILES);
+      throw new CustomBadRequestException('Invalid email verification code', ErrorCode.AUTH_INVALID_EMAIL_VERIFICATION_CODE);
     }
 
     // Mark email as verified
@@ -572,6 +669,155 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         profileStats,
       },
       ...tokens,
+    };
+  }
+
+  /**
+   * Social sign-in (Google/Facebook) - both use Firebase idToken
+   */
+  async socialSignIn(idToken: string) {
+    const firebaseUser = await this.firebaseAuthService.verifyIdToken(idToken);
+    const user = await this.firebaseAuthService.createOrUpdateUser(firebaseUser);
+
+    // Reload user with role for full response
+    const userWithRole = await this.usersRepository.findOne({
+      where: { id: user.id },
+      relations: ['role'],
+    });
+    if (!userWithRole) {
+      throw new CustomNotFoundException('User not found', ErrorCode.USER_NOT_FOUND);
+    }
+
+    const tokens = this.generateToken(userWithRole);
+    const { password, ...result } = userWithRole;
+
+    // Get recent currency (only for USER role)
+    let recentCurrency: CurrencyResponseDto | null = null;
+    if (userWithRole.role?.code === UserRole.USER) {
+      const currencyData = await this.getMostRecentCurrencyForUser(userWithRole.id);
+      if (currencyData) {
+        const currency = await this.currencyService.findOne(currencyData.id);
+        if (currency) {
+          recentCurrency = {
+            id: currency.id,
+            name: currency.name,
+            symbol: currency.symbol,
+            code: currency.code,
+          };
+        }
+      }
+    }
+
+    // Get profile stats (only for USER role)
+    let profileStats: ProfileStatsResponseDto;
+    if (userWithRole.role?.code === UserRole.USER) {
+      const [
+        demandsCount,
+        travelsCount,
+        bookmarkStats,
+        requestStatusCounts,
+        reviewsReceivedCount,
+        reviewsGivenCount,
+        transactionsCompletedCount,
+      ] = await Promise.all([
+        this.demandRepository.count({ where: { userId: userWithRole.id } }),
+        this.travelRepository.count({ where: { userId: userWithRole.id } }),
+        this.getBookmarkCounts(userWithRole.id),
+        this.getRequestStatusCounts(userWithRole.id),
+        this.getReviewsReceivedCount(userWithRole.id),
+        this.getReviewsGivenCount(userWithRole.id),
+        this.getCompletedTransactionsCount(userWithRole.id),
+      ]);
+      profileStats = {
+        demandsCount,
+        travelsCount,
+        bookMarkTravelCount: bookmarkStats.travelBookmarks,
+        bookMarkDemandCount: bookmarkStats.demandBookmarks,
+        requestsCompletedCount: requestStatusCounts.completed,
+        requestsNegotiatingCount: requestStatusCounts.negotiating,
+        requestsCancelledCount: requestStatusCounts.cancelled,
+        requestsAcceptedCount: requestStatusCounts.accepted,
+        requestsRejectedCount: requestStatusCounts.rejected,
+        reviewsReceivedCount,
+        reviewsGivenCount,
+        transactionsCompletedCount,
+        unreadMessageCount: await this.messageService.getUnreadCount(userWithRole),
+      };
+    } else {
+      profileStats = {
+        demandsCount: 0,
+        travelsCount: 0,
+        bookMarkTravelCount: 0,
+        bookMarkDemandCount: 0,
+        requestsCompletedCount: 0,
+        requestsNegotiatingCount: 0,
+        requestsCancelledCount: 0,
+        requestsAcceptedCount: 0,
+        requestsRejectedCount: 0,
+        reviewsReceivedCount: 0,
+        reviewsGivenCount: 0,
+        transactionsCompletedCount: 0,
+        unreadMessageCount: 0,
+      };
+    }
+
+    const needsRegistrationCompletion = !userWithRole.stripeAccountId;
+
+    return {
+      user: {
+        ...result,
+        recentCurrency,
+        profileStats,
+      },
+      ...tokens,
+      needsRegistrationCompletion,
+    };
+  }
+
+  /**
+   * Complete registration - collect country and phone, create Stripe Connect account.
+   * Works for any user without a Stripe account (email, Google, or Facebook registration).
+   */
+  async completeRegistration(user: UserEntity, dto: CompleteSocialRegistrationDto, ipAddress: string = '127.0.0.1') {
+    if (user.stripeAccountId) {
+      throw new CustomBadRequestException('Registration already completed', ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS);
+    }
+
+    // Check phone not already used by another user (exclude placeholder phones)
+    const existingByPhone = await this.usersRepository.findOne({
+      where: { phone: dto.phoneNumber },
+    });
+    if (existingByPhone && existingByPhone.id !== user.id) {
+      throw new CustomConflictException('Phone number already in use', ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS);
+    }
+
+    // Update user
+    user.phone = dto.phoneNumber;
+    user.stripeCountryCode = dto.countryCode;
+    await this.usersRepository.save(user);
+
+    // Create Stripe Connect account
+    await this.stripeService.createConnectAccount(user, dto.countryCode, ipAddress);
+
+    // Reload user with Stripe account ID
+    const updatedUser = await this.usersRepository.findOne({
+      where: { id: user.id },
+      relations: ['role'],
+    });
+    if (!updatedUser) {
+      throw new CustomNotFoundException('User not found', ErrorCode.USER_NOT_FOUND);
+    }
+
+    const tokens = this.generateToken(updatedUser);
+    const { password, ...result } = updatedUser;
+
+    const needsRegistrationCompletion = false;
+
+    return {
+      message: 'Profile completed successfully',
+      user: result,
+      ...tokens,
+      needsRegistrationCompletion,
     };
   }
 
@@ -995,6 +1241,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       }
     }
 
+    const needsRegistrationCompletion = !user.stripeAccountId;
+
     return {
       id: user.id,
       email: excludeSensitiveData ? null : user.email,
@@ -1015,6 +1263,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       stripeAccountStatus: user.stripeAccountStatus || 'uninitiated',
       stripeCountryCode: user.stripeCountryCode || null,
       stripeAvailableBalance,
+      needsRegistrationCompletion,
     };
   }
 

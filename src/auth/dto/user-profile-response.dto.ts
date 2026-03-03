@@ -142,5 +142,9 @@ export class UserProfileResponseDto {
     @ApiProperty({ example: '0 EUR', description: 'Available balance in Stripe account with currency (e.g., "0 EUR", "100.50 USD")', nullable: true })
     @Expose()
     stripeAvailableBalance: string | null;
+
+    @ApiProperty({ example: false, description: 'True if social user has not yet completed registration (no Stripe Connect account)' })
+    @Expose()
+    needsRegistrationCompletion: boolean;
 }
 

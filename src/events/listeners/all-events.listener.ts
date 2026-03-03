@@ -246,14 +246,21 @@ export class AllEventsListener {
       await this.emailService.sendCancellationDisputed(event.userEmail, event.userFirstName, event);
     }
     
-    // Send email to admin (need to get admin users)
+    // Send email to admin using ADMIN_EMAIL env variable
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      this.logger.warn('ADMIN_EMAIL is not set; skipping admin notification for disputed cancellation');
+      return;
+    }
+
     try {
-      const adminUsers = await this.getAdminUsers();
-      for (const admin of adminUsers) {
-        await this.emailService.sendAdminCancellationDisputed(admin.email, admin.firstName, event);
-      }
+      await this.emailService.sendAdminCancellationDisputed(
+        adminEmail,
+        'Admin',
+        event,
+      );
     } catch (error) {
-      this.logger.error(`Failed to send admin notification for disputed cancellation: ${error.message}`);
+      this.logger.error(`Failed to send admin notification for disputed cancellation: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

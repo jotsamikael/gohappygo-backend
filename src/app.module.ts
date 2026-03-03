@@ -77,6 +77,7 @@ import { FileUploadModule } from './file-upload/file-upload.module';
 import { AlertModule } from './alert/alert.module';
 import { AlertEntity } from './alert/entities/alert.entity';
 import { RequestSchedulerModule } from './request/request-scheduler.module';
+import { PasswordResetEntity } from './password-reset/password-reset.entity';
 
 @Module({
   imports: [
@@ -164,6 +165,7 @@ import { RequestSchedulerModule } from './request/request-scheduler.module';
           SupportLogEntity,
           PlatformPricingEntity,
           StripeWebhookEventEntity,
+          PasswordResetEntity,
           AlertEntity
         ],
         synchronize: configService.get<string>('NODE_ENV') === 'development', // Only in dev mode

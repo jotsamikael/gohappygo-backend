@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, UploadedFile, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req, UploadedFile, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -28,6 +29,9 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { StripeRequirementsResponseDto } from 'src/stripe/dto/stripe-requirements-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SocialSignInDto } from './dto/social-sign-in.dto';
+import { CompleteSocialRegistrationDto } from './dto/complete-social-registration.dto';
+import { RegisterWithEmailDto } from './dto/register-with-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -84,8 +88,22 @@ export class AuthController {
     return this.authService.resendEmailVerification(resendEmailVerificationDto);
   }
 
-  
-
+  @Post('register-with-email')
+  @ApiOperation({
+    summary: 'Register with email (unified two-step flow)',
+    description: 'Creates user with firstName, lastName, email, password. Returns JWT and needsRegistrationCompletion: true. Complete profile via POST /auth/complete-registration.',
+  })
+  @ApiBody({ type: RegisterWithEmailDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered. JWT returned. Complete registration to finish profile.',
+    schema: { type: 'object', properties: { access_token: { type: 'string' }, refresh_token: { type: 'string' }, user: { type: 'object' }, needsRegistrationCompletion: { type: 'boolean' } } },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  async registerWithEmail(@Body() dto: RegisterWithEmailDto) {
+    return this.authService.registerWithEmail(dto);
+  }
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
@@ -98,6 +116,45 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('google')
+  @ApiOperation({ summary: 'Sign in with Google' })
+  @ApiBody({ type: SocialSignInDto, description: 'Firebase ID token from Google sign-in' })
+  @ApiResponse({ status: 200, description: 'Google sign-in successful', schema: { type: 'object', properties: { access_token: { type: 'string' }, refresh_token: { type: 'string' }, user: { type: 'object' }, needsRegistrationCompletion: { type: 'boolean' } } } })
+  @ApiResponse({ status: 401, description: 'Invalid Google token' })
+  async googleSignIn(@Body() dto: SocialSignInDto) {
+    return this.authService.socialSignIn(dto.idToken);
+  }
+
+  @Post('facebook')
+  @ApiOperation({ summary: 'Sign in with Facebook' })
+  @ApiBody({ type: SocialSignInDto, description: 'Firebase ID token from Facebook sign-in' })
+  @ApiResponse({ status: 200, description: 'Facebook sign-in successful', schema: { type: 'object', properties: { access_token: { type: 'string' }, refresh_token: { type: 'string' }, user: { type: 'object' }, needsRegistrationCompletion: { type: 'boolean' } } } })
+  @ApiResponse({ status: 401, description: 'Invalid Facebook token' })
+  async facebookSignIn(@Body() dto: SocialSignInDto) {
+    return this.authService.socialSignIn(dto.idToken);
+  }
+
+  @Post('complete-registration')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Complete registration with country and phone',
+    description: 'For users who registered via email, Google, or Facebook and have not yet set phone/country. Collects countryCode and phoneNumber, creates Stripe Connect account.',
+  })
+  @ApiBody({ type: CompleteSocialRegistrationDto })
+  @ApiResponse({ status: 200, description: 'Profile completed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed or registration already completed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 409, description: 'Phone number already in use' })
+  async completeRegistration(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: CompleteSocialRegistrationDto,
+    @Req() req: Request,
+  ) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+    return this.authService.completeRegistration(user, dto, ipAddress);
   }
 
  /* @Post('upload-verification')

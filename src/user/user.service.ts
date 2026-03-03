@@ -617,7 +617,7 @@ async updateUserProfile(
      * This ensures there's always an admin user available for platform management
      */
   private async seedAdminUser(): Promise<void> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gohappygo.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'support@gohappygo.fr';
     const adminPassword = process.env.ADMIN_PASSWORD || 'password123';
     const adminPhone = process.env.ADMIN_PHONE || '+1234567890';
 
