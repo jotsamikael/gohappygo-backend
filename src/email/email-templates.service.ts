@@ -2630,7 +2630,10 @@ export class EmailTemplatesService {
   getAdminCancellationDisputedTemplate(adminName: string, requestData: any): string {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const requesterName = requestData.requester?.firstName || requestData.requesterName || 'Unknown';
-    const sellerName = requestData.travel?.user?.firstName || requestData.demand?.user?.firstName || 'Unknown';
+    const sellerName = requestData.ownerName
+      || requestData.travel?.user?.firstName
+      || requestData.demand?.user?.firstName
+      || 'Unknown';
     const baseUrl = this.baseUrl;
 
     return `

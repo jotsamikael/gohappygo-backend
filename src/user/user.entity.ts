@@ -49,7 +49,7 @@ export class UserEntity extends BaseEntity {
   @Column({ nullable: true })
   username: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 2048, nullable: true })
   profilePictureUrl: string;
 
   @Column()

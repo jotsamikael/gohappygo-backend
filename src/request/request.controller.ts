@@ -134,7 +134,7 @@ export class RequestController {
     return this.requestService.transformRequestToResponse(cancelledRequest, unreadCount, user);
   }
 
-  @Post(':id/confirm-cancellation')
+  @Patch(':id/confirm-cancellation')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
@@ -157,7 +157,7 @@ export class RequestController {
     return this.requestService.transformRequestToResponse(confirmedRequest, unreadCount, user);
   }
 
-  @Post(':id/dispute-cancellation')
+  @Patch(':id/dispute-cancellation')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 

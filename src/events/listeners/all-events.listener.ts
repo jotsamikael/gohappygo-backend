@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
 import { UserEventType } from '../event-types';
 import { 
   UserRegisteredEvent,
@@ -22,7 +23,12 @@ export class AllEventsListener {
   constructor(
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
-  ) {}
+    private configService: ConfigService,
+
+  ) {
+  }
+
+
 
   // User Registration
   @OnEvent('user.registered')
@@ -247,7 +253,7 @@ export class AllEventsListener {
     }
     
     // Send email to admin using ADMIN_EMAIL env variable
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL') || "support@gohappygo.fr";
     if (!adminEmail) {
       this.logger.warn('ADMIN_EMAIL is not set; skipping admin notification for disputed cancellation');
       return;

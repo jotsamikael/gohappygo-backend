@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterWithEmailDto } from './dto/register-with-email.dto';
 import * as bcrypt from 'bcrypt';
@@ -609,8 +609,8 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         // Demands count
         this.demandRepository.count({ where: { userId: user.id } }),
         
-        // Travels count
-        this.travelRepository.count({ where: { userId: user.id } }),
+        // Travels count (exclude cancelled)
+        this.travelRepository.count({ where: { userId: user.id, status: Not('cancelled') } }),
         
         // Bookmark counts
         this.getBookmarkCounts(user.id),
@@ -1155,8 +1155,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
         // Demands count
         this.demandRepository.count({ where: { userId } }),
         
-        // Travels count
-        this.travelRepository.count({ where: { userId } }),
+        // Travels count (exclude cancelled)
+        this.travelRepository.count({ where: { userId, status: Not('cancelled') } }),
         
         // Bookmark counts
         this.getBookmarkCounts(userId),

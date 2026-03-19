@@ -15,6 +15,9 @@ import {
   import { JwtService } from '@nestjs/jwt';  // Add this
 import { number, boolean } from 'joi';
 import { UserService } from 'src/user/user.service';
+import { OnEvent } from '@nestjs/event-emitter';
+import { UserEventType } from 'src/events/event-types';
+import { RequestEvent } from 'src/events/user-events.service';
   @WebSocketGateway({
     cors: {
       origin: '*', // In production, specify your frontend URL
@@ -212,7 +215,40 @@ import { UserService } from 'src/user/user.service';
         userName: `${user.firstName} ${user.lastName}`,
       });
       
-      console.log('�� All done with join-thread');
+      console.log(' All done with join-thread');
+    }
+
+    /**
+     * Bridge internal request events to WebSockets.
+     * This acts as a "Trigger Signal" for the frontend to re-fetch GET /request.
+     */
+    @OnEvent(UserEventType.REQUEST_CREATED)
+    @OnEvent(UserEventType.REQUEST_ACCEPTED)
+    @OnEvent(UserEventType.REQUEST_COMPLETED)
+    @OnEvent(UserEventType.REQUEST_CANCELLED)
+    @OnEvent(UserEventType.REQUEST_REJECTED)
+    @OnEvent(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED)
+    @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
+    @OnEvent(UserEventType.CANCELLATION_DISPUTED)
+    @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)
+    handleRequestUpdateEvent(event: RequestEvent) {
+      const payload = {
+        requestId: event.requestId,
+        event: event.isForOwner ? 'owner-update' : 'requester-update',
+        timestamp: event.timestamp
+      };
+
+      // 1. Notify the specific user rooms. 
+      // Every user is automatically joined to a room named "user:{userId}" on connection.
+      if (event.ownerId) {
+        this.server.to(`user:${event.ownerId}`).emit('request-list-refresh', payload);
+      }
+      
+      if (event.requesterId) {
+        this.server.to(`user:${event.requesterId}`).emit('request-list-refresh', payload);
+      }
+      
+      this.logger.log(`🔄 Sent refresh signal to User:${event.ownerId} and User:${event.requesterId} for Request:${event.requestId}`);
     }
   
     /**

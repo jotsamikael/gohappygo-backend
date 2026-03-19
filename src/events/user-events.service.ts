@@ -69,6 +69,8 @@ export interface RequestEvent extends BaseUserEvent {
   requesterId: number;
   requesterName: string;
   ownerId: number;
+  /** Seller/owner display name (e.g. for admin dispute email when event has no travel/demand relations). */
+  ownerName?: string;
   requestId: number;
   requestType: 'GoAndGo' | 'GoAndGive';
   weight: number | null;

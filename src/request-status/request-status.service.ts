@@ -66,6 +66,11 @@ constructor(@InjectRepository(RequestStatusEntity) private requestStatusReposito
         status: 'PENDING_CANCELLATION_CONFIRMATION',
         comment: 'Request cancelled by buyer during/after travel date, awaiting seller confirmation',
       },
+      {
+        label: 'Cancellation Disputed',
+        status: 'CANCELLATION_DISPUTED',
+        comment: 'Seller disputed cancellation (claims service was fulfilled), awaiting admin review',
+      },
     ];
 
     for (const requestStatus of defaultRequestatus) {

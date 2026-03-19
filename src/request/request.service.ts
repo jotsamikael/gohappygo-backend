@@ -1152,21 +1152,27 @@ export class RequestService {
       );
     }
 
-    // Set dispute timestamp
-    request.cancellationDisputedAt = new Date();
-    request.cancellationConfirmedBy = user.id;
-    await this.requestRepository.save(request);
-
-    // Send email to admin with dispute details
-    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
-    if (ownerId) {
-      this.userEventService.emitCancellationDisputed(user, request, ownerId);
+    // Get CANCELLATION_DISPUTED status and update request
+    const disputedStatus = await this.requestStatusService.getRequestByStatus('CANCELLATION_DISPUTED');
+    if (!disputedStatus) {
+      throw new CustomNotFoundException('CANCELLATION_DISPUTED status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
-    // Send email to buyer
+    request.cancellationDisputedAt = new Date();
+    request.cancellationConfirmedBy = user.id;
+    request.currentStatusId = disputedStatus.id;
+    request.currentStatus = disputedStatus;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(requestId, disputedStatus.id);
+
+    // Send email to buyer and admin (single CANCELLATION_DISPUTED emit to avoid duplicate admin email)
+    const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
     const requester = await this.userService.findOne({ id: request.requesterId });
     if (requester && ownerId) {
       // Emit event for buyer notification
+      const sellerName = user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName?.charAt(0) ?? ''}.`.trim()
+        : (user.firstName || 'Unknown');
       const buyerEvent: RequestEvent = {
         userId: requester.id,
         userFirstName: requester.firstName,
@@ -1175,6 +1181,7 @@ export class RequestService {
         requesterId: request.requesterId,
         requesterName: `${requester.firstName} ${requester.lastName?.charAt(0) ?? ''}.`,
         ownerId: ownerId,
+        ownerName: sellerName,
         requestId: request.id,
         requestType: request.requestType,
         weight: request.weight,
