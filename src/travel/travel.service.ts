@@ -519,6 +519,20 @@ export class TravelService {
       // 7. Clear cache
       await this.clearTravelListCache();
 
+      // Emit event for websocket/email listeners
+      try {
+        const owner = user ?? (await this.userService.findOne({ id: cancelledTravel.userId }));
+        if (owner) {
+          const travelWithRelations = await this.travelRepository.findOne({
+            where: { id: cancelledTravel.id },
+            relations: ['departureAirport', 'arrivalAirport', 'currency'],
+          });
+          this.userEventService.emitTravelCancelled(owner, travelWithRelations || cancelledTravel);
+        }
+      } catch {
+        // Best-effort: cancellation event should not block the request
+      }
+
       return cancelledTravel;
     } catch (error) {
       throw new CustomBadRequestException(`Failed to cancel travel: ${error.message}`, ErrorCode.TRAVEL_CANNOT_BE_DELETED);
@@ -748,6 +762,18 @@ export class TravelService {
 
       // 14. Clear cache
       await this.clearTravelListCache();
+
+      // Emit event for websocket/email listeners
+      // Load relations if needed by listeners (best-effort)
+      try {
+        const travelWithRelations = await this.travelRepository.findOne({
+          where: { id: updatedTravel.id },
+          relations: ['departureAirport', 'arrivalAirport', 'currency'],
+        });
+        this.userEventService.emitTravelUpdated(user, travelWithRelations || updatedTravel);
+      } catch {
+        this.userEventService.emitTravelUpdated(user, updatedTravel);
+      }
 
       return updatedTravel;
     } catch (error) {

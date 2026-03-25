@@ -253,6 +253,42 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.TRAVEL_PUBLISHED, event);
   }
 
+  emitTravelUpdated(user: UserEntity, travelData: any): void {
+    const event: TravelEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      travelId: travelData.id,
+      flightNumber: travelData.flightNumber,
+      departureAirport: travelData.departureAirport?.name || 'Unknown',
+      arrivalAirport: travelData.arrivalAirport?.name || 'Unknown',
+      travelDate: travelData.travelDate || travelData.departureDatetime,
+      weightAvailable: travelData.weightAvailable,
+      pricePerKg: travelData.pricePerKg || 0,
+      currencySymbol: travelData.currency?.symbol || '$',
+    };
+    this.eventEmitter.emit(UserEventType.TRAVEL_UPDATED, event);
+  }
+
+  emitTravelCancelled(user: UserEntity, travelData: any): void {
+    const event: TravelEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      travelId: travelData.id,
+      flightNumber: travelData.flightNumber,
+      departureAirport: travelData.departureAirport?.name || 'Unknown',
+      arrivalAirport: travelData.arrivalAirport?.name || 'Unknown',
+      travelDate: travelData.travelDate || travelData.departureDatetime,
+      weightAvailable: travelData.weightAvailable,
+      pricePerKg: travelData.pricePerKg || 0,
+      currencySymbol: travelData.currency?.symbol || '$',
+    };
+    this.eventEmitter.emit(UserEventType.TRAVEL_CANCELLED, event);
+  }
+
   // Demand Events
   emitDemandPublished(user: UserEntity, demandData: any): void {
     const event: DemandEvent = {
@@ -270,6 +306,42 @@ export class UserEventsService {
       currencySymbol: demandData.currency?.symbol || '$', // Use currency symbol, default to $ if not available
     };
     this.eventEmitter.emit(UserEventType.DEMAND_PUBLISHED, event);
+  }
+
+  emitDemandUpdated(user: UserEntity, demandData: any): void {
+    const event: DemandEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      demandId: demandData.id,
+      weight: demandData.weight,
+      pricePerKg: demandData.pricePerKg,
+      description: demandData.description,
+      departureAirport: demandData.departureAirport?.name || 'Unknown',
+      arrivalAirport: demandData.arrivalAirport?.name || 'Unknown',
+      deliveryDate: demandData.travelDate || demandData.deliveryDate,
+      currencySymbol: demandData.currency?.symbol || '$',
+    };
+    this.eventEmitter.emit(UserEventType.DEMAND_UPDATED, event);
+  }
+
+  emitDemandCancelled(user: UserEntity, demandData: any): void {
+    const event: DemandEvent = {
+      userId: user.id,
+      userFirstName: user.firstName,
+      userEmail: user.email,
+      timestamp: new Date(),
+      demandId: demandData.id,
+      weight: demandData.weight,
+      pricePerKg: demandData.pricePerKg,
+      description: demandData.description,
+      departureAirport: demandData.departureAirport?.name || 'Unknown',
+      arrivalAirport: demandData.arrivalAirport?.name || 'Unknown',
+      deliveryDate: demandData.travelDate || demandData.deliveryDate,
+      currencySymbol: demandData.currency?.symbol || '$',
+    };
+    this.eventEmitter.emit(UserEventType.DEMAND_CANCELLED, event);
   }
 
   // Request Events

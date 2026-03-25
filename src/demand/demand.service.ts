@@ -480,6 +480,17 @@ async publishDemand(
       // 12. Clear cache
       await this.clearDemandListCache();
 
+      // Emit event for websocket/email listeners (best-effort)
+      try {
+        const demandWithRelations = await this.demandRepository.findOne({
+          where: { id: updatedDemand.id },
+          relations: ['departureAirport', 'arrivalAirport', 'currency'],
+        });
+        this.userEventService.emitDemandUpdated(user, demandWithRelations || updatedDemand);
+      } catch {
+        this.userEventService.emitDemandUpdated(user, updatedDemand);
+      }
+
       return updatedDemand;
     } catch (error) {
       // Handle foreign key constraint errors
@@ -601,6 +612,20 @@ async cancelDemand(id: number, user?: UserEntity): Promise<DemandEntity> {
 
     // 7. Clear cache
     await this.clearDemandListCache();
+
+    // Emit event for websocket/email listeners (best-effort)
+    try {
+      const owner = user ?? (await this.userService.findOne({ id: cancelledDemand.userId }));
+      if (owner) {
+        const demandWithRelations = await this.demandRepository.findOne({
+          where: { id: cancelledDemand.id },
+          relations: ['departureAirport', 'arrivalAirport', 'currency'],
+        });
+        this.userEventService.emitDemandCancelled(owner, demandWithRelations || cancelledDemand);
+      }
+    } catch {
+      // Best-effort: cancellation event should not block the request
+    }
 
     return cancelledDemand;
   } catch (error) {

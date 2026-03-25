@@ -17,7 +17,7 @@ import { number, boolean } from 'joi';
 import { UserService } from 'src/user/user.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { UserEventType } from 'src/events/event-types';
-import { RequestEvent } from 'src/events/user-events.service';
+import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.service';
   @WebSocketGateway({
     cors: {
       origin: '*', // In production, specify your frontend URL
@@ -285,6 +285,36 @@ import { RequestEvent } from 'src/events/user-events.service';
       }
       
       this.logger.log(`🔄 Sent refresh signal to User:${event.ownerId} and User:${event.requesterId} for Request:${event.requestId}`);
+    }
+
+    /**
+     * Bridge internal travel/demand events to WebSockets.
+     * This acts as a "Trigger Signal" for the frontend to re-fetch GET /api/demand-and-travel.
+     *
+     * Note: This list is global (not per-user), so we broadcast to the namespace.
+     */
+    @OnEvent(UserEventType.TRAVEL_PUBLISHED)
+    @OnEvent(UserEventType.TRAVEL_UPDATED)
+    @OnEvent(UserEventType.TRAVEL_CANCELLED)
+    handleTravelUpdateEvent(event: TravelEvent) {
+      const payload = {
+        type: 'travel',
+        id: event.travelId,
+        timestamp: event.timestamp,
+      };
+      this.server.emit('demand-travel-list-refresh', payload);
+    }
+
+    @OnEvent(UserEventType.DEMAND_PUBLISHED)
+    @OnEvent(UserEventType.DEMAND_UPDATED)
+    @OnEvent(UserEventType.DEMAND_CANCELLED)
+    handleDemandUpdateEvent(event: DemandEvent) {
+      const payload = {
+        type: 'demand',
+        id: event.demandId,
+        timestamp: event.timestamp,
+      };
+      this.server.emit('demand-travel-list-refresh', payload);
     }
   
     /**
