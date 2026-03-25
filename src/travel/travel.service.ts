@@ -201,7 +201,14 @@ export class TravelService {
     const validSortDirections = ['asc', 'desc'];
 
     if (validSortFields.includes(sortField) && validSortDirections.includes(sortDirection)) {
-      queryBuilder.orderBy(`travel.${sortField}`, sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      if (sortField === 'pricePerKg') {
+        // Sort by USD-normalized price using currency.exchangeRate (fresh rates)
+        queryBuilder
+          .leftJoin('travel.currency', 'currencySort')
+          .orderBy('(travel.pricePerKg * COALESCE(currencySort.exchangeRate, 1))', sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      } else {
+        queryBuilder.orderBy(`travel.${sortField}`, sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      }
       console.log('Added sorting:', orderBy);
     } else {
       queryBuilder.orderBy('travel.createdAt', 'DESC'); // default

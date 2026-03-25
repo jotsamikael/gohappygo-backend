@@ -146,7 +146,14 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
   const validSortDirections = ['asc', 'desc'];
   
   if (validSortFields.includes(sortField) && validSortDirections.includes(sortDirection)) {
-      queryBuilder.orderBy(`demand.${sortField}`, sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      if (sortField === 'pricePerKg') {
+        // Sort by USD-normalized price using currency.exchangeRate (fresh rates)
+        queryBuilder
+          .leftJoin('demand.currency', 'currencySort')
+          .orderBy('(demand.pricePerKg * COALESCE(currencySort.exchangeRate, 1))', sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      } else {
+        queryBuilder.orderBy(`demand.${sortField}`, sortDirection.toUpperCase() as 'ASC' | 'DESC');
+      }
       console.log('Added sorting:', `${sortField}:${sortDirection}`);
   } else {
       queryBuilder.orderBy('demand.createdAt', 'DESC'); // default

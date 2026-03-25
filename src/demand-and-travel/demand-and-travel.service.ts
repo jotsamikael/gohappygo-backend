@@ -469,8 +469,12 @@ export class DemandAndTravelService {
                         bValue = b.flightNumber;
                         break;
                     case 'pricePerKg':
-                        aValue = a.pricePerKg || 0;
-                        bValue = b.pricePerKg || 0;
+                        // Normalize to USD using CurrencyEntity.exchangeRate (1 [currency] = X USD)
+                        // Prefer prefetched currency cache via mapped currency.id; fallback exchangeRate=1
+                        const aRate = a.currency?.id ? (currencyCache.get(a.currency.id)?.exchangeRate ?? 1) : 1;
+                        const bRate = b.currency?.id ? (currencyCache.get(b.currency.id)?.exchangeRate ?? 1) : 1;
+                        aValue = (a.pricePerKg || 0) * Number(aRate);
+                        bValue = (b.pricePerKg || 0) * Number(bRate);
                         break;
                     case 'weight':
                         aValue = ('weight' in a ? a.weight : 0) || 0;
