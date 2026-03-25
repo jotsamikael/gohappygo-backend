@@ -120,7 +120,7 @@ export class ReviewMapper {
             airlineId: travel.airlineId,
             departureAirportId: travel.departureAirportId,
             arrivalAirportId: travel.arrivalAirportId,
-            departureDatetime: travel.departureDatetime,
+            departureDatetime: (travel as any).travelDate ?? travel.departureDatetime,
             totalWeightAllowance: travel.totalWeightAllowance ? travel.totalWeightAllowance.toString() : '0.00',
             weightAvailable: travel.weightAvailable ? travel.weightAvailable.toString() : '0.00',
             pricePerKg: travel.pricePerKg ? travel.pricePerKg.toString() : '0.00',

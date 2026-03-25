@@ -134,7 +134,7 @@ export class AlertEventsListener {
         travel.departureAirportId,
         travel.arrivalAirportId,
         travel.flightNumber || null,
-        travel.departureDatetime ? new Date(travel.departureDatetime) : null,
+        (travel as any).travelDate || travel.departureDatetime ? new Date((travel as any).travelDate ?? travel.departureDatetime) : null,
         'TRAVEL',
       );
 
@@ -171,7 +171,7 @@ export class AlertEventsListener {
             departureAirport: travel.departureAirport?.name || 'Unknown',
             arrivalAirport: travel.arrivalAirport?.name || 'Unknown',
             flightNumber: travel.flightNumber || 'N/A',
-            travelDate: travel.departureDatetime ? new Date(travel.departureDatetime).toLocaleDateString() : 'N/A',
+            travelDate: ((travel as any).travelDate ?? travel.departureDatetime) ? new Date((travel as any).travelDate ?? travel.departureDatetime).toLocaleDateString() : 'N/A',
             travelId: event.travelId,
           });
 

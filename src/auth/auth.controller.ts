@@ -32,6 +32,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SocialSignInDto } from './dto/social-sign-in.dto';
 import { CompleteSocialRegistrationDto } from './dto/complete-social-registration.dto';
 import { RegisterWithEmailDto } from './dto/register-with-email.dto';
+import { ErrorCode } from 'src/common/exception/error-codes';
+import { CustomBadRequestException, CustomUnauthorizedException } from 'src/common/exception/custom-exceptions';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -338,7 +340,6 @@ async uploadVerificationDocuments(
     description: 'User information with profile stats',
     type: UserProfileResponseDto
   })
-  @ApiResponse({ status: 400, description: 'Bad request - userId required for visitors' })
   @ApiResponse({ status: 401, description: 'Unauthorized - userId required for visitors' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async getCurrentUser(
@@ -347,7 +348,7 @@ async uploadVerificationDocuments(
   ): Promise<UserProfileResponseDto> {
     // If user is not authenticated and no userId provided, require userId
     if (!user && !userId) {
-      throw new BadRequestException('userId query parameter is required for visitors');
+      throw new CustomUnauthorizedException('Unauthorized - userId required for visitors', ErrorCode.USER_UNAUTHORIZED);
     }
 
     // Determine target user ID: use userId if provided, otherwise use authenticated user's ID

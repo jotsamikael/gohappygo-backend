@@ -90,9 +90,10 @@ export class RequestService {
       throw new CustomBadRequestException('Travel is no longer available', ErrorCode.TRAVEL_NOT_ACTIVE);
     }
 
-    // Check if travel date has already passed
-    if (travel.departureDatetime) {
-      const travelDate = new Date(travel.departureDatetime);
+    // Check if travel date has already passed (prefer travelDate, fallback to departureDatetime)
+    const travelDt = (travel as any).travelDate ?? travel.departureDatetime;
+    if (travelDt) {
+      const travelDate = new Date(travelDt);
       const now = new Date();
 
       // Compare dates only (ignore time)
@@ -496,7 +497,7 @@ export class RequestService {
     console.log('canCompleteTravelBeforeTravelDate ->', canCompleteTravelBeforeTravelDate)
     //check if travel date has passed
     if (!canCompleteTravelBeforeTravelDate && request.travel) {
-      const travelDatetime = new Date(request.travel.departureDatetime);
+      const travelDatetime = new Date((request.travel as any).travelDate ?? request.travel.departureDatetime);
       const now = new Date();
 
       // Extract only the date portion (year, month, day) for comparison
@@ -817,8 +818,9 @@ export class RequestService {
       let isBeforeTravelDate = false;
       let travelDate: Date | null = null;
 
-      if (request.travel && request.travel.departureDatetime) {
-        const travelDatetime = new Date(request.travel.departureDatetime);
+      const requestTravelDt = request.travel ? ((request.travel as any).travelDate ?? request.travel.departureDatetime) : null;
+      if (request.travel && requestTravelDt) {
+        const travelDatetime = new Date(requestTravelDt);
         travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
         const currentDate = new Date();
         const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
@@ -1170,9 +1172,12 @@ export class RequestService {
     const requester = await this.userService.findOne({ id: request.requesterId });
     if (requester && ownerId) {
       // Emit event for buyer notification
-      const sellerName = user.firstName && user.lastName
-        ? `${user.firstName} ${user.lastName?.charAt(0) ?? ''}.`.trim()
-        : (user.firstName || 'Unknown');
+      // `user` comes from JWT payload and may not contain firstName/lastName.
+      // Use the seller loaded via request.travel.user / request.demand.user instead.
+      const sellerUser = request.travel?.user ?? request.demand?.user;
+      const sellerName = sellerUser?.firstName
+        ? `${sellerUser.firstName} ${sellerUser.lastName?.charAt(0) ?? ''}.`.trim()
+        : 'Unknown';
       const buyerEvent: RequestEvent = {
         userId: requester.id,
         userFirstName: requester.firstName,
@@ -1219,7 +1224,7 @@ export class RequestService {
       .leftJoinAndSelect('request.requester', 'requester')
       .where('request.currentStatusId = :acceptedStatusId', { acceptedStatusId: acceptedStatus.id })
       .andWhere(
-        '(travel.departureDatetime IS NOT NULL AND DATE(travel.departureDatetime) <= DATE(:cutoffDate)) OR ' +
+        '(COALESCE(travel.travelDate, travel.departureDatetime) IS NOT NULL AND DATE(COALESCE(travel.travelDate, travel.departureDatetime)) <= DATE(:cutoffDate)) OR ' +
         '(demand.travelDate IS NOT NULL AND DATE(demand.travelDate) <= DATE(:cutoffDate))',
         { cutoffDate: cutoffDate.toISOString().split('T')[0] }
       )

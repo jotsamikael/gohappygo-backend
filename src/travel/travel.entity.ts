@@ -21,7 +21,6 @@ export class TravelEntity extends BaseEntity {
   @Column({length:500})
   description: string;
 
-
   @Column()
   flightNumber: string;
 
@@ -56,6 +55,8 @@ export class TravelEntity extends BaseEntity {
   @Column()
   departureDatetime: Date;
 
+  @Column({ nullable: true })
+  travelDate?: Date ;
 
   @Column('decimal', { precision: 10, scale: 2 })
   totalWeightAllowance: number;

@@ -128,7 +128,18 @@ import { RequestEvent } from 'src/events/user-events.service';
      */
     handleDisconnect(client: Socket) {
       const user = client.data.user;
-      //this.logger.log(`Client disconnected: ${client.id} (User: ${user?.id})`);
+      // Best-effort presence cleanup: notify all joined request rooms.
+      try {
+        if (user?.id) {
+          for (const roomName of client.rooms) {
+            if (typeof roomName === 'string' && roomName.startsWith('request:')) {
+              client.to(roomName).emit('user-left-thread', { userId: user.id });
+            }
+          }
+        }
+      } catch (_) {
+        // no-op
+      }
     }
   
     /**
@@ -190,6 +201,31 @@ import { RequestEvent } from 'src/events/user-events.service';
       this.logger.log(`✅ User ${user.id} joined room ${roomName}. Current rooms: ${rooms.join(', ')}`);
       console.log('🔥 Joined room:', roomName);
       console.log('🔥 Client rooms:', rooms);
+
+      /**
+       * Presence snapshot (Option 1):
+       * Emit existing occupants to the joining client using the same event the frontend already handles.
+       */
+      try {
+        const adapter = (this.server as any)?.adapter;
+        const room = adapter?.rooms?.get(roomName) as Set<string> | undefined;
+        if (room && room.size > 1) {
+          for (const socketId of room) {
+            if (socketId === client.id) continue;
+            const occupantSocket = (this.server as any)?.sockets?.get?.(socketId) as Socket | undefined;
+            const occupantUser = (occupantSocket as any)?.data?.user;
+            if (occupantUser?.id) {
+              client.emit('user-joined-thread', {
+                userId: occupantUser.id,
+                userName: `${occupantUser.firstName ?? ''} ${occupantUser.lastName ?? ''}`.trim(),
+              });
+            }
+          }
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`⚠️ Failed to emit presence snapshot for ${roomName}: ${msg}`);
+      }
       
       // Send confirmation
       const response = {

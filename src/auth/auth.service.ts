@@ -1093,7 +1093,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
     const futureTravels = await this.travelRepository
       .createQueryBuilder('t')
       .where('t.userId = :uid', { uid: user.id })
-      .andWhere('t.departureDatetime >= :now', { now })
+      .andWhere('(t.travelDate >= :now OR (t.travelDate IS NULL AND t.departureDatetime >= :now))', { now })
       .getMany();
     for (const t of futureTravels) {
       await this.travelService.cancelTravel(t.id);

@@ -190,7 +190,8 @@ export class TravelService {
     }
 
     if (departureDate) {
-      queryBuilder.andWhere('DATE(travel.departureDatetime) = DATE(:departureDate)', { departureDate });
+      // Prefer travelDate, fallback to departureDatetime during migration
+      queryBuilder.andWhere('DATE(COALESCE(travel.travelDate, travel.departureDatetime)) = DATE(:departureDate)', { departureDate });
       console.log('🔍 Debug - Added departureDate filter:', departureDate);
     }
 
@@ -344,8 +345,9 @@ export class TravelService {
       feeForGloomy: createTravelDto.feeForGloomy,
       departureAirportId: createTravelDto.departureAirportId,
       arrivalAirportId: createTravelDto.arrivalAirportId,
-      //Normalize departure Date to UTC midnight to avoid timezone issues
+      // Write both fields during migration: travelDate (new) and departureDatetime (legacy)
       departureDatetime: new Date(createTravelDto.departureDatetime),
+      travelDate: new Date(createTravelDto.departureDatetime),
       pricePerKg: createTravelDto.pricePerKg,
       totalWeightAllowance: createTravelDto.totalWeightAllowance,
       weightAvailable: createTravelDto.totalWeightAllowance,
@@ -720,7 +722,10 @@ export class TravelService {
     for (const field of allowedFields) {
       if (updateTravelDto[field] !== undefined) {
         if (field === 'departureDatetime') {
-          updateData[field] = new Date(updateTravelDto[field]);
+          const dt = new Date(updateTravelDto[field]);
+          updateData[field] = dt;
+          // Write both fields during migration
+          (updateData as any).travelDate = dt;
         } else {
           updateData[field] = updateTravelDto[field];
         }

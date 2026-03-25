@@ -441,7 +441,7 @@ export class DemandAndTravelService {
 
         // Apply sorting
         const [sortField, sortDirection] = orderBy.split(':');
-        const validSortFields = ['createdAt', 'deliveryDate', 'description', 'flightNumber', 'pricePerKg', 'weight'];
+        const validSortFields = ['createdAt', 'travelDate', 'deliveryDate', 'description', 'flightNumber', 'pricePerKg', 'weight'];
         const validSortDirections = ['asc', 'desc'];
 
         if (validSortFields.includes(sortField) && validSortDirections.includes(sortDirection)) {
@@ -454,9 +454,11 @@ export class DemandAndTravelService {
                         aValue = new Date(a.createdAt);
                         bValue = new Date(b.createdAt);
                         break;
+                    case 'travelDate':
                     case 'deliveryDate':
-                        aValue = new Date(a.deliveryDate);
-                        bValue = new Date(b.deliveryDate);
+                        // travelDate sorting is based on the shared deliveryDate field
+                        aValue = a.deliveryDate ? new Date(a.deliveryDate) : new Date(0);
+                        bValue = b.deliveryDate ? new Date(b.deliveryDate) : new Date(0);
                         break;
                     case 'description':
                         aValue = a.description;

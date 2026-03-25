@@ -224,7 +224,7 @@ export class DemandAndTravelMapper {
       arrivalAirportId: travel.arrivalAirportId,
       userId: travel.userId,
       status: travel.status,
-      deliveryDate: travel.departureDatetime,
+      deliveryDate: (travel as any).travelDate ?? travel.departureDatetime,
       createdAt: travel.createdAt,
       updatedAt: travel.updatedAt,
       pricePerKg: typeof travel.pricePerKg === 'string' ? parseFloat(travel.pricePerKg) : travel.pricePerKg,

@@ -55,7 +55,7 @@ export class RequestMapper {
             airlineId: request.travel.airlineId,
             departureAirportId: request.travel.departureAirportId,
             arrivalAirportId: request.travel.arrivalAirportId,
-            departureDatetime: request.travel.departureDatetime,
+            departureDatetime: (request.travel as any).travelDate ?? request.travel.departureDatetime,
             totalWeightAllowance: request.travel.totalWeightAllowance ? request.travel.totalWeightAllowance.toString() : '0.00',
             weightAvailable: request.travel.weightAvailable ? request.travel.weightAvailable.toString() : '0.00',
             pricePerKg: request.travel.pricePerKg ? request.travel.pricePerKg.toString() : '0.00',
