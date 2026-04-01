@@ -251,6 +251,34 @@ export class MessageService {
     return unreadCountsMap;
   }
 
+  async getLatestMessageDatesByRequestIds(requestIds: number[]): Promise<Map<number, Date | null>> {
+    if (requestIds.length === 0) {
+      return new Map();
+    }
+
+    const results = await this.messageRepository
+      .createQueryBuilder('message')
+      .select('message.requestId', 'requestId')
+      .addSelect('MAX(message.createdAt)', 'lastMessageDateTime')
+      .where('message.requestId IN (:...requestIds)', { requestIds })
+      .andWhere('message.deletedAt IS NULL')
+      .groupBy('message.requestId')
+      .getRawMany();
+
+    const latestMessageDatesMap = new Map<number, Date | null>();
+
+    requestIds.forEach(id => latestMessageDatesMap.set(id, null));
+
+    results.forEach(result => {
+      latestMessageDatesMap.set(
+        Number(result.requestId),
+        result.lastMessageDateTime ? new Date(result.lastMessageDateTime) : null,
+      );
+    });
+
+    return latestMessageDatesMap;
+  }
+
   async getMessageById(id: number): Promise<MessageEntity> {
     const message = await this.messageRepository.findOne({
       where: { id },

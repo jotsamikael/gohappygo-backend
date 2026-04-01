@@ -12,7 +12,7 @@ import { Column, Entity, ManyToOne } from "typeorm";
 export class MessageEntity extends BaseEntity{
       
 
-    @Column()
+    @Column({ length: 2000 })
     content: string;
 
     @Column({ default: false })

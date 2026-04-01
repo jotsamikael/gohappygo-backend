@@ -113,6 +113,14 @@ export class RequestResponseDto {
   @ApiProperty({ description: 'Number of unread messages for this request', example: 2 })
   unReadMessages: number;
 
+  @ApiProperty({
+    description: 'Date and time of the most recently sent message in this request chat',
+    example: '2025-01-01T10:05:00Z',
+    required: false,
+    nullable: true
+  })
+  lastMessageDateTime?: Date | null;
+
   @ApiProperty({ 
     description: 'Whether the connected user can review this request. True if request is COMPLETED and user has not yet reviewed it', 
     example: true 

@@ -130,8 +130,10 @@ export class RequestController {
     const cancelledRequest = await this.requestService.cancelRequest(id, user);
     // Fetch unread count for this request
     const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([cancelledRequest.id], user.id);
+    const latestMessageDatesMap = await this.requestService.getLatestMessageDatesForRequests([cancelledRequest.id]);
     const unreadCount = unreadCountsMap.get(cancelledRequest.id) || 0;
-    return this.requestService.transformRequestToResponse(cancelledRequest, unreadCount, user);
+    const lastMessageDateTime = latestMessageDatesMap.get(cancelledRequest.id) || null;
+    return this.requestService.transformRequestToResponse(cancelledRequest, unreadCount, user, lastMessageDateTime);
   }
 
   @Patch(':id/confirm-cancellation')
@@ -153,8 +155,10 @@ export class RequestController {
   ): Promise<RequestResponseDto> {
     const confirmedRequest = await this.requestService.confirmCancellationBySeller(id, user);
     const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([confirmedRequest.id], user.id);
+    const latestMessageDatesMap = await this.requestService.getLatestMessageDatesForRequests([confirmedRequest.id]);
     const unreadCount = unreadCountsMap.get(confirmedRequest.id) || 0;
-    return this.requestService.transformRequestToResponse(confirmedRequest, unreadCount, user);
+    const lastMessageDateTime = latestMessageDatesMap.get(confirmedRequest.id) || null;
+    return this.requestService.transformRequestToResponse(confirmedRequest, unreadCount, user, lastMessageDateTime);
   }
 
   @Patch(':id/dispute-cancellation')
@@ -176,7 +180,9 @@ export class RequestController {
   ): Promise<RequestResponseDto> {
     const disputedRequest = await this.requestService.disputeCancellationBySeller(id, user);
     const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([disputedRequest.id], user.id);
+    const latestMessageDatesMap = await this.requestService.getLatestMessageDatesForRequests([disputedRequest.id]);
     const unreadCount = unreadCountsMap.get(disputedRequest.id) || 0;
-    return this.requestService.transformRequestToResponse(disputedRequest, unreadCount, user);
+    const lastMessageDateTime = latestMessageDatesMap.get(disputedRequest.id) || null;
+    return this.requestService.transformRequestToResponse(disputedRequest, unreadCount, user, lastMessageDateTime);
   }
 }

@@ -1469,12 +1469,14 @@ export class RequestService {
     // Batch fetch unread message counts for all requests
     const requestIds = items.map(item => item.id);
     const unreadCountsMap = await this.messageService.getUnreadCountsByRequestIds(requestIds, user.id);
+    const latestMessageDatesMap = await this.messageService.getLatestMessageDatesByRequestIds(requestIds);
 
     // Transform the data to include only relevant fields (async transformation)
     const transformedItems = await Promise.all(
       items.map(request => {
         const unreadCount = unreadCountsMap.get(request.id) || 0;
-        return this.transformRequestToResponse(request, unreadCount, user);
+        const lastMessageDateTime = latestMessageDatesMap.get(request.id) || null;
+        return this.transformRequestToResponse(request, unreadCount, user, lastMessageDateTime);
       })
     );
 
@@ -1633,7 +1635,12 @@ export class RequestService {
       relations: ['demand', 'travel', 'requestStatusHistory', 'transactions', 'messages'],
     });
   }
-  async transformRequestToResponse(request: RequestEntity, unreadCount: number = 0, currentUser?: UserEntity): Promise<RequestResponseDto> {
+  async transformRequestToResponse(
+    request: RequestEntity,
+    unreadCount: number = 0,
+    currentUser?: UserEntity,
+    lastMessageDateTime?: Date | null,
+  ): Promise<RequestResponseDto> {
     // Format requester fullName
     const requesterFullName = request.requester
       ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
@@ -1780,6 +1787,7 @@ export class RequestService {
       demand: request.demand || null,
       currency: currency,
       unReadMessages: unreadCount,
+      lastMessageDateTime: lastMessageDateTime ?? null,
       canReview
     };
   }
@@ -1790,5 +1798,9 @@ export class RequestService {
    */
   async getUnreadCountsForRequests(requestIds: number[], userId: number): Promise<Map<number, number>> {
     return this.messageService.getUnreadCountsByRequestIds(requestIds, userId);
+  }
+
+  async getLatestMessageDatesForRequests(requestIds: number[]): Promise<Map<number, Date | null>> {
+    return this.messageService.getLatestMessageDatesByRequestIds(requestIds);
   }
 }
