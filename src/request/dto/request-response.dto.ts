@@ -7,21 +7,9 @@ export class UserResponseDto {
   @Expose()
   id: number;
 
-  @ApiProperty({ description: 'User first name', example: 'John' })
-  @Expose()
-  firstName: string;
-
-  @ApiProperty({ description: 'User last name', example: 'Doe' })
-  @Expose()
-  lastName: string;
-
   @ApiProperty({ description: 'Full name formatted as "Firstname L."', example: 'John D.' })
   @Expose()
   fullName: string;
-
-  @ApiProperty({ description: 'User email', example: 'john.doe@example.com' })
-  @Expose()
-  email: string;
 
   @ApiProperty({ description: 'Profile picture URL', example: 'https://example.com/profile.jpg', required: false })
   @Expose()

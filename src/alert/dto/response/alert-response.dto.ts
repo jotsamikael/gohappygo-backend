@@ -29,13 +29,9 @@ export class AlertUserResponseDto {
   @Expose()
   email: string;
 
-  @ApiProperty({ description: 'User first name' })
+  @ApiProperty({ description: 'Display name (Firstname L.)' })
   @Expose()
-  firstName: string;
-
-  @ApiProperty({ description: 'User last name' })
-  @Expose()
-  lastName: string;
+  fullName: string;
 }
 
 export class AlertResponseDto {

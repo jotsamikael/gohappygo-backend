@@ -18,4 +18,19 @@ export class CommonService {
         
         return `${capitalizedFirstName} ${lastNameInitial}.`;
     }
+
+    /**
+     * Prefer persisted `username` as display name; fallback to formatted names.
+     * This keeps API responses consistent and avoids relying on first/last name being present
+     * on "public user" objects (e.g. JWT validate payload shaping).
+     */
+    userFullName(user: { username?: string | null; firstName?: string | null; lastName?: string | null } | null | undefined): string {
+        const username = (user?.username ?? '').trim();
+        if (username) {
+            return username;
+        }
+        const firstName = (user?.firstName ?? '').trim();
+        const lastName = (user?.lastName ?? '').trim();
+        return this.formatFullName(firstName, lastName) || firstName || '';
+    }
 }

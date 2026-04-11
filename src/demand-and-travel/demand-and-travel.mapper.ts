@@ -19,13 +19,10 @@ export class DemandAndTravelMapper {
   constructor(private commonService: CommonService) {}
 
   /**
-   * Format user name as "John D."
+   * Format user name as "John D." (prefer persisted username).
    */
-  private formatUserName(firstName?: string, lastName?: string): string {
-    if (!firstName) return 'Unknown User';
-    if (!lastName) return firstName;
-    
-    return this.commonService.formatFullName(firstName, lastName);
+  private formatUserName(user: any): string {
+    return this.commonService.userFullName(user) || 'Unknown User';
   }
 
   /**
@@ -97,12 +94,20 @@ export class DemandAndTravelMapper {
    */
   toUserNameResponse(user: any): UserNameResponseDto | null {
     if (!user) return null;
-    
-    const fullName = this.formatUserName(user.firstName, user.lastName);
+
+    // List endpoints pass DemandListUserDto / TravelListUserDto (fullName only, no first/last).
+    // Use the same display string for both `name` and `fullName`.
+    const fromFullName =
+      user.fullName != null && String(user.fullName).trim() !== ''
+        ? String(user.fullName).trim()
+        : null;
+    const displayName =
+      fromFullName ?? this.formatUserName(user);
+
     return plainToInstance(UserNameResponseDto, {
       id: user.id,
-      name: fullName,
-      fullName: fullName,
+      name: displayName,
+      fullName: displayName,
       selfieImage: user.profilePictureUrl,
       createdAt: user.createdAt || new Date(),
       isVerified: user.isVerified || false,

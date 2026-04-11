@@ -11,14 +11,6 @@ export class ReviewUserDto {
   @Expose()
   createdAt: Date;
 
-  @ApiProperty({ example: 'Peter' })
-  @Expose()
-  firstName: string;
-
-  @ApiProperty({ example: 'till' })
-  @Expose()
-  lastName: string;
-
   @ApiProperty({ example: 'Peter T.' })
   @Expose()
   fullName: string;

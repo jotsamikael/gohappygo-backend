@@ -229,10 +229,10 @@ export class RequestService {
         // Only emit request created events for non-instant travels
         // emit request created event (non-blocking)
         console.log('reached9 - emitting events');
-        this.userEventService.emitRequestCreated(user, savedRequest, false, travel.userId);
+        await this.userEventService.emitRequestCreated(user, savedRequest, false, travel.userId);
 
         //also send email to the user who published the travel (non-blocking)
-        this.userEventService.emitRequestCreated(travel.user!, savedRequest, true, travel.userId);
+        await this.userEventService.emitRequestCreated(travel.user!, savedRequest, true, travel.userId);
         console.log('reached10 - events emitted');
       }
 
@@ -298,9 +298,9 @@ export class RequestService {
       console.log('processInstantTravelAcceptance - before event emission');
       const requestWithTravel = { ...request, travel: travel, isInstant: true };
       // Travel owner should get isForOwner = true (owner email template)
-      this.userEventService.emitRequestAccepted(travel.user!, requestWithTravel, true, travel.userId);
+      await this.userEventService.emitRequestAccepted(travel.user!, requestWithTravel, true, travel.userId);
       // Requester should get isForOwner = false (requester email template)
-      this.userEventService.emitRequestAccepted(request.requester!, requestWithTravel, false, travel.userId);
+      await this.userEventService.emitRequestAccepted(request.requester!, requestWithTravel, false, travel.userId);
       console.log('processInstantTravelAcceptance - after event emission');
 
     } catch (error) {
@@ -447,7 +447,7 @@ export class RequestService {
     await this.clearRequestListCacheForUsers(affectedUserIds);
 
     // 13. emit request accepted event (send email to traveler who published the travel)
-    this.userEventService.emitRequestAccepted(user, request, true, request.travel.userId);
+    await this.userEventService.emitRequestAccepted(user, request, true, request.travel.userId);
 
     //get the requester
     const requester = await this.userService.findOne({
@@ -1034,8 +1034,8 @@ export class RequestService {
       throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
-    // Check if funds were already transferred
-    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+    // Check if funds were already transferred (optional row: no transaction => skip refund, still confirm cancellation)
+    const transaction = await this.transactionService.findTransactionByRequestId(requestId);
     let fundsAlreadyTransferred = false;
     if (transaction && transaction.stripeTransferId) {
       fundsAlreadyTransferred = true;
@@ -1641,25 +1641,19 @@ export class RequestService {
     currentUser?: UserEntity,
     lastMessageDateTime?: Date | null,
   ): Promise<RequestResponseDto> {
-    // Format requester fullName
+    // Format requester fullName (prefer persisted username)
     const requesterFullName = request.requester
-      ? this.commonService.formatFullName(request.requester.firstName, request.requester.lastName)
+      ? this.commonService.userFullName(request.requester)
       : '';
 
     // Build requester object with fullName and profilePictureUrl
     const requester: UserResponseDto = request.requester ? {
       id: request.requester.id,
-      firstName: request.requester.firstName,
-      lastName: request.requester.lastName,
       fullName: requesterFullName,
-      email: request.requester.email,
       profilePictureUrl: request.requester.profilePictureUrl || null
     } : {
       id: request.requesterId,
-      firstName: '',
-      lastName: '',
       fullName: '',
-      email: '',
       profilePictureUrl: null
     };
 
@@ -1739,6 +1733,25 @@ export class RequestService {
       }
     }
 
+    let demand: any = request.demand ? { ...request.demand } : null;
+
+    if (demand) {
+      if (request.demand?.user) {
+        demand.owner = this.requestMapper.toUserResponseDto(request.demand.user);
+      } else if (demand.userId) {
+        const demandOwner = await this.userService.findOne({ id: demand.userId });
+        if (demandOwner) {
+          demand.owner = this.requestMapper.toUserResponseDto(demandOwner);
+        }
+      }
+      if (demand.user) {
+        delete demand.user;
+      }
+      if (demand.currency) {
+        delete demand.currency;
+      }
+    }
+
     // Extract currency from travel or demand
     let currency: { code: string; name: string; symbol: string } | null = null;
     if (request.travel?.currency) {
@@ -1784,7 +1797,7 @@ export class RequestService {
         status: request.currentStatus?.status
       } as StatusResponseDto,
       travel: travel,
-      demand: request.demand || null,
+      demand: demand,
       currency: currency,
       unReadMessages: unreadCount,
       lastMessageDateTime: lastMessageDateTime ?? null,

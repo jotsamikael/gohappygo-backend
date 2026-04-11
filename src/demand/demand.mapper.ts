@@ -68,11 +68,8 @@ export class DemandMapper {
             createdAt: demand.user.createdAt,
             updatedAt: demand.user.updatedAt,
             isDeactivated: demand.user.isDeactivated,
-            email: demand.user.email,
-            firstName: demand.user.firstName,
-            lastName: demand.user.lastName,
             bio: demand.user.bio || '',
-            fullName: null, // Not included in list response
+            fullName: this.commonService.userFullName(demand.user),
             profilePictureUrl: demand.user.profilePictureUrl || '',
             isVerified: demand.user.isVerified,
             rating: demand.user.rating ? demand.user.rating.toString() : null,
@@ -215,10 +212,7 @@ export class DemandMapper {
         // Transform user
         const user = demand.user ? plainToInstance(DemandDetailUserDto, {
             id: demand.user.id,
-            email: demand.user.email,
-            firstName: demand.user.firstName,
-            lastName: demand.user.lastName,
-            fullName: this.commonService.formatFullName(demand.user.firstName, demand.user.lastName),
+            fullName: this.commonService.userFullName(demand.user),
             phone: demand.user.phone,
             username: demand.user.username || null,
             profilePictureUrl: demand.user.profilePictureUrl || null,
@@ -275,10 +269,7 @@ export class DemandMapper {
         const transformedReviews = reviews.map(review => {
             const reviewer = review.reviewer ? plainToInstance(DemandDetailReviewerDto, {
                 id: review.reviewer.id,
-                firstName: review.reviewer.firstName,
-                lastName: review.reviewer.lastName,
-                fullName: this.commonService.formatFullName(review.reviewer.firstName, review.reviewer.lastName),
-                email: review.reviewer.email,
+                fullName: this.commonService.userFullName(review.reviewer),
                 profilePictureUrl: review.reviewer.profilePictureUrl || null,
             }, {
                 excludeExtraneousValues: true,

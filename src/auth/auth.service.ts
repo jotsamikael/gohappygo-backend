@@ -103,6 +103,33 @@ export class AuthService {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
   }
 
+  /**
+   * Strip firstName/lastName from objects returned to API clients; add computed fullName.
+   */
+  private buildPublicUser(rest: Record<string, any>, extras?: Record<string, any>): Record<string, any> {
+    const { firstName, lastName, ...safe } = rest;
+    const fullName = this.commonService.userFullName({
+      username: safe.username,
+      firstName,
+      lastName,
+    });
+    return extras ? { ...safe, fullName, ...extras } : { ...safe, fullName };
+  }
+
+  /** Display handle persisted as `username`: "Firstname L." (aligned with DB backfill / list APIs). */
+  private displayUsernameFromNames(firstName?: string | null, lastName?: string | null): string | undefined {
+    const fn = (firstName ?? '').trim();
+    const ln = (lastName ?? '').trim();
+    if (!fn && !ln) {
+      return undefined;
+    }
+    let value = (this.commonService.formatFullName(fn, ln) || '').trim();
+    if (!value && ln) {
+      value = `${ln.charAt(0).toUpperCase()}.`;
+    }
+    return value || undefined;
+  }
+
   async register(registerDto: RegisterDto) {
     //get the role of the role with code USER
     const userRole = await this.roleService.getUserRoleIdByCode('USER'); // secure default
@@ -123,8 +150,9 @@ export class AuthService {
     if (existingEmailUser?.deletedAt) {
       await this.userService.restoreUserAccount(existingEmailUser.id);
       // Optionally reset password, send welcome-back email, etc.
+      const { password, ...r } = existingEmailUser as any;
       return {
-        user: existingEmailUser,
+        user: this.buildPublicUser(r),
         message: 'Welcome back! Your account has been restored.',
       };
     }
@@ -132,8 +160,9 @@ export class AuthService {
     // Check for soft-deleted phone match → restore
     if (existingPhoneUser?.deletedAt) {
       await this.userService.restoreUserAccount(existingPhoneUser.id);
+      const { password, ...r } = existingPhoneUser as any;
       return {
-        user: existingPhoneUser,
+        user: this.buildPublicUser(r),
         message: 'Welcome back! Your account has been restored.',
       };
     }
@@ -148,6 +177,7 @@ export class AuthService {
       email: registerDto.email,
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
+      username: this.displayUsernameFromNames(registerDto.firstName, registerDto.lastName),
       phone: registerDto.phoneNumber,
       password: hashedPassword,
       bio: 'I am a Happy traveler',
@@ -186,7 +216,7 @@ export class AuthService {
     //this.userEventService.emitUserRegistered(saveUser);
 
     return {
-      user: result,
+      user: this.buildPublicUser(result as any),
       message: 'Registration successful. Please verify your email and phone number to continue.',
     };
   }
@@ -206,7 +236,7 @@ export class AuthService {
       const tokens = this.generateToken(existingEmailUser);
       const { password, ...result } = existingEmailUser;
       const needsRegistrationCompletion = !existingEmailUser.stripeAccountId;
-      return { user: result, ...tokens, needsRegistrationCompletion };
+      return { user: this.buildPublicUser(result as any), ...tokens, needsRegistrationCompletion };
     }
     if (existingEmailUser) {
       throw new CustomConflictException('Email is already in use.', ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS);
@@ -218,6 +248,7 @@ export class AuthService {
       email: dto.email,
       firstName: dto.firstName,
       lastName: dto.lastName ?? '',
+      username: this.displayUsernameFromNames(dto.firstName, dto.lastName),
       phone: placeholderPhone,
       password: hashedPassword,
       bio: 'I am a Happy traveler',
@@ -277,7 +308,7 @@ export class AuthService {
     const needsRegistrationCompletion = !userWithRole.stripeAccountId;
 
     return {
-      user: { ...result, recentCurrency, profileStats },
+      user: this.buildPublicUser(result as any, { recentCurrency, profileStats }),
       ...tokens,
       needsRegistrationCompletion,
     };
@@ -319,7 +350,7 @@ export class AuthService {
 
     return {
       message: 'Email verified successfully',
-      user: userWithoutPassword,
+      user: this.buildPublicUser(userWithoutPassword as any),
       ...tokens, // includes access_token and refresh_token
     };
   }
@@ -540,8 +571,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: this.commonService.userFullName(user),
         isVerified: user.isVerified
       }
     };
@@ -663,11 +693,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     }
 
     return {
-      user: {
-        ...result,
-        recentCurrency,
-        profileStats,
-      },
+      user: this.buildPublicUser(result as any, { recentCurrency, profileStats }),
       ...tokens,
     };
   }
@@ -764,11 +790,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     const needsRegistrationCompletion = !userWithRole.stripeAccountId;
 
     return {
-      user: {
-        ...result,
-        recentCurrency,
-        profileStats,
-      },
+      user: this.buildPublicUser(result as any, { recentCurrency, profileStats }),
       ...tokens,
       needsRegistrationCompletion,
     };
@@ -815,7 +837,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
 
     return {
       message: 'Profile completed successfully',
-      user: result,
+      user: this.buildPublicUser(result as any),
       ...tokens,
       needsRegistrationCompletion,
     };
@@ -851,7 +873,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
       throw new CustomNotFoundException('User not found!', ErrorCode.USER_NOT_FOUND);
     }
     const { password, ...result } = user;
-    return result;
+    return this.buildPublicUser(result as any);
   }
 
   async getMostRecentCurrencyForUser(userId: number): Promise<{ id: number; code: string; country: string } | null> {
@@ -996,8 +1018,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     user: {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      fullName: this.commonService.userFullName(user),
       phone: user.phone,
       isPhoneVerified: user.isPhoneVerified,
       isEmailVerified: user.isEmailVerified,
@@ -1108,7 +1129,11 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
    * Get user profile with all stats using efficient COUNT queries
    * Only fetches profile stats if user role is USER (admins/operators don't need these stats)
    */
-  async getUserProfileWithStats(userId: number, excludeSensitiveData: boolean = false): Promise<UserProfileResponseDto> {
+  async getUserProfileWithStats(
+    userId: number,
+    isViewingOtherUser: boolean,
+    requester: UserEntity | null,
+  ): Promise<UserProfileResponseDto> {
     // Get user with role (minimal relations)
     const user = await this.usersRepository.findOne({
       where: { id: userId },
@@ -1214,8 +1239,8 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       !user.isVerified && 
       await this.hasVerificationFiles(userId);
 
-    // Format fullName - ensure it's always a string
-    const fullName = this.commonService.formatFullName(user.firstName || '', user.lastName || '') || user.firstName || '';
+    // Format fullName - prefer persisted username
+    const fullName = this.commonService.userFullName(user);
 
     // Get unread message count (for all users, not just USER role)
     const unreadMessageCount = await this.messageService.getUnreadCount(user);
@@ -1243,13 +1268,16 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
 
     const needsRegistrationCompletion = !user.stripeAccountId;
 
+    // Visitors and USER role: when viewing someone else's profile, hide email/phone but still show display name + bio.
+    const requesterIsVisitorOrUser =
+      requester === null || requester.role?.code === UserRole.USER;
+    const hideEmailAndPhone = isViewingOtherUser && requesterIsVisitorOrUser;
+
     return {
       id: user.id,
-      email: excludeSensitiveData ? null : user.email,
-      firstName: excludeSensitiveData ? null : user.firstName,
-      lastName: excludeSensitiveData ? null : user.lastName,
-      fullName:  fullName,
-      phone: excludeSensitiveData ? null : user.phone,
+      email: hideEmailAndPhone ? null : user.email,
+      fullName,
+      phone: hideEmailAndPhone ? null : user.phone,
       profilePictureUrl: user.profilePictureUrl || null,
       bio: user.bio || null,
       isPhoneVerified: user.isPhoneVerified,

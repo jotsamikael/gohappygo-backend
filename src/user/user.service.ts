@@ -268,10 +268,8 @@ private async mapToUserResponseDto(user: UserEntity): Promise<UserResponseDto> {
     id: user.id,
     email: user.email,
     phone: user.phone,
-    firstName: user.firstName,
-    lastName: user.lastName,
     username: user.username,
-    fullName: this.commonService.formatFullName(user.firstName, user.lastName),
+    fullName: this.commonService.userFullName(user),
     profilePictureUrl: user.profilePictureUrl,
     bio: user.bio, // Add this line
     isDeactivated: user.isDeactivated,

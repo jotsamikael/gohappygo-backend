@@ -50,16 +50,14 @@ export class TransactionResponseDto {
     payer: {
         id: number;
         email: string;
-        firstName: string;
-        lastName: string;
+        fullName: string;
     } | null;
 
     @ApiProperty({ nullable: true })
     payee: {
         id: number;
         email: string;
-        firstName: string;
-        lastName: string;
+        fullName: string;
     } | null;
 
     @ApiProperty({ nullable: true })

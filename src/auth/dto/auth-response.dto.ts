@@ -10,12 +10,6 @@ export class UserResponseDto {
   @ApiProperty({ example: 'john.doe@example.com' })
   email: string;
 
-  @ApiProperty({ example: 'John' })
-  firstName: string;
-
-  @ApiProperty({ example: 'Doe' })
-  lastName: string;
-
   @ApiProperty({ example: 'John D.' })
   fullName: string;
 

@@ -23,12 +23,18 @@ export class BookmarkMapper {
   }
 
   toUserResponse(user: any): UserResponseDto | null {
-    const userData = {
-      ...user,
-      fullName: this.commonService.formatFullName(user.firstName, user.lastName)
-    };
-    return plainToInstance(UserResponseDto, userData, { excludeExtraneousValues: true,
-      enableImplicitConversion: true });
+    return plainToInstance(
+      UserResponseDto,
+      {
+        id: user.id,
+        isDeactivated: user.isDeactivated,
+        email: user.email,
+        phone: user.phone,
+        fullName: this.commonService.userFullName(user),
+        profilePictureUrl: user.profilePictureUrl ?? '',
+      },
+      { excludeExtraneousValues: true, enableImplicitConversion: true },
+    );
   }
 
   toTravelResponse(travel: any): TravelResponseDto | null {

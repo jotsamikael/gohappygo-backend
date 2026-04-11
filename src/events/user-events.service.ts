@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UserEntity } from 'src/user/user.entity';
 import { UserEventType } from './event-types';
 import { RequestEntity } from 'src/request/request.entity';
+import { UserService } from 'src/user/user.service';
 
 // Base event interface
 export interface BaseUserEvent {
@@ -124,7 +125,30 @@ export interface KycCompletedEvent extends BaseUserEvent {
 @Injectable()
 export class UserEventsService {
 
-  constructor(private readonly eventEmitter: EventEmitter2) {}
+  constructor(
+    private readonly eventEmitter: EventEmitter2,
+    private readonly userService: UserService,
+  ) {}
+
+  /** Load requester from DB; format as "First L.". Safe when relation/JWT user omits first/last name. */
+  private async resolveRequesterDisplayName(requesterId: number | null | undefined): Promise<string> {
+    if (requesterId == null || !Number.isFinite(Number(requesterId))) {
+      return 'Unknown User';
+    }
+    const requester = await this.userService.findOne({ id: Number(requesterId) });
+    if (!requester) {
+      return 'Unknown User';
+    }
+    const firstName = (requester.firstName ?? '').trim();
+    const lastName = (requester.lastName ?? '').trim();
+    if (!firstName && !lastName) {
+      return 'Unknown User';
+    }
+    if (!lastName) {
+      return firstName;
+    }
+    return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+  }
 
   // Authentication Events
   emitUserRegistered(user: UserEntity): void {
@@ -345,15 +369,13 @@ export class UserEventsService {
   }
 
   // Request Events
-  emitRequestCreated(user: UserEntity, requestData: any, isForOwner: boolean, ownerId: number): void {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName.charAt(0)}.`;
-    } else if (!isForOwner) {
-      // If not for owner, the user is the requester
-      requesterName = `${user.firstName} ${user.lastName.charAt(0)}.`;
-    }
+  async emitRequestCreated(
+    user: UserEntity,
+    requestData: any,
+    isForOwner: boolean,
+    ownerId: number,
+  ): Promise<void> {
+    const requesterName = await this.resolveRequesterDisplayName(requestData.requesterId);
 
     const event: RequestEvent = {
       userId: user.id,
@@ -371,12 +393,13 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.REQUEST_CREATED, event);
   }
 
-  emitRequestAccepted(user: UserEntity, requestData: any, isForOwner: boolean, ownerId?: number): void {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName.charAt(0)}.`;
-    }
+  async emitRequestAccepted(
+    user: UserEntity,
+    requestData: any,
+    isForOwner: boolean,
+    ownerId?: number,
+  ): Promise<void> {
+    const requesterName = await this.resolveRequesterDisplayName(requestData.requesterId);
 
     // If ownerId not provided, try to get from travel or demand
     const finalOwnerId = ownerId || requestData.travel?.userId || requestData.demand?.userId || 0;

@@ -2,9 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { MessageEntity } from "./message.entity";
 import { ThreadMessageResponseDto, ThreadMessageUserDto } from "./dto/response/thread-message-response.dto";
+import { CommonService } from "src/common/service/common.service";
 
 @Injectable()
 export class MessageMapper {
+  constructor(private readonly commonService: CommonService) {}
+
   /**
    * Map UserEntity to ThreadMessageUserDto
    */
@@ -13,8 +16,7 @@ export class MessageMapper {
     
     return plainToInstance(ThreadMessageUserDto, {
       id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      fullName: this.commonService.userFullName(user),
       profilePictureUrl: user.profilePictureUrl || null,
     }, {
       excludeExtraneousValues: true,

@@ -59,23 +59,11 @@ export class DemandListUserDto {
   @Expose()
   isDeactivated: boolean;
 
-  @ApiProperty({ example: "jotsamikael0@gmail.com" })
-  @Expose()
-  email: string;
-
-  @ApiProperty({ example: "James" })
-  @Expose()
-  firstName: string;
-
-  @ApiProperty({ example: "Deanili" })
-  @Expose()
-  lastName: string;
-
   @ApiProperty({ example: "I am a traveler who like exotic places" })
   @Expose()
   bio: string;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiProperty({ example: "James D.", nullable: true })
   @Expose()
   fullName: string | null;
 

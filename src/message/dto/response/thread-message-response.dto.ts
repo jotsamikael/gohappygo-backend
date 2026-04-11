@@ -6,13 +6,9 @@ export class ThreadMessageUserDto {
   @Expose()
   id: number;
 
-  @ApiProperty({ description: 'User first name' })
+  @ApiProperty({ description: 'Display name (Firstname L.)' })
   @Expose()
-  firstName: string;
-
-  @ApiProperty({ description: 'User last name' })
-  @Expose()
-  lastName: string;
+  fullName: string;
 
   @ApiProperty({ description: 'User profile picture URL', required: false, nullable: true })
   @Expose()

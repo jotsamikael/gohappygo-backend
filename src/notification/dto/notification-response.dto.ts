@@ -9,14 +9,6 @@ export class NotificationActorDto {
 
   @ApiProperty()
   @Expose()
-  firstName: string;
-
-  @ApiProperty()
-  @Expose()
-  lastName: string;
-
-  @ApiProperty()
-  @Expose()
   fullName: string;
 
   @ApiProperty({ required: false })

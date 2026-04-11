@@ -11,9 +11,7 @@ export class NotificationMapper {
   toResponseDto(notification: NotificationEntity): NotificationResponseDto {
     const actor = notification.actor ? plainToInstance(NotificationActorDto, {
       id: notification.actor.id,
-      firstName: notification.actor.firstName,
-      lastName: notification.actor.lastName,
-      fullName: this.commonService.formatFullName(notification.actor.firstName, notification.actor.lastName),
+      fullName: this.commonService.userFullName(notification.actor),
       profilePictureUrl: notification.actor.profilePictureUrl || null,
     }, {
       excludeExtraneousValues: true,

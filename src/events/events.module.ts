@@ -3,9 +3,11 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { UserEventsService } from './user-events.service';
 import { AllEventsListener } from './listeners/all-events.listener';
 import { EmailModule } from 'src/email/email.module';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
+    UserModule,
     EmailModule,
     EventEmitterModule.forRoot({
       global: true,

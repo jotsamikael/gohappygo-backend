@@ -18,17 +18,11 @@ export class RequestMapper {
             return null;
         }
 
-        const fullName = this.commonService.formatFullName(
-            user.firstName || '',
-            user.lastName || ''
-        ) || user.firstName || '';
+        const fullName = this.commonService.userFullName(user);
 
         return plainToInstance(UserResponseDto, {
             id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
             fullName: fullName,
-            email: user.email,
             profilePictureUrl: user.profilePictureUrl || null
         }, {
             excludeExtraneousValues: true,
@@ -65,11 +59,8 @@ export class RequestMapper {
                 id: request.travel.user.id,
                 createdAt: request.travel.user.createdAt,
                 isDeactivated: request.travel.user.isDeactivated,
-                email: request.travel.user.email,
                 phone: request.travel.user.phone,
-                firstName: request.travel.user.firstName,
-                lastName: request.travel.user.lastName,
-                fullName: this.commonService.formatFullName(request.travel.user.firstName, request.travel.user.lastName),
+                fullName: this.commonService.userFullName(request.travel.user),
                 profilePictureUrl: request.travel.user.profilePictureUrl || '',
                 currencyId: request.travel.user.currencyId,
             }, {

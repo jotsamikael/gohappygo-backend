@@ -2,9 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { AlertEntity } from './entities/alert.entity';
 import { AlertResponseDto, AlertAirportResponseDto, AlertUserResponseDto } from './dto/response/alert-response.dto';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class AlertMapper {
+  constructor(private readonly commonService: CommonService) {}
+
   /**
    * Map AlertEntity to AlertResponseDto
    */
@@ -58,8 +61,7 @@ export class AlertMapper {
     return plainToInstance(AlertUserResponseDto, {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      fullName: this.commonService.userFullName(user),
     }, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true,

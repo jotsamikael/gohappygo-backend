@@ -69,14 +69,6 @@ export class UserProfileResponseDto {
     @ApiProperty({ example: 'jotsamikael0@gmail.com', nullable: true })
     @Expose()
     email: string | null;
-
-    @ApiProperty({ example: 'John', nullable: true })
-    @Expose()
-    firstName: string | null;
-
-    @ApiProperty({ example: 'Doe', nullable: true })
-    @Expose()
-    lastName: string | null;
     
     @ApiProperty({ example: 'James D.', nullable: true })
     @Expose()

@@ -50,18 +50,6 @@ export class DemandDetailUserDto {
     @Expose()
     id: number;
 
-    @ApiProperty({ example: 'patrickolongo@gmail.com' })
-    @Expose()
-    email: string;
-
-    @ApiProperty({ example: 'Patrick' })
-    @Expose()
-    firstName: string;
-
-    @ApiProperty({ example: 'OLONGO' })
-    @Expose()
-    lastName: string;
-
     @ApiProperty({ example: 'Patrick O.' })
     @Expose()
     fullName: string;
@@ -171,21 +159,9 @@ export class DemandDetailReviewerDto {
     @Expose()
     id: number;
 
-    @ApiProperty({ example: 'Joe' })
-    @Expose()
-    firstName: string;
-
-    @ApiProperty({ example: 'OBAMA' })
-    @Expose()
-    lastName: string;
-
     @ApiProperty({ example: 'Joe O.' })
     @Expose()
     fullName: string;
-
-    @ApiProperty({ example: 'assetsshore@gmail.com' })
-    @Expose()
-    email: string;
 
     @ApiProperty({ example: 'https://res.cloudinary.com/...' })
     @Expose()

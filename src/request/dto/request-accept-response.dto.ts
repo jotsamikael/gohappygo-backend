@@ -15,21 +15,9 @@ export class RequestUserDto {
   @Expose()
   isDeactivated: boolean;
 
-  @ApiProperty({ example: 'jotsamikael0@gmail.com' })
-  @Expose()
-  email: string;
-
   @ApiProperty({ example: '+237697942923' })
   @Expose()
   phone: string;
-
-  @ApiProperty({ example: 'James' })
-  @Expose()
-  firstName: string;
-
-  @ApiProperty({ example: 'Deanili' })
-  @Expose()
-  lastName: string;
 
   @ApiProperty({ example: 'James D.' })
   @Expose()

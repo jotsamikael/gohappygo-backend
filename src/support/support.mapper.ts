@@ -41,10 +41,7 @@ export class SupportMapper {
     if (log.userId && users && users.has(log.userId)) {
       const user = users.get(log.userId);
       if (user) {
-        dto.userFullName = this.commonService.formatFullName(
-          user.firstName,
-          user.lastName
-        );
+        dto.userFullName = this.commonService.userFullName(user);
       } else {
         dto.userFullName = null;
       }

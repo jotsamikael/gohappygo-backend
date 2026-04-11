@@ -15,6 +15,7 @@ import {
   import { JwtService } from '@nestjs/jwt';  // Add this
 import { number, boolean } from 'joi';
 import { UserService } from 'src/user/user.service';
+import { CommonService } from 'src/common/service/common.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { UserEventType } from 'src/events/event-types';
 import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.service';
@@ -33,7 +34,8 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
   
     constructor(private readonly messageService: MessageService,
          private readonly jwtService: JwtService, 
-        private readonly userService: UserService) {}
+        private readonly userService: UserService,
+        private readonly commonService: CommonService) {}
   
    /**
    * Called when a client connects to the WebSocket
@@ -217,7 +219,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
             if (occupantUser?.id) {
               client.emit('user-joined-thread', {
                 userId: occupantUser.id,
-                userName: `${occupantUser.firstName ?? ''} ${occupantUser.lastName ?? ''}`.trim(),
+                userName: this.commonService.userFullName(occupantUser),
               });
             }
           }
@@ -248,7 +250,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
       // Notify others in the room that someone joined
       client.to(roomName).emit('user-joined-thread', {
         userId: user.id,
-        userName: `${user.firstName} ${user.lastName}`,
+        userName: this.commonService.userFullName(user),
       });
       
       console.log(' All done with join-thread');
@@ -379,8 +381,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
           isRead: fullMessage.isRead,
           sender: {
             id: fullMessage.sender.id,
-            firstName: fullMessage.sender.firstName,
-            lastName: fullMessage.sender.lastName,
+            fullName: this.commonService.userFullName(fullMessage.sender),
             profilePictureUrl: fullMessage.sender.profilePictureUrl,
           },
           requestId: dto.requestId,
@@ -481,7 +482,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
       // Broadcast to others in the room (not to sender)
       client.to(roomName).emit('user-typing', {
         userId: user.id,
-        userName: `${user.firstName} ${user.lastName}`,
+        userName: this.commonService.userFullName(user),
         isTyping: data.isTyping,
       });
     }

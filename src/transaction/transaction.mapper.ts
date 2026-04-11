@@ -1,8 +1,11 @@
 import { TransactionEntity } from "./transaction.entity";
 import { TransactionResponseDto } from "./dto/transaction-response.dto";
 import { UserEntity } from "src/user/user.entity";
+import { CommonService } from "src/common/service/common.service";
 
 export class TransactionMapper {
+    constructor(private readonly commonService: CommonService) {}
+
     toResponseDto(transaction: TransactionEntity, currentUser?: UserEntity): TransactionResponseDto {
         // Calculate showReleaseFundButton based on the logic:
         // Show button if ALL are true:
@@ -38,14 +41,12 @@ export class TransactionMapper {
             payer: transaction.payer ? {
                 id: transaction.payer.id,
                 email: transaction.payer.email,
-                firstName: transaction.payer.firstName,
-                lastName: transaction.payer.lastName,
+                fullName: this.commonService.userFullName(transaction.payer),
             } : null,
             payee: transaction.payee ? {
                 id: transaction.payee.id,
                 email: transaction.payee.email,
-                firstName: transaction.payee.firstName,
-                lastName: transaction.payee.lastName,
+                fullName: this.commonService.userFullName(transaction.payee),
             } : null,
             request: transaction.request ? {
                 id: transaction.request.id,

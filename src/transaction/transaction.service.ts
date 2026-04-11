@@ -493,6 +493,11 @@ export class TransactionService {
     return transaction;
    }
 
+   /** Same lookup as {@link getTransactionByRequestId} but returns null when missing (e.g. legacy / no payment row). */
+   async findTransactionByRequestId(requestId: number): Promise<TransactionEntity | null> {
+    return await this.transactionRepository.findOne({ where: { requestId } });
+   }
+
    /**
     * Update transaction status
     */

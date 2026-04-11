@@ -64,9 +64,7 @@ export class ReviewMapper {
         return plainToInstance(ReviewUserDto, {
             id: user.id,
             createdAt: user.createdAt,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            fullName: this.commonService.formatFullName(user.firstName, user.lastName),
+            fullName: this.commonService.userFullName(user),
             email: user.email,
             profilePictureUrl: user.profilePictureUrl || null,
         }, {

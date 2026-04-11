@@ -80,14 +80,6 @@ export class UserResponseDto {
   @Expose()
   phone: string;
 
-  @ApiProperty()
-  @Expose()
-  firstName: string;
-
-  @ApiProperty()
-  @Expose()
-  lastName: string;
-
   @ApiProperty({ example: 'John D.' })
   @Expose()
   fullName: string;

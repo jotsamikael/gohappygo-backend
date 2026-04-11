@@ -327,7 +327,7 @@ async uploadVerificationDocuments(
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Get current user information with profile stats',
-    description: 'Get information about the current authenticated user. Optionally provide userId query parameter to get information about another user. When userId is provided, sensitive fields (email, firstName, lastName, phone) are excluded. Visitors (non-authenticated users) can only access profiles with userId parameter.'
+    description: 'Get information about the current authenticated user. Optionally provide userId to load another user\'s profile. For visitors or callers with role USER, another user\'s profile returns fullName and bio but omits email and phone. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.'
   })
   @ApiQuery({
     name: 'userId',
@@ -356,7 +356,7 @@ async uploadVerificationDocuments(
     // Exclude sensitive data if viewing another user's profile (userId provided and different from current user)
     const isViewingOtherUser = userId !== undefined && (user === null || userId !== user.id);
     
-    return this.authService.getUserProfileWithStats(targetUserId, isViewingOtherUser);
+    return this.authService.getUserProfileWithStats(targetUserId, isViewingOtherUser, user);
   }
 
   @Get('check-stripe-requirement')

@@ -18,6 +18,49 @@ export class EmailTemplatesService {
       .replace(/'/g, '&#39;');
   }
 
+  /**
+   * Calendar dates in emails: DD/MM/YYYY (day/month/year).
+   * Uses UTC date parts so ISO timestamps stay consistent regardless of server locale.
+   */
+  private formatEmailDate(value: Date | string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  /**
+   * Date-time in emails: DD/MM/YYYY HH:mm (24-hour, UTC).
+   */
+  private formatEmailDateTime(value: Date | string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const datePart = this.formatEmailDate(d);
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${datePart} ${hh}:${mm}`;
+  }
+
+  /**
+   * Prefer DD/MM/YYYY when the value parses as a date; otherwise HTML-escape the raw string.
+   */
+  private formatEmailDateFlexible(value: Date | string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '';
+    if (value instanceof Date) {
+      const formatted = this.formatEmailDate(value);
+      return formatted || this.escapeHtml(String(value));
+    }
+    const d = new Date(value as string | number);
+    if (!Number.isNaN(d.getTime())) {
+      return this.formatEmailDate(d);
+    }
+    return this.escapeHtml(String(value));
+  }
+
   getWelcomeTemplate(userName: string): string {
     return `
       <!DOCTYPE html>
@@ -235,11 +278,22 @@ export class EmailTemplatesService {
          travelData.arrivalAirport?.name || 
          'Unknown');
     
-    // Safely format the date
-    // The event uses travelDate, but also check for departureDatetime
-    const departureDate = (travelData.travelDate || travelData.departureDatetime) ? 
-      new Date(travelData.travelDate || travelData.departureDatetime).toLocaleDateString() : 
-      'Unknown';
+    // Flight: compute outside the HTML template (avoids any chance of ".toUpperCase()" appearing as text)
+    const flightRaw =
+      travelData.flightNumber != null && travelData.flightNumber !== ''
+        ? String(travelData.flightNumber).trim()
+        : '';
+    const flightDisplay = flightRaw.length > 0 ? flightRaw.toUpperCase() : 'Unknown';
+
+    // Date: day/month/year — prefer DB columns in order (entity + TravelEvent payload)
+    const travelDtRaw =
+      travelData.departureDatetime ??
+      travelData.travelDate ??
+      null;
+    const departureDate =
+      travelDtRaw != null && travelDtRaw !== ''
+        ? this.formatEmailDate(travelDtRaw) || 'Unknown'
+        : 'Unknown';
     
     // Safely get weight available and price
     const weightAvailable = travelData.weightAvailable || 0;
@@ -272,7 +326,7 @@ export class EmailTemplatesService {
             <p>Your travel has been successfully published and is now visible to  HappyTravellers.</p>
             <div class="travel-details">
               <h3>Travel Details:</h3>
-              <p><strong>Flight:</strong> ${travelData.flightNumber || 'Unknown'}.toUpperCase()</p>
+              <p><strong>Flight:</strong> ${flightDisplay}</p>
               <p><strong>From:</strong> ${departureAirport}</p>
               <p><strong>To:</strong> ${arrivalAirport}</p>
               <p><strong>Date:</strong> ${departureDate}</p>
@@ -307,11 +361,9 @@ export class EmailTemplatesService {
                                  demandData.destinationAirport || 
                                  'Unknown');
     
-    // Safely format the date
+    // Safely format the date (day/month/year)
     const deliveryDate = demandData.deliveryDate || demandData.travelDate;
-    const formattedDate = deliveryDate ? 
-      new Date(deliveryDate).toLocaleDateString() : 
-      'Unknown';
+    const formattedDate = deliveryDate ? (this.formatEmailDate(deliveryDate) || 'Unknown') : 'Unknown';
     
     // Safely get weight and price
     const weight = demandData.weight || 0;
@@ -399,7 +451,7 @@ export class EmailTemplatesService {
               <h3>Request Details:</h3>
               <p><strong>Request ID:</strong> #${requestData.requestId}</p>
               <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${new Date(requestData.limitDate).toLocaleDateString()}</p>` : ''}
+              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
             </div>
             
             <p><strong>What happens next?</strong></p>
@@ -411,7 +463,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="#" class="action-button">View Request Details</a>
+              <a href="${this.baseUrl}/profile" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Request Details</a>
             </p>
             
             <p><em>Please keep in touch with the traveler to ensure smooth delivery coordination.</em></p>
@@ -464,8 +516,8 @@ export class EmailTemplatesService {
               <h3>Request Details:</h3>
               <p><strong>Request ID:</strong> #${requestData.requestId}</p>
               <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${new Date(requestData.limitDate).toLocaleDateString()}</p>` : ''}
-              <p><strong>Accepted:</strong> ${new Date(requestData.timestamp).toLocaleString()}</p>
+              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
+              <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>
             </div>
             
             <p><strong>Next Steps:</strong></p>
@@ -477,7 +529,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="#" class="action-button">Manage Request</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Manage Request</a>
             </p>
             
             <p><em>Remember to maintain good communication with the requester throughout the delivery process.</em></p>
@@ -723,9 +775,9 @@ export class EmailTemplatesService {
           
           <div class="footer">
             <div class="social-links">
-              <a href="#"> Download App</a>
-              <a href="#">🌐 Visit Website</a>
-              <a href="#">📞 Support</a>
+              <a href="${this.baseUrl}/download-app"> Download App</a>
+              <a href="${this.baseUrl}">🌐 Visit Website</a>
+              <a href="${this.baseUrl}/support">📞 Support</a>
             </div>
             <p><strong>GoHappyGo</strong> - Connecting travelers and senders worldwide</p>
             <p>© 2024 GoHappyGo. All rights reserved.</p>
@@ -911,7 +963,7 @@ export class EmailTemplatesService {
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Weight:</strong> ${event.weight}kg</p>
 
-              <p><strong>Submitted:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
             </div>
             
             <p><strong>Next Steps:</strong></p>
@@ -923,7 +975,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="#" class="action-button">View Request in Dashboard</a>
+              <a href="${this.baseUrl}/profile" class="action-button">View Request in Dashboard</a>
             </p>
             
             <p><em>Please respond to this request as soon as possible to maintain good service quality.</em></p>
@@ -977,14 +1029,14 @@ export class EmailTemplatesService {
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Weight:</strong> ${event.weight}kg</p>
 
-              <p><strong>Completed:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
             </div>
             
             <div class="rating-section">
               <h3>⭐ Rate Your Experience</h3>
               <p>Help us improve our service by rating your delivery experience.</p>
               <p style="text-align: center;">
-                <a href="#" class="action-button">Rate Delivery</a>
+                <a href="${this.baseUrl}/profile" class="action-button">Rate Delivery</a>
               </p>
             </div>
             
@@ -997,7 +1049,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="#" class="action-button">View Delivery Summary</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Delivery Summary</a>
             </p>
             
             <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>
@@ -1045,7 +1097,7 @@ export class EmailTemplatesService {
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
               <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Cancelled:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
               <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
             </div>
             
@@ -1063,7 +1115,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/travels" class="action-button">View My Travels</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
             </p>
           </div>
           <div class="footer">
@@ -1109,7 +1161,7 @@ export class EmailTemplatesService {
               <p><strong>Request ID:</strong> #${event.requestId}</p>
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Cancelled:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
               <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
             </div>
             
@@ -1127,7 +1179,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/requests" class="action-button">Browse Available Travels</a>
+              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse Available Travels</a>
             </p>
             
             <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
@@ -1201,7 +1253,7 @@ export class EmailTemplatesService {
             </ul>
 
             <p style="text-align: center;">
-              <a href="${safeBaseUrl}/requests" class="action-button">Create a new request</a>
+              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Create a new request</a>
             </p>
 
             <p><em>No charge was made. You can submit a new request with an updated payment method when you are ready.</em></p>
@@ -1263,7 +1315,7 @@ export class EmailTemplatesService {
               <p><strong>Request ID:</strong> #${event.requestId}</p>
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Weight:</strong> ${event.weight}kg</p>
-              <p><strong>Completed:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
             </div>
             
             <div class="earnings-section">
@@ -1293,7 +1345,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="#" class="action-button">View Earnings</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Earnings</a>
             </p>
             
             <p><em>Thank you for being a trusted GoHappyGo traveler! Keep up the excellent work.</em></p>
@@ -1796,8 +1848,8 @@ export class EmailTemplatesService {
             <div class="alert-details">
               <h3>Matched ${data.alertType} Details:</h3>
               <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
-              <p><strong>Flight Number:</strong> ${data.flightNumber}.toUpperCase()</p>
-              <p><strong>Travel Date:</strong> ${data.travelDate}</p>
+              <p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>
+              <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>
             </div>
 
             <div class="highlight">
@@ -1806,7 +1858,7 @@ export class EmailTemplatesService {
             </div>
 
             <div style="text-align: center;">
-              <a href="${viewUrl}" class="action-button">View ${data.alertType}</a>
+              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View ${data.alertType}</a>
             </div>
 
             <p style="margin-top: 20px; color: #666; font-size: 14px;">
@@ -1841,11 +1893,11 @@ export class EmailTemplatesService {
     ];
 
     if (data.flightNumber) {
-      alertDetails.push(`<p><strong>Flight Number:</strong> ${data.flightNumber}.toUpperCase()</p>`);
+      alertDetails.push(`<p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>`);
     }
 
     if (data.travelDate) {
-      alertDetails.push(`<p><strong>Travel Date:</strong> ${data.travelDate}</p>`);
+      alertDetails.push(`<p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`);
     }
 
     const viewUrl = `${this.baseUrl}/alerts`;
@@ -1889,7 +1941,7 @@ export class EmailTemplatesService {
             </div>
 
             <div style="text-align: center;">
-              <a href="${viewUrl}" class="action-button">View My Alerts</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Alerts</a>
             </div>
 
             <p style="margin-top: 20px; color: #666; font-size: 14px;">
@@ -1939,7 +1991,7 @@ export class EmailTemplatesService {
               <p><strong>Request ID:</strong> #${event.requestId}</p>
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Rejected:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
               <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
             </div>
             
@@ -1957,7 +2009,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/requests" class="action-button">Browse Available Travels</a>
+              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse Available Travels</a>
             </p>
             
             <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
@@ -2005,7 +2057,7 @@ export class EmailTemplatesService {
               <p><strong>Type:</strong> ${event.requestType}</p>
               <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
               <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Rejected:</strong> ${new Date(event.timestamp).toLocaleString()}</p>
+              <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
               <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
             </div>
             
@@ -2023,7 +2075,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/travels" class="action-button">View My Travels</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
             </p>
           </div>
           <div class="footer">
@@ -2083,7 +2135,7 @@ export class EmailTemplatesService {
                 <span class="label">Arrival:</span> ${arrivalAirport}
               </div>
               ${flightNumber ? `<div class="detail-row">
-                <span class="label">Flight Number:</span> ${flightNumber}.toUpperCase()
+                <span class="label">Flight Number:</span> ${String(flightNumber).toUpperCase()}
               </div>` : ''}
               ${pricePerKilo ? `<div class="detail-row">
                 <span class="label">Price per Kilo:</span> ${pricePerKilo}
@@ -2103,7 +2155,7 @@ export class EmailTemplatesService {
             </ul>
 
             <p style="text-align: center; margin: 30px 0;">
-              <a href="${this.baseUrl}/dashboard" class="button">View on GoHappyGo</a>
+              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View on GoHappyGo</a>
             </p>
           </div>
           <div class="footer">
@@ -2362,7 +2414,7 @@ export class EmailTemplatesService {
               <p><strong>Request ID:</strong> #${data.requestId}</p>
               <p><strong>Amount:</strong> ${data.amount} ${data.currency.toUpperCase()}</p>
               <p><strong>Transfer ID:</strong> ${data.transferId}</p>
-              <p><strong>Released:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Released:</strong> ${this.formatEmailDateTime(new Date())}</p>
             </div>
             
             <p><strong>What's next?</strong></p>
@@ -2498,7 +2550,7 @@ export class EmailTemplatesService {
             <p>You can create a new request when you're ready to try again.</p>
 
             <p style="text-align: center;">
-              <a href="${baseUrl}/requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
+              <a href="${baseUrl}/profile" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
             </p>
           </div>
           <div class="footer">
@@ -2574,7 +2626,9 @@ export class EmailTemplatesService {
     const requestsList = requests.map(req => {
       const requestId = req.id || req.requestId || 'N/A';
       const requesterName = req.requester?.firstName || req.requesterName || 'Unknown';
-      const requestedDate = req.cancellationRequestedAt ? new Date(req.cancellationRequestedAt).toLocaleDateString() : 'N/A';
+      const requestedDate = req.cancellationRequestedAt
+        ? (this.formatEmailDate(req.cancellationRequestedAt) || 'N/A')
+        : 'N/A';
       return `<li>Request #${requestId} - Requester: ${requesterName} - Requested: ${requestedDate}</li>`;
     }).join('');
 

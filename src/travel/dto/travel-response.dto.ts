@@ -58,23 +58,11 @@ export class TravelListUserDto {
   @Expose()
   isDeactivated: boolean;
 
-  @ApiProperty({ example: "assetsshore@gmail.com" })
-  @Expose()
-  email: string;
-
-  @ApiProperty({ example: "Joe" })
-  @Expose()
-  firstName: string;
-
-  @ApiProperty({ example: "Obama" })
-  @Expose()
-  lastName: string;
-
   @ApiProperty({ example: "I am a traveler who like exotic places" })
   @Expose()
   bio: string;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiProperty({ example: "Joe O.", nullable: true })
   @Expose()
   fullName: string | null;
 
