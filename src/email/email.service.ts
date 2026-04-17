@@ -373,7 +373,7 @@ export class EmailService {
     const html = this.emailTemplatesService.getAdminCancellationPendingTemplate(adminFirstName, requests);
     return this.sendEmail({
       to: adminEmail,
-      subject: `Admin Alert: ${requests.length} Pending Cancellation Confirmation(s) - GoHappyGo`,
+      subject: `Daily summary: ${requests.length} pending cancellation confirmation(s) - GoHappyGo`,
       html,
     });
   }

@@ -93,13 +93,13 @@ export class FindRequestsQueryDto extends PaginationQueryDto {
     limitDate?: string;
 
     @ApiProperty({
-        description: 'Filter by current status',
-        enum: ['NEGOTIATING', 'ACCEPTED', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+        description: 'Filter by grouped frontend status',
+        enum: ['TO_CONFIRM', 'AWAITING_DELIVER', 'FINISHED'],
         required: false
     })
     @IsOptional()
-    @IsEnum(['NEGOTIATING', 'ACCEPTED', 'COMPLETED', 'REJECTED', 'CANCELLED'])
-    status?: string;
+    @IsEnum(['TO_CONFIRM', 'AWAITING_DELIVER', 'FINISHED'])
+    status?: 'TO_CONFIRM' | 'AWAITING_DELIVER' | 'FINISHED';
 
     @ApiProperty({
         description: 'Sort order (field:direction)',

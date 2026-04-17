@@ -2619,17 +2619,26 @@ export class EmailTemplatesService {
   }
 
   /**
-   * Template for admin notification when seller doesn't respond to cancellation confirmation
+   * Daily admin digest: all requests still in PENDING_CANCELLATION_CONFIRMATION (sent only when non-empty).
    */
   getAdminCancellationPendingTemplate(adminName: string, requests: any[]): string {
     const baseUrl = this.baseUrl;
+    const dayMs = 1000 * 60 * 60 * 24;
+    const now = Date.now();
     const requestsList = requests.map(req => {
       const requestId = req.id || req.requestId || 'N/A';
       const requesterName = req.requester?.firstName || req.requesterName || 'Unknown';
       const requestedDate = req.cancellationRequestedAt
         ? (this.formatEmailDate(req.cancellationRequestedAt) || 'N/A')
         : 'N/A';
-      return `<li>Request #${requestId} - Requester: ${requesterName} - Requested: ${requestedDate}</li>`;
+      let daysPendingLabel = 'N/A';
+      if (req.cancellationRequestedAt) {
+        const daysPending = Math.floor(
+          (now - new Date(req.cancellationRequestedAt).getTime()) / dayMs,
+        );
+        daysPendingLabel = String(Math.max(0, daysPending));
+      }
+      return `<li>Request #${requestId} — Requester: ${requesterName} — Requested: ${requestedDate} — Days pending: ${daysPendingLabel}</li>`;
     }).join('');
 
     return `
@@ -2637,7 +2646,7 @@ export class EmailTemplatesService {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Admin Alert: Pending Cancellation Confirmations - GoHappyGo</title>
+        <title>Daily summary: Pending cancellation confirmations - GoHappyGo</title>
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -2650,17 +2659,17 @@ export class EmailTemplatesService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🚨 Admin Alert: Pending Cancellation Confirmations</h1>
+            <h1>Pending cancellation confirmations (daily summary)</h1>
           </div>
           <div class="content">
             <h2>Hello ${adminName},</h2>
-            <p>There are <strong>${requests.length}</strong> cancellation confirmation request(s) that have passed the deadline without seller response.</p>
+            <p>There are <strong>${requests.length}</strong> request(s) waiting for the seller to confirm or dispute a post-travel cancellation. Unresponsive sellers are auto-cancelled in favour of the buyer after <strong>${process.env.CANCELLATION_CONFIRMATION_DAYS || 7}</strong> days.</p>
 
             <div class="alert-box">
-              <p><strong>Action Required:</strong> Please review these requests and take appropriate action.</p>
+              <p><strong>Note:</strong> Review as needed; this email is sent once per day only when at least one request is still in this state.</p>
             </div>
 
-            <h3>Pending Requests:</h3>
+            <h3>Pending requests:</h3>
             <ul>
               ${requestsList}
             </ul>

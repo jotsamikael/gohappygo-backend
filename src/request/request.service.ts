@@ -988,26 +988,13 @@ export class RequestService {
   }
 
   /**
-   * Seller confirms cancellation of a request cancelled during/after travel date
+   * Shared outcome for seller confirm and timeout auto-cancel: refund (when applicable), CANCELLED, weight restore, buyer notification.
    */
-  async confirmCancellationBySeller(requestId: number, user: UserEntity): Promise<RequestEntity> {
-    const request = await this.getRequestById(requestId);
-    if (!request) {
-      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
-    }
-
-    // Validate seller is the travel/demand owner
-    const isOwner = (request.travel && request.travel.userId === user.id) ||
-      (request.demand && request.demand.userId === user.id);
-
-    if (!isOwner) {
-      throw new CustomForbiddenException(
-        'Only the travel/demand owner can confirm cancellation',
-        ErrorCode.REQUEST_UNAUTHORIZED
-      );
-    }
-
-    // Validate request is in PENDING_CANCELLATION_CONFIRMATION status
+  private async finalizePendingCancellationAsConfirmed(
+    request: RequestEntity,
+    confirmedByUserId: number | null,
+  ): Promise<RequestEntity> {
+    const requestId = request.id;
     const pendingCancellationStatus = await this.requestStatusService.getRequestByStatus('PENDING_CANCELLATION_CONFIRMATION');
     if (!pendingCancellationStatus) {
       throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
@@ -1020,7 +1007,6 @@ export class RequestService {
       );
     }
 
-    // Check if already confirmed or disputed
     if (request.cancellationConfirmedAt || request.cancellationDisputedAt) {
       throw new CustomBadRequestException(
         'Cancellation has already been confirmed or disputed',
@@ -1028,25 +1014,20 @@ export class RequestService {
       );
     }
 
-    // Get cancelled status
     const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
     if (!cancelledStatus) {
       throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
-    // Check if funds were already transferred (optional row: no transaction => skip refund, still confirm cancellation)
     const transaction = await this.transactionService.findTransactionByRequestId(requestId);
     let fundsAlreadyTransferred = false;
     if (transaction && transaction.stripeTransferId) {
       fundsAlreadyTransferred = true;
-      // Notify admin - funds were already transferred, manual intervention needed
       this.logger.warn(
         `Cancellation confirmed but funds already transferred for request ${requestId}. Admin intervention required.`
       );
-      // Still proceed with cancellation confirmation, but admin will need to handle refund manually
     }
 
-    // Process refund if funds not yet transferred
     if (!fundsAlreadyTransferred && transaction) {
       if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
         try {
@@ -1076,15 +1057,13 @@ export class RequestService {
       }
     }
 
-    // Update request status and cancellation tracking
     request.currentStatusId = cancelledStatus.id;
     request.currentStatus = cancelledStatus;
     request.cancellationConfirmedAt = new Date();
-    request.cancellationConfirmedBy = user.id;
+    request.cancellationConfirmedBy = confirmedByUserId;
     await this.requestRepository.save(request);
     await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
 
-    // Restore weight to travel if applicable
     if (request.travelId) {
       const travel = await this.travelService.findOne({ where: { id: request.travelId } });
       if (travel) {
@@ -1099,18 +1078,49 @@ export class RequestService {
       }
     }
 
-    // Send emails to both parties
     const requester = await this.userService.findOne({ id: request.requesterId });
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
-    
+
     if (requester && ownerId) {
-      this.userEventService.emitCancellationConfirmed(user, request, ownerId);
+      this.userEventService.emitCancellationConfirmed(requester, request, ownerId);
     }
 
-    // Clear cache
     await this.clearRequestListCache();
 
     return request;
+  }
+
+  /**
+   * Seller confirms cancellation of a request cancelled during/after travel date
+   */
+  async confirmCancellationBySeller(requestId: number, user: UserEntity): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const isOwner = (request.travel && request.travel.userId === user.id) ||
+      (request.demand && request.demand.userId === user.id);
+
+    if (!isOwner) {
+      throw new CustomForbiddenException(
+        'Only the travel/demand owner can confirm cancellation',
+        ErrorCode.REQUEST_UNAUTHORIZED
+      );
+    }
+
+    return this.finalizePendingCancellationAsConfirmed(request, user.id);
+  }
+
+  /**
+   * Auto-confirm buyer cancellation when seller does not respond within CANCELLATION_CONFIRMATION_DAYS (scheduler).
+   */
+  async autoConfirmCancellationDueToNoResponse(requestId: number): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+    return this.finalizePendingCancellationAsConfirmed(request, null);
   }
 
   /**
@@ -1446,7 +1456,16 @@ export class RequestService {
     }
 
     if (status) {
-      queryBuilder.andWhere('currentStatus.status = :status', { status });
+      const statusGroupMap: Record<'TO_CONFIRM' | 'AWAITING_DELIVER' | 'FINISHED', string[]> = {
+        TO_CONFIRM: ['NEGOTIATING'],
+        AWAITING_DELIVER: ['ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION'],
+        FINISHED: ['COMPLETED', 'CANCELLATION_DISPUTED', 'DELIVERED'],
+      };
+
+      const mappedStatuses = statusGroupMap[status as keyof typeof statusGroupMap];
+      if (mappedStatuses?.length) {
+        queryBuilder.andWhere('currentStatus.status IN (:...mappedStatuses)', { mappedStatuses });
+      }
     }
 
     // Apply sorting

@@ -10,7 +10,6 @@ import { UserService } from 'src/user/user.service';
 import { RoleService } from 'src/role/role.service';
 import { UserEntity, UserRole } from 'src/user/user.entity';
 import { EmailService } from 'src/email/email.service';
-import { EmailTemplatesService } from 'src/email/email-templates.service';
 
 @Injectable()
 export class RequestSchedulerService {
@@ -26,7 +25,6 @@ export class RequestSchedulerService {
     private userService: UserService,
     private roleService: RoleService,
     private emailService: EmailService,
-    private emailTemplatesService: EmailTemplatesService,
     private configService: ConfigService,
   ) {}
 
@@ -45,14 +43,31 @@ export class RequestSchedulerService {
     }
   }
 
+  private async loadPendingCancellationConfirmationRequests(
+    pendingCancellationStatusId: number,
+  ): Promise<RequestEntity[]> {
+    return this.requestRepository
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.travel', 'travel')
+      .leftJoinAndSelect('request.demand', 'demand')
+      .leftJoinAndSelect('request.requester', 'requester')
+      .where('request.currentStatusId = :statusId', { statusId: pendingCancellationStatusId })
+      .andWhere('request.cancellationRequestedAt IS NOT NULL')
+      .andWhere('request.cancellationConfirmedAt IS NULL')
+      .andWhere('request.cancellationDisputedAt IS NULL')
+      .getMany();
+  }
+
   /**
-   * Send reminders and admin notifications for pending cancellation confirmations
+   * Auto-cancel after CANCELLATION_CONFIRMATION_DAYS, final seller reminder the day before,
+   * daily admin digest of all still-pending (only when non-empty).
    * Runs daily at 9 AM
    */
   @Cron('0 9 * * *')
   async processCancellationConfirmations(): Promise<void> {
     this.logger.log('Starting cancellation confirmation processing...');
-    const confirmationDays = this.configService.get<number>('CANCELLATION_CONFIRMATION_DAYS', 7);
+    const confirmationDays = Number(this.configService.get<number>('CANCELLATION_CONFIRMATION_DAYS', 7)) || 7;
+    const dayMs = 1000 * 60 * 60 * 24;
 
     try {
       const pendingCancellationStatus = await this.requestStatusService.getRequestByStatus('PENDING_CANCELLATION_CONFIRMATION');
@@ -62,34 +77,34 @@ export class RequestSchedulerService {
       }
 
       const now = new Date();
-      const deadlineDate = new Date(now);
-      deadlineDate.setDate(deadlineDate.getDate() - confirmationDays);
-
-      // Find requests pending confirmation
-      const pendingRequests = await this.requestRepository
-        .createQueryBuilder('request')
-        .leftJoinAndSelect('request.travel', 'travel')
-        .leftJoinAndSelect('request.demand', 'demand')
-        .leftJoinAndSelect('request.requester', 'requester')
-        .where('request.currentStatusId = :statusId', { statusId: pendingCancellationStatus.id })
-        .andWhere('request.cancellationRequestedAt IS NOT NULL')
-        .andWhere('request.cancellationConfirmedAt IS NULL')
-        .andWhere('request.cancellationDisputedAt IS NULL')
-        .getMany();
-
-      const adminNotificationRequests: RequestEntity[] = [];
+      let pendingRequests = await this.loadPendingCancellationConfirmationRequests(pendingCancellationStatus.id);
 
       for (const request of pendingRequests) {
         if (!request.cancellationRequestedAt) continue;
-
         const requestedDate = new Date(request.cancellationRequestedAt);
-        const daysSinceRequest = Math.floor((now.getTime() - requestedDate.getTime()) / (1000 * 60 * 60 * 24));
+        const daysSinceRequest = Math.floor((now.getTime() - requestedDate.getTime()) / dayMs);
 
-        // If deadline passed, add to admin notification list
-        if (requestedDate <= deadlineDate) {
-          adminNotificationRequests.push(request);
-        } else if (daysSinceRequest >= confirmationDays - 1) {
-          // Send reminder to seller (1 day before deadline)
+        if (daysSinceRequest >= confirmationDays) {
+          try {
+            await this.requestService.autoConfirmCancellationDueToNoResponse(request.id);
+            this.logger.log(`Auto-confirmed cancellation for request ${request.id} (seller non-response)`);
+          } catch (error) {
+            this.logger.error(
+              `Failed to auto-confirm cancellation for request ${request.id}: ${error.message}`,
+              error.stack,
+            );
+          }
+        }
+      }
+
+      pendingRequests = await this.loadPendingCancellationConfirmationRequests(pendingCancellationStatus.id);
+
+      for (const request of pendingRequests) {
+        if (!request.cancellationRequestedAt) continue;
+        const requestedDate = new Date(request.cancellationRequestedAt);
+        const daysSinceRequest = Math.floor((now.getTime() - requestedDate.getTime()) / dayMs);
+
+        if (confirmationDays > 1 && daysSinceRequest === confirmationDays - 1) {
           const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
           if (ownerId) {
             const owner = await this.userService.findOne({ id: ownerId });
@@ -99,30 +114,31 @@ export class RequestSchedulerService {
                   owner.email,
                   owner.firstName,
                   request,
-                  true // isReminder
+                  true,
                 );
-                this.logger.log(`Sent reminder to seller for request ${request.id}`);
+                this.logger.log(`Sent final reminder to seller for request ${request.id}`);
               } catch (error) {
-                this.logger.error(`Failed to send reminder for request ${request.id}: ${error.message}`);
+                this.logger.error(`Failed to send final reminder for request ${request.id}: ${error.message}`);
               }
             }
           }
         }
       }
 
-      // Send admin notification if there are requests past deadline
-      if (adminNotificationRequests.length > 0) {
-        await this.sendAdminCancellationPendingNotification(adminNotificationRequests);
+      pendingRequests = await this.loadPendingCancellationConfirmationRequests(pendingCancellationStatus.id);
+
+      if (pendingRequests.length > 0) {
+        await this.sendAdminCancellationPendingNotification(pendingRequests);
       }
 
-      this.logger.log(`Processed ${pendingRequests.length} pending cancellation confirmations`);
+      this.logger.log(`Cancellation confirmation job: ${pendingRequests.length} still pending after processing`);
     } catch (error) {
       this.logger.error(`Error in cancellation confirmation processing: ${error.message}`, error.stack);
     }
   }
 
   /**
-   * Send email to admin users about pending cancellation confirmations
+   * Send email to admin users about pending cancellation confirmations (daily digest)
    */
   private async sendAdminCancellationPendingNotification(requests: RequestEntity[]): Promise<void> {
     try {
@@ -135,7 +151,7 @@ export class RequestSchedulerService {
       for (const admin of adminUsers) {
         try {
           await this.emailService.sendAdminCancellationPending(admin.email, admin.firstName, requests);
-          this.logger.log(`Sent admin notification to ${admin.email} for ${requests.length} pending cancellations`);
+          this.logger.log(`Sent admin pending-cancellation digest to ${admin.email} (${requests.length} request(s))`);
         } catch (error) {
           this.logger.error(`Failed to send admin notification to ${admin.email}: ${error.message}`);
         }

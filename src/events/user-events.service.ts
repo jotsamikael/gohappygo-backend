@@ -658,6 +658,7 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED, event);
   }
 
+  /** @param user Buyer (requester) — confirmation email is sent to this user via the event listener. */
   emitCancellationConfirmed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
     let requesterName = 'Unknown User';
     if (requestData.requester) {
