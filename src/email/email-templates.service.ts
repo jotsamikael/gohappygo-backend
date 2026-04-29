@@ -94,7 +94,7 @@ export class EmailTemplatesService {
               <li>Start posting travels or demands</li>
             </ul>
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/dashboard" class="button">Go to Dashboard</a>
+              <a href="${this.baseUrl}/profile/reservations" class="button">Go to Dashboard</a>
             </p>
           </div>
           <div class="footer">
@@ -210,7 +210,7 @@ export class EmailTemplatesService {
               <li>Complete transactions</li>
             </ul>
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/dashboard" class="button">Start Using GoHappyGo</a>
+              <a href="${this.baseUrl}/profile/reservations" class="button">Start Using GoHappyGo</a>
             </p>
           </div>
           <div class="footer">
@@ -463,7 +463,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Request Details</a>
+              <a href="${this.baseUrl}/profile/travel-requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Request Details</a>
             </p>
             
             <p><em>Please keep in touch with the traveler to ensure smooth delivery coordination.</em></p>
@@ -529,7 +529,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Manage Request</a>
+              <a href="${this.baseUrl}/profile/travel-requests" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Manage Request</a>
             </p>
             
             <p><em>Remember to maintain good communication with the requester throughout the delivery process.</em></p>
@@ -975,7 +975,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" class="action-button">View Request in Dashboard</a>
+              <a style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;" href="${this.baseUrl}/profile/reservations" class="action-button">View Request in Dashboard</a>
             </p>
             
             <p><em>Please respond to this request as soon as possible to maintain good service quality.</em></p>
@@ -1036,7 +1036,7 @@ export class EmailTemplatesService {
               <h3>⭐ Rate Your Experience</h3>
               <p>Help us improve our service by rating your delivery experience.</p>
               <p style="text-align: center;">
-                <a href="${this.baseUrl}/profile" class="action-button">Rate Delivery</a>
+                <a href="${this.baseUrl}/profile/reviews" class="action-button">Rate Delivery</a>
               </p>
             </div>
             
@@ -1049,7 +1049,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Delivery Summary</a>
+              <a href="${this.baseUrl}/profile/reservations" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Delivery Summary</a>
             </p>
             
             <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>
@@ -1115,7 +1115,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
+              <a href="${this.baseUrl}/profile/travels" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
             </p>
           </div>
           <div class="footer">
@@ -1345,7 +1345,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Earnings</a>
+              <a href="${this.baseUrl}/profile/reservations" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Earnings</a>
             </p>
             
             <p><em>Thank you for being a trusted GoHappyGo traveler! Keep up the excellent work.</em></p>
@@ -1857,14 +1857,14 @@ export class EmailTemplatesService {
               <p>Don't miss out - check it out now and see if it meets your needs.</p>
             </div>
 
-            <div style="text-align: center;">
+            <!-- <div style="text-align: center;">
               <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View ${data.alertType}</a>
-            </div>
+            </div> 
 
             <p style="margin-top: 20px; color: #666; font-size: 14px;">
               If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
             </p>
-          </div>
+          </div> -->
           <div class="footer">
             <p>This is an automated notification from GoHappyGo.</p>
             <p>If you have any questions, please contact our support team.</p>
@@ -1941,7 +1941,7 @@ export class EmailTemplatesService {
             </div>
 
             <div style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Alerts</a>
+              <a href="${this.baseUrl}/profile/favorites" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Alerts</a>
             </div>
 
             <p style="margin-top: 20px; color: #666; font-size: 14px;">
@@ -2075,7 +2075,7 @@ export class EmailTemplatesService {
             </ul>
             
             <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
+              <a href="${this.baseUrl}/profile/travels" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
             </p>
           </div>
           <div class="footer">
@@ -2155,7 +2155,7 @@ export class EmailTemplatesService {
             </ul>
 
             <p style="text-align: center; margin: 30px 0;">
-              <a href="${this.baseUrl}/profile" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View on GoHappyGo</a>
+              <a href="${this.baseUrl}/profile/messages" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View on GoHappyGo</a>
             </p>
           </div>
           <div class="footer">
@@ -2550,7 +2550,7 @@ export class EmailTemplatesService {
             <p>You can create a new request when you're ready to try again.</p>
 
             <p style="text-align: center;">
-              <a href="${baseUrl}/profile" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
+              <a href="${baseUrl}/profile/travel-requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
             </p>
           </div>
           <div class="footer">

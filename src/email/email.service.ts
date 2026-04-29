@@ -24,6 +24,16 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter;
 
+  private parseBoolean(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+    }
+    return undefined;
+  }
+
   constructor(
     private configService: ConfigService,
     private emailTemplatesService: EmailTemplatesService,
@@ -44,21 +54,36 @@ export class EmailService {
     }
 
     const host = this.configService.get<string>('EMAIL_HOST');
-    const port = this.configService.get<number>('EMAIL_PORT');
-    const secure = this.configService.get<boolean>('EMAIL_SECURE');
+    const portValue = this.configService.get<string | number>('EMAIL_PORT');
+    const port = typeof portValue === 'number' ? portValue : parseInt(portValue ?? '587', 10);
+    const secureEnv = this.configService.get<boolean | string>('EMAIL_SECURE');
+    const secure = this.parseBoolean(secureEnv) ?? port === 465;
+    const rejectUnauthorizedEnv = this.configService.get<boolean | string>('EMAIL_TLS_REJECT_UNAUTHORIZED');
+    const rejectUnauthorized = this.parseBoolean(rejectUnauthorizedEnv);
+    const requireTlsEnv = this.configService.get<boolean | string>('EMAIL_REQUIRE_TLS');
+    const requireTLS = this.parseBoolean(requireTlsEnv) ?? port === 587;
+
     this.transporter = nodemailer.createTransport({
       host,
       port,
-      secure: secure ?? port === 465,
+      // SMTP 587 uses STARTTLS upgrade (secure must be false at connection start).
+      secure,
+      requireTLS,
       auth: {
         user: emailUser,
         pass: emailPass,
+      },
+      tls: {
+        // For self-signed certs before LE is active, set EMAIL_TLS_REJECT_UNAUTHORIZED=false.
+        rejectUnauthorized: rejectUnauthorized ?? true,
       },
       connectionTimeout: 15000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
     });
-    this.logger.log(`Email transporter created: host=${host}, port=${port}, secure=${secure ?? port === 465}`);
+    this.logger.log(
+      `Email transporter created: host=${host}, port=${port}, secure=${secure}, requireTLS=${requireTLS}, rejectUnauthorized=${rejectUnauthorized ?? true}`,
+    );
 
     // Verify connection
     this.transporter.verify((error, success) => {

@@ -38,7 +38,7 @@ export class FindAlertQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ 
     description: 'Sort order (field:direction)',
     example: 'createdAt:desc',
-    enum: ['createdAt:asc', 'createdAt:desc', 'travelDateTime:asc', 'travelDateTime:desc'],
+    enum: ['createdAt:asc', 'createdAt:desc', 'travelDate:asc', 'travelDate:desc'],
     required: false
   })
   @IsOptional()

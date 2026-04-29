@@ -242,9 +242,9 @@ async publishDemand(
     image3: Express.Multer.File  // Add third parameter
 ): Promise<DemandEntity> {
       //check if user account is verified
-      if(!user.isVerified){
+     /* if(!user.isVerified){
         throw new BadRequestException('Your account is not verified')
-      }
+      }*/
 
       // Check if departure and arrival airports are the same
       if (createDemandDto.departureAirportId === createDemandDto.arrivalAirportId) {
@@ -344,9 +344,9 @@ async publishDemand(
 
   async updateDemand(id: number, updateDemandDto: UpdateDemandDto, user: UserEntity): Promise<DemandEntity> {
     // 1. Check if user account is verified
-    if (!user.isVerified) {
+   /* if (!user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }
+    }*/
 
     // 2. Find the demand with all necessary relations
     const demand = await this.demandRepository.findOne({
@@ -402,10 +402,18 @@ async publishDemand(
       }
     }
 
-    // 7. Validate travel date is in the future (if being updated)
+    // 7. Validate travel date is today or in the future (ignore time part)
     if (updateDemandDto.travelDate) {
       const newTravelDate = new Date(updateDemandDto.travelDate);
-      if (newTravelDate <= new Date()) {
+      const newTravelDateOnly = new Date(
+        newTravelDate.getFullYear(),
+        newTravelDate.getMonth(),
+        newTravelDate.getDate(),
+      );
+      const now = new Date();
+      const currentDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (newTravelDateOnly < currentDateOnly) {
         throw new CustomBadRequestException('Travel date must be in the future', ErrorCode.VALIDATION_ERROR);
       }
     }
@@ -463,7 +471,8 @@ async publishDemand(
     for (const field of allowedFields) {
       if (updateDemandDto[field] !== undefined) {
         if (field === 'travelDate') {
-          updateData[field] = new Date(updateDemandDto[field]);
+          // Normalize travelDate to UTC midnight to avoid timezone issues
+          updateData[field] = new Date(`${updateDemandDto[field]}T00:00:00.000Z`);
         } else {
           updateData[field] = updateDemandDto[field];
         }
@@ -529,9 +538,9 @@ async cancelDemand(id: number, user?: UserEntity): Promise<DemandEntity> {
   // 2. Check if user is provided and verify ownership (if user is provided)
   if (user) {
     // Check if user account is verified
-    if (!user.isVerified) {
+    /*if (!user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }
+    }*/
 
     // Check if user is the owner of the demand
     if (demand.userId !== user.id) {
@@ -650,9 +659,9 @@ async deleteDemand(id: number, user: UserEntity): Promise<void> {
   }
 
   // 2. Check if user is provided and verify ownership
-  if (!user.isVerified) {
+  /*if (!user.isVerified) {
     throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-  }
+  }*/
 
   if (demand.userId !== user.id) {
     throw new CustomForbiddenException('You can only delete your own demands', ErrorCode.DEMAND_UNAUTHORIZED);

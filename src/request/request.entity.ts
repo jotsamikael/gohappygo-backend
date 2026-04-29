@@ -98,4 +98,14 @@ export class RequestEntity extends BaseEntity {
 
   @Column({ type: 'int', nullable: true })
   cancellationConfirmedBy: number | null;
+
+  // Weight reservation tracking for travel requests
+  @Column({ type: 'boolean', default: false })
+  isWeightReserved: boolean;
+
+  @Column({ type: 'datetime', nullable: true })
+  weightReservedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  weightReleasedAt: Date | null;
 }

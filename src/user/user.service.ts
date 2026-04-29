@@ -484,6 +484,16 @@ async updateUserProfile(
     currentUser.lastName = updateProfileDto.lastName;
   }
 
+  // Recompute username from latest profile names using "Firstname L." format.
+  const normalizedFirstName = (currentUser.firstName || '').trim();
+  const normalizedLastName = (currentUser.lastName || '').trim();
+  if (normalizedFirstName) {
+    const lastInitial = normalizedLastName ? normalizedLastName.charAt(0).toUpperCase() : '';
+    currentUser.username = lastInitial
+      ? `${normalizedFirstName} ${lastInitial}.`
+      : normalizedFirstName;
+  }
+
   // Update bio if provided
   if (updateProfileDto.bio !== undefined) {
     currentUser.bio = updateProfileDto.bio;

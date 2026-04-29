@@ -19,7 +19,7 @@ export class AlertMapper {
       arrivalAirportId: alert.arrivalAirportId,
       alertType: alert.alertType,
       flightNumber: alert.flightNumber,
-      travelDateTime: alert.travelDateTime,
+      travelDate: alert.travelDate,
       departureAirport: alert.departureAirport
         ? this.toAirportResponseDto(alert.departureAirport)
         : null,

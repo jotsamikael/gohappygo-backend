@@ -59,9 +59,9 @@ export class AlertResponseDto {
   @Expose()
   flightNumber: string | null;
 
-  @ApiProperty({ description: 'Travel date time (optional)', required: false, nullable: true })
+  @ApiProperty({ description: 'Travel date (optional)', required: false, nullable: true })
   @Expose()
-  travelDateTime: Date | null;
+  travelDate: Date | null;
 
   @ApiProperty({ type: AlertAirportResponseDto, description: 'Departure airport details' })
   @Expose()

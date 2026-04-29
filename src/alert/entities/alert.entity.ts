@@ -27,8 +27,8 @@ export class AlertEntity extends BaseEntity {
   @Column({ name: 'flight_number', type: 'varchar', length: 255, nullable: true })
   flightNumber: string | null;
 
-  @Column({ name: 'travel_date_time', type: 'datetime', nullable: true })
-  travelDateTime: Date | null;
+  @Column({ name: 'travel_date', type: 'date', nullable: true })
+  travelDate: Date | null;
 
   @ManyToOne(() => UserEntity, { nullable: false })
   @JoinColumn({ name: 'user_id' })

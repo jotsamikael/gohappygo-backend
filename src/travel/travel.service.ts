@@ -435,9 +435,9 @@ export class TravelService {
     // 2. Check if user is provided and verify ownership (if user is provided)
     if (user) {
       // Check if user account is verified
-      if (!user.isVerified) {
+      /*if (!user.isVerified) {
         throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-      }
+      }*/
 
       // Check if user is the owner of the travel
       if (travel.userId !== user.id) {
@@ -583,9 +583,9 @@ export class TravelService {
 
   async updateTravel(id: number, updateTravelDto: UpdateTravelDto, user: UserEntity): Promise<TravelEntity> {
     // 1. Check if user account is verified
-    if (!user.isVerified) {
+   /*  if (!user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }
+    } */
 
     // 2. Find the travel with all necessary relations
     const travel = await this.travelRepository.findOne({
@@ -641,10 +641,18 @@ export class TravelService {
       }
     }
 
-    // 7. Validate departure datetime is in the future (if being updated)
+    // 7. Validate departure date is today or in the future (ignore time part)
     if (updateTravelDto.departureDatetime) {
       const newDepartureDate = new Date(updateTravelDto.departureDatetime);
-      if (newDepartureDate <= new Date()) {
+      const newDepartureDateOnly = new Date(
+        newDepartureDate.getFullYear(),
+        newDepartureDate.getMonth(),
+        newDepartureDate.getDate(),
+      );
+      const now = new Date();
+      const currentDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (newDepartureDateOnly < currentDateOnly) {
         throw new CustomBadRequestException('Departure datetime must be in the future', ErrorCode.VALIDATION_ERROR);
       }
     }

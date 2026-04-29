@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RequestEntity } from './request.entity';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, Repository } from 'typeorm';
 import { UserEntity, UserRole } from 'src/user/user.entity';
 import { RequestStatusHistoryService } from 'src/request-status-history/request-status-history.service';
 import { RequestStatusService } from 'src/request-status/request-status.service';
@@ -122,9 +122,18 @@ export class RequestService {
       }
     }
 
+    if (travel.isInstant && Number(travel.pricePerKg || 0) > 0 && !createRequestDto.paymentMethodId) {
+      throw new CustomBadRequestException(
+        'Payment method is required for instant travel requests.',
+        ErrorCode.PAYMENT_PROCESSING_FAILED,
+      );
+    }
+
     // Use a transaction to ensure atomicity
-    return await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
-      const request = transactionalEntityManager.create(RequestEntity, {
+    let validatedPaymentIntentId: string | undefined = undefined;
+    try {
+      return await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+        const request = transactionalEntityManager.create(RequestEntity, {
         travelId: createRequestDto.travelId,
         demandId: null,
         requestType: createRequestDto.requestType,
@@ -132,7 +141,10 @@ export class RequestService {
         paymentMethodId: createRequestDto.paymentMethodId || null, // Store for non-instant travels
         createdBy: user.id,
         requesterId: user.id, // Add this field
-        requester: user
+        requester: user,
+        isWeightReserved: false,
+        weightReservedAt: null,
+        weightReleasedAt: null,
       });
 
       // Determine initial status based on travel's isInstant setting
@@ -155,8 +167,7 @@ export class RequestService {
 
       request.currentStatusId = reqStatus.id;
 
-      // If it's an instant travel, validate payment BEFORE creating request and deducting weight
-      let validatedPaymentIntentId: string | undefined = undefined;
+      // If it's an instant travel, validate payment BEFORE creating request and reserving weight
       if (travel.isInstant && createRequestDto.paymentMethodId) {
         console.log('reached6 - validating payment for instant travel');
         
@@ -202,6 +213,17 @@ export class RequestService {
         requestStatusId: reqStatus!.id
       });
       await transactionalEntityManager.save(RequestStatusHistoryEntity, statusHistoryRecord);
+
+      // Reserve kilos immediately for both non-instant (NEGOTIATING) and instant (ACCEPTED) requests.
+      await this.reserveTravelWeightOrThrow(
+        travel.id,
+        createRequestDto.weight,
+        transactionalEntityManager
+      );
+      savedRequest.isWeightReserved = true;
+      savedRequest.weightReservedAt = new Date();
+      savedRequest.weightReleasedAt = null;
+      await transactionalEntityManager.save(RequestEntity, savedRequest);
       console.log('reached4 - after status history');
 
       // Clear cache for affected users (requester and travel owner)
@@ -236,8 +258,23 @@ export class RequestService {
         console.log('reached10 - events emitted');
       }
 
-      return savedRequest;
-    });
+        return savedRequest;
+      });
+    } catch (error) {
+      // Stripe side effects happen before DB commit for instant requests.
+      // If DB transaction fails after payment confirmation, refund to avoid orphaned charge.
+      if (validatedPaymentIntentId) {
+        try {
+          await this.stripeService.refundPaymentIntent(validatedPaymentIntentId);
+          this.logger.warn(`Compensation refund succeeded for PaymentIntent ${validatedPaymentIntentId}`);
+        } catch (refundError) {
+          this.logger.error(
+            `Compensation refund failed for PaymentIntent ${validatedPaymentIntentId}: ${refundError instanceof Error ? refundError.message : refundError}`,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   // New method to handle instant travel acceptance
@@ -250,23 +287,6 @@ export class RequestService {
   ): Promise<void> {
     try {
       console.log('processInstantTravelAcceptance - start');
-
-      // Update travel weight availability
-      // Convert to numbers to handle decimal/string type issues from TypeORM
-      const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-      const requestWeight = Number(request.weight) || 0;
-      const newAvailableWeight = travelWeightAvailable - requestWeight;
-      travel.weightAvailable = newAvailableWeight;
-
-      // Check if travel is now filled (use small epsilon for floating point comparison)
-      if (Math.abs(newAvailableWeight) < 0.01) {
-        travel.status = 'filled';
-      }
-
-      console.log('processInstantTravelAcceptance - before travel save');
-      // Use the transactional entity manager instead of the service
-      await transactionalEntityManager.save('TravelEntity', travel);
-      console.log('processInstantTravelAcceptance - after travel save');
 
       // Calculate transaction amount using Platform Pricing Service
       const travelerPayment = (request.weight || 0) * travel.pricePerKg;
@@ -405,7 +425,8 @@ export class RequestService {
     const pricing = await this.platformPricingService.calculateTotalAmount(travelerPayment);
     const transactionAmount = pricing.totalAmount;
 
-    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+    try {
+      await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
       // 8. Update request status to ACCEPTED
       request.currentStatusId = acceptedStatus.id;
       request.currentStatus = acceptedStatus;
@@ -428,7 +449,21 @@ export class RequestService {
         transactionalEntityManager,
         validatedPaymentIntentId
       );
-    });
+      });
+    } catch (error) {
+      // If payment succeeded but DB transaction fails, compensate with full refund.
+      if (validatedPaymentIntentId) {
+        try {
+          await this.stripeService.refundPaymentIntent(validatedPaymentIntentId);
+          this.logger.warn(`Compensation refund succeeded for PaymentIntent ${validatedPaymentIntentId}`);
+        } catch (refundError) {
+          this.logger.error(
+            `Compensation refund failed for PaymentIntent ${validatedPaymentIntentId}: ${refundError instanceof Error ? refundError.message : refundError}`,
+          );
+        }
+      }
+      throw error;
+    }
 
     // 12. Handle business logic based on request type (after transaction succeeds)
     if (request.travelId) {
@@ -701,8 +736,29 @@ export class RequestService {
     if (!cancelledStatus) {
       throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
-    await this.requestRepository.update(requestId, { currentStatusId: cancelledStatus.id });
-    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
+    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        relations: ['travel', 'demand', 'currentStatus'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRequest) {
+        throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+      }
+
+      lockedRequest.currentStatusId = cancelledStatus.id;
+      lockedRequest.currentStatus = cancelledStatus;
+      await transactionalEntityManager.save(RequestEntity, lockedRequest);
+      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
+      await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
+
+      request.currentStatusId = lockedRequest.currentStatusId;
+      request.currentStatus = lockedRequest.currentStatus;
+      request.isWeightReserved = lockedRequest.isWeightReserved;
+      request.weightReleasedAt = lockedRequest.weightReleasedAt;
+    });
+    const ownerId = request.travel?.userId ?? request.demand?.userId ?? 0;
+
     this.logger.log(`[Payment-failure] Loading requester: id=${request.requesterId}`);
     const requester = await this.userService.findOne({ id: request.requesterId });
     if (!requester) {
@@ -712,9 +768,6 @@ export class RequestService {
     } else {
       this.logger.log(`[Payment-failure] Requester found: userId=${requester.id}, email=${requester.email ?? '(null)'}`);
       request.requester = requester;
-      request.currentStatusId = cancelledStatus.id;
-      request.currentStatus = cancelledStatus;
-      const ownerId = request.travel?.userId ?? request.demand?.userId ?? 0;
       const eventPayload: RequestEvent = {
         userId: requester.id,
         userFirstName: requester.firstName,
@@ -751,6 +804,20 @@ export class RequestService {
       }
       this.userEventService.emitRequestCancelled(requester, request, false, ownerId, paymentErrorMessage, true);
     }
+
+    if (ownerId > 0) {
+      this.logger.log(`[Payment-failure] Loading owner: id=${ownerId}`);
+      const owner = await this.userService.findOne({ id: ownerId });
+      if (!owner) {
+        this.logger.warn(
+          `cancelRequestDueToPaymentFailure: owner not found for requestId=${requestId}, ownerId=${ownerId}. Owner notification not sent.`,
+        );
+      } else {
+        this.logger.log(`[Payment-failure] Notifying owner: userId=${owner.id}, email=${owner.email ?? '(null)'}`);
+        this.userEventService.emitRequestCancelled(owner, request, true, ownerId, paymentErrorMessage);
+      }
+    }
+
     const affectedUserIds = [request.requesterId];
     if (request.travel) affectedUserIds.push(request.travel.userId);
     else if (request.demand) affectedUserIds.push(request.demand.userId);
@@ -906,46 +973,35 @@ export class RequestService {
     }
     // Note: For rejection (owner), no refund is processed
 
-    // 7. Restore weight to travel if request was for a travel
-    if (request.travelId) {
-      const travel = await this.travelService.findOne({
-        where: { id: request.travelId }
+    // 7-8. Persist terminal status and release reserved kilos atomically.
+    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        relations: ['travel', 'demand', 'currentStatus'],
+        lock: { mode: 'pessimistic_write' },
       });
-
-      if (travel) {
-        // Convert to numbers to handle decimal/string type issues from TypeORM
-        const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-        const requestWeight = Number(request.weight) || 0;
-
-        // Add the request weight back to available weight
-        const newAvailableWeight = travelWeightAvailable + requestWeight;
-
-        // Update travel weight
-        travel.weightAvailable = newAvailableWeight;
-
-        // If travel was 'filled', change status back to 'active' since weight is now available
-        if (travel.status === 'filled' && newAvailableWeight > 0) {
-          travel.status = 'active';
-        }
-
-        await this.travelService.save(travel);
+      if (!lockedRequest) {
+        throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
       }
-    }
 
-    // 8. Update request status based on action type
-    if (isRequester) {
-      // Cancellation by requester
-      request.currentStatusId = cancelledStatus.id;
-      request.currentStatus = cancelledStatus;
-      await this.requestRepository.save(request);
-      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
-    } else {
-      // Rejection by owner
-      request.currentStatusId = rejectedStatus.id;
-      request.currentStatus = rejectedStatus;
-      await this.requestRepository.save(request);
-      await this.requestStatusHistoryService.record(requestId, rejectedStatus.id);
-    }
+      if (isRequester) {
+        lockedRequest.currentStatusId = cancelledStatus.id;
+        lockedRequest.currentStatus = cancelledStatus;
+        await transactionalEntityManager.save(RequestEntity, lockedRequest);
+        await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
+      } else {
+        lockedRequest.currentStatusId = rejectedStatus.id;
+        lockedRequest.currentStatus = rejectedStatus;
+        await transactionalEntityManager.save(RequestEntity, lockedRequest);
+        await this.requestStatusHistoryService.record(requestId, rejectedStatus.id, transactionalEntityManager);
+      }
+
+      await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
+      request.currentStatusId = lockedRequest.currentStatusId;
+      request.currentStatus = lockedRequest.currentStatus;
+      request.isWeightReserved = lockedRequest.isWeightReserved;
+      request.weightReleasedAt = lockedRequest.weightReleasedAt;
+    });
 
     // 9. Send email and notification to requester (isForOwner=false)
     const requester = await this.userService.findOne({ id: request.requesterId });
@@ -1057,26 +1113,31 @@ export class RequestService {
       }
     }
 
-    request.currentStatusId = cancelledStatus.id;
-    request.currentStatus = cancelledStatus;
-    request.cancellationConfirmedAt = new Date();
-    request.cancellationConfirmedBy = confirmedByUserId;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(requestId, cancelledStatus.id);
-
-    if (request.travelId) {
-      const travel = await this.travelService.findOne({ where: { id: request.travelId } });
-      if (travel) {
-        const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-        const requestWeight = Number(request.weight) || 0;
-        const newAvailableWeight = travelWeightAvailable + requestWeight;
-        travel.weightAvailable = newAvailableWeight;
-        if (travel.status === 'filled' && newAvailableWeight > 0) {
-          travel.status = 'active';
-        }
-        await this.travelService.save(travel);
+    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        relations: ['travel', 'demand', 'currentStatus'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRequest) {
+        throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
       }
-    }
+
+      lockedRequest.currentStatusId = cancelledStatus.id;
+      lockedRequest.currentStatus = cancelledStatus;
+      lockedRequest.cancellationConfirmedAt = new Date();
+      lockedRequest.cancellationConfirmedBy = confirmedByUserId;
+      await transactionalEntityManager.save(RequestEntity, lockedRequest);
+      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
+      await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
+
+      request.currentStatusId = lockedRequest.currentStatusId;
+      request.currentStatus = lockedRequest.currentStatus;
+      request.cancellationConfirmedAt = lockedRequest.cancellationConfirmedAt;
+      request.cancellationConfirmedBy = lockedRequest.cancellationConfirmedBy;
+      request.isWeightReserved = lockedRequest.isWeightReserved;
+      request.weightReleasedAt = lockedRequest.weightReleasedAt;
+    });
 
     const requester = await this.userService.findOne({ id: request.requesterId });
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
@@ -1306,39 +1367,147 @@ export class RequestService {
     return { completed, errors };
   }
 
-  // Helper method for travel requests
-  private async handleTravelRequestAcceptance(request: RequestEntity): Promise<void> {
-    const travel = await this.travelService.findOne({
-      where: { id: request.travelId! }
+  private async reserveTravelWeightOrThrow(
+    travelId: number,
+    weightToReserve: number,
+    transactionalEntityManager: EntityManager,
+  ): Promise<void> {
+    const travel = await transactionalEntityManager.findOne(TravelEntity, {
+      where: { id: travelId },
+      lock: { mode: 'pessimistic_write' },
     });
 
     if (!travel) {
       throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
     }
 
-    // Convert to numbers to handle decimal/string type issues from TypeORM
     const travelWeightAvailable = Number(travel.weightAvailable) || 0;
-    const requestWeight = Number(request.weight) || 0;
-
-    // Subtract the request weight from available weight
+    const requestWeight = Number(weightToReserve) || 0;
     const newAvailableWeight = travelWeightAvailable - requestWeight;
 
     if (newAvailableWeight < 0) {
       throw new CustomBadRequestException(
-        `Insufficient weight available in travel. Only ${travelWeightAvailable}kg available, but ${requestWeight}kg requested.`,
-        ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE_IN_TRAVEL
+        `Insufficient weight available. Only ${travelWeightAvailable}kg available, but ${requestWeight}kg requested.`,
+        ErrorCode.INSUFFICIENT_WEIGHT_AVAILABLE,
       );
     }
 
-    // Update travel weight
     travel.weightAvailable = newAvailableWeight;
+    travel.status = Math.abs(newAvailableWeight) < 0.01 ? 'filled' : 'active';
+    await transactionalEntityManager.save(TravelEntity, travel);
+  }
 
-    // Check if travel is now filled (use small epsilon for floating point comparison)
-    if (Math.abs(newAvailableWeight) < 0.01) {
-      travel.status = 'filled';
+  private async releaseReservedTravelWeightIfNeeded(
+    requestId: number,
+    transactionalEntityManager: EntityManager,
+  ): Promise<void> {
+    const request = await transactionalEntityManager.findOne(RequestEntity, {
+      where: { id: requestId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!request || !request.travelId) {
+      return;
     }
 
-    await this.travelService.save(travel);
+    if (!request.isWeightReserved || !!request.weightReleasedAt) {
+      return;
+    }
+
+    const travel = await transactionalEntityManager.findOne(TravelEntity, {
+      where: { id: request.travelId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!travel) {
+      throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
+    }
+
+    const travelWeightAvailable = Number(travel.weightAvailable) || 0;
+    const requestWeight = Number(request.weight) || 0;
+    const totalWeightAllowance = Number(travel.totalWeightAllowance) || 0;
+    const nextAvailableWeight = Math.min(
+      totalWeightAllowance,
+      travelWeightAvailable + requestWeight,
+    );
+
+    travel.weightAvailable = nextAvailableWeight;
+    if (nextAvailableWeight > 0 && travel.status === 'filled') {
+      travel.status = 'active';
+    }
+    await transactionalEntityManager.save(TravelEntity, travel);
+
+    request.weightReleasedAt = new Date();
+    request.isWeightReserved = false;
+    await transactionalEntityManager.save(RequestEntity, request);
+  }
+
+  async reconcileTravelWeightAvailability(travelId: number): Promise<TravelEntity> {
+    return this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const travel = await transactionalEntityManager.findOne(TravelEntity, {
+        where: { id: travelId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!travel) {
+        throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
+      }
+
+      const holdingStatuses = ['NEGOTIATING', 'ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION'];
+      const reserved = await transactionalEntityManager
+        .createQueryBuilder(RequestEntity, 'request')
+        .leftJoin('request.currentStatus', 'currentStatus')
+        .select('COALESCE(SUM(request.weight), 0)', 'sum')
+        .where('request.travelId = :travelId', { travelId })
+        .andWhere('request.isWeightReserved = :isWeightReserved', { isWeightReserved: true })
+        .andWhere('request.weightReleasedAt IS NULL')
+        .andWhere('currentStatus.status IN (:...statuses)', { statuses: holdingStatuses })
+        .getRawOne<{ sum: string }>();
+
+      const reservedWeight = Number(reserved?.sum || 0);
+      const allowance = Number(travel.totalWeightAllowance) || 0;
+      const reconciledAvailable = Math.max(0, Math.min(allowance, allowance - reservedWeight));
+
+      travel.weightAvailable = reconciledAvailable;
+      travel.status = Math.abs(reconciledAvailable) < 0.01 ? 'filled' : travel.status === 'cancelled' ? 'cancelled' : 'active';
+
+      return await transactionalEntityManager.save(TravelEntity, travel);
+    });
+  }
+
+  async reconcileAllTravelWeightAvailability(): Promise<{ updated: number; errors: number }> {
+    const travelIds = await this.requestRepository
+      .createQueryBuilder('request')
+      .select('DISTINCT request.travelId', 'travelId')
+      .where('request.travelId IS NOT NULL')
+      .getRawMany<{ travelId: string }>();
+
+    let updated = 0;
+    let errors = 0;
+
+    for (const row of travelIds) {
+      const travelId = Number(row.travelId);
+      if (!travelId) {
+        continue;
+      }
+
+      try {
+        await this.reconcileTravelWeightAvailability(travelId);
+        updated++;
+      } catch (error) {
+        this.logger.error(`Failed to reconcile travel ${travelId}: ${error instanceof Error ? error.message : error}`);
+        errors++;
+      }
+    }
+
+    return { updated, errors };
+  }
+
+  // Helper method for travel requests
+  private async handleTravelRequestAcceptance(_request: RequestEntity): Promise<void> {
+    // Weight reservation is now done at request creation time.
+    // Keep this method as a no-op for backward compatibility with existing call sites.
+    return;
   }
 
   // Helper method for demand requests

@@ -51,11 +51,11 @@ export class CreateAlertDto {
   flightNumber?: string;
 
   @ApiProperty({
-    description: 'travel date time',
+    description: 'travel date time (frontend payload)',
     example: '2025-01-01T10:00:00Z',
     required: false,
   })
   @IsOptional()
-  @IsDateString({}, { message: 'travel date time must be a valid date string' })
+  @IsDateString({}, { message: 'travelDateTime must be a valid date string' })
   travelDateTime?: string;
 }

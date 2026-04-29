@@ -22,6 +22,11 @@ export class AlertService {
   private readonly logger = new Logger(AlertService.name);
   private alertListCacheKeys: Set<string> = new Set();
 
+  private toUtcDateOnly(value: string): Date {
+    const dateOnly = value.split('T')[0];
+    return new Date(`${dateOnly}T00:00:00.000Z`);
+  }
+
     constructor(
     @InjectRepository(AlertEntity)
     private alertRepository: Repository<AlertEntity>,
@@ -42,7 +47,7 @@ export class AlertService {
       arrivalAirportId: createAlertDto.arrivalAirportId,
       alertType: createAlertDto.alertType || AlertType.TRAVEL,
       flightNumber: createAlertDto.flightNumber || null,
-      travelDateTime: createAlertDto.travelDateTime ? new Date(createAlertDto.travelDateTime) : null,
+      travelDate: createAlertDto.travelDateTime ? this.toUtcDateOnly(createAlertDto.travelDateTime) : null,
       createdBy: userId,
     };
 
@@ -72,8 +77,8 @@ export class AlertService {
           departureAirport: alertWithRelations.departureAirport?.name || 'Unknown',
           arrivalAirport: alertWithRelations.arrivalAirport?.name || 'Unknown',
           flightNumber: alertWithRelations.flightNumber,
-          travelDate: alertWithRelations.travelDateTime 
-            ? new Date(alertWithRelations.travelDateTime).toLocaleDateString() 
+          travelDate: alertWithRelations.travelDate
+            ? new Date(alertWithRelations.travelDate).toLocaleDateString()
             : null,
           alertId: savedAlert.id,
         });
@@ -185,12 +190,12 @@ export class AlertService {
 
     if (travelDate) {
       const targetDate = new Date(travelDate);
-      queryBuilder.andWhere('DATE(alert.travelDateTime) = DATE(:travelDate)', { travelDate: targetDate });
+      queryBuilder.andWhere('DATE(alert.travelDate) = DATE(:travelDate)', { travelDate: targetDate });
     }
 
     // Apply sorting
     const [sortField, sortDirection] = orderBy.split(':');
-    const validSortFields = ['createdAt', 'travelDateTime'];
+    const validSortFields = ['createdAt', 'travelDate'];
     const validSortDirections = ['asc', 'desc'];
 
     if (validSortFields.includes(sortField) && validSortDirections.includes(sortDirection)) {
@@ -307,7 +312,7 @@ export class AlertService {
       nextDay.setDate(nextDay.getDate() + 1);
 
       queryBuilder.andWhere(
-        '(alert.travelDateTime IS NULL OR (DATE(alert.travelDateTime) = DATE(:travelDate)))',
+        '(alert.travelDate IS NULL OR (DATE(alert.travelDate) = DATE(:travelDate)))',
         { travelDate },
       );
     }

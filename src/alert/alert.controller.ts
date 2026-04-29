@@ -66,7 +66,7 @@ export class AlertController {
     - arrivalAirportId: Filter by arrival airport
     - travelDate: Filter by travel date
     
-    Supports pagination and sorting by createdAt or travelDateTime.
+    Supports pagination and sorting by createdAt or travelDate.
     `
   })
   @ApiResponse({ status: 200, description: 'Alerts fetched successfully', type: PaginatedAlertResponseDto })
