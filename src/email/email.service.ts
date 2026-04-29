@@ -10,6 +10,7 @@ export interface EmailOptions {
   html?: string;
   text?: string;
   from?: string;
+  bcc?: string | string[];
   attachments?: Array<{
     filename: string;
     content: string | Buffer;
@@ -106,6 +107,7 @@ export class EmailService {
     const mailOptions = {
       from: options.from || this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
       to: options.to,
+      bcc: options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
       subject: options.subject,
       html: options.html,
       text: options.text,

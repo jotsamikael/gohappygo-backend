@@ -12,5 +12,6 @@ export default registerAs('email', () => ({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD, // This should be your host app password
   },
+  archiveBcc: process.env.EMAIL_ARCHIVE_BCC || '',
   from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@gohappygo.fr',
 }));
