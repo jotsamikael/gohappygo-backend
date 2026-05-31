@@ -2,6 +2,9 @@
 /dist
 /node_modules
 /build
+/admin/dist
+/admin/node_modules
+/admin/.angular
 /firebase-service-account.json
 firebase-service-account.json
 

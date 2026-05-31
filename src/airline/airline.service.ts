@@ -352,8 +352,19 @@ export class AirlineService implements OnModuleInit {
     return savedAirline;
   }
 
-  deleteAirline(id: number) {
-    throw new Error('Method not implemented.');
+  /**
+   * Delete an airline
+   * @param id - The ID of the airline to delete
+   * @returns The deleted airline
+   */
+  async deleteAirline(id: number): Promise<void> {
+    const airline = await this.airlineRepository.findOne({ where: { id } });
+    if (!airline) {
+      throw new CustomNotFoundException(`Airline with ID ${id} not found`, ErrorCode.AIRLINE_NOT_FOUND);
+    }
+    await this.airlineRepository.delete(id);
+    await this.clearAirlineListCache();
+    this.logger.log(`Airline deleted: ${airline.name} (ID: ${id})`);
   }
 
 
