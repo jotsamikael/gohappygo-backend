@@ -1,0 +1,66 @@
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-soft-primary {
+  background-color: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+}
+
+.badge-soft-secondary {
+  background-color: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+.badge-soft-info {
+  background-color: rgba(23, 162, 184, 0.1);
+  color: #17a2b8;
+}
+
+.badge-soft-warning {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: #b8860b;
+}
+
+.badge-soft-success {
+  background-color: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.badge-soft-danger {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.mat-table {
+  width: 100%;
+
+  .mat-header-cell {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.8rem;
+    padding: 12px 8px;
+  }
+
+  .mat-cell {
+    vertical-align: middle;
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+}
+
+.mat-form-field {
+  .mat-form-field-wrapper {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .col-md-3, .col-md-4 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}

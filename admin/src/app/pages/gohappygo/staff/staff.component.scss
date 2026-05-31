@@ -1,0 +1,44 @@
+/* Phone input wrapper */
+.phone-input-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  /* Country code select styling */
+  .country-code-select {
+    min-width: 180px;
+  }
+  
+  .country-code-select .mat-mdc-select-value {
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Flag and country code display in table */
+  td.mat-column-phone {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  
+  /* Custom scrollbar for country dropdown */
+  .mat-mdc-select-panel {
+    max-height: 300px !important;
+  }
+  
+  /* Style the option items in country dropdown */
+  .mat-mdc-option .d-flex.align-items-center {
+    gap: 4px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .phone-input-wrapper {
+      flex-direction: column;
+      gap: 0;
+    }
+    
+    .country-code-select {
+      width: 100% !important;
+    }
+  }

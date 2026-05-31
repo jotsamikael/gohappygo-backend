@@ -1,0 +1,268 @@
+<div class="container-fluid">
+  <app-page-title title="Reviews Management" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <!-- Header -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h4 class="card-title">User Reviews</h4>
+              <p class="card-sub-title">Manage and moderate user reviews</p>
+            </div>
+          </div>
+
+          <!-- Search and Filter Section -->
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Reviewer Email</mat-label>
+                <input matInput type="email" [formControl]="reviewerEmailControl" placeholder="e.g. reviewer@example.com">
+                <mat-icon matSuffix>person_search</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Reviewee Email</mat-label>
+                <input matInput type="email" [formControl]="revieweeEmailControl" placeholder="e.g. reviewee@example.com">
+                <mat-icon matSuffix>person_outline</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Rating</mat-label>
+                <input matInput type="number" [formControl]="ratingSearchControl" placeholder="1-5" min="1" max="5">
+                <mat-icon matSuffix>star</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Comment</mat-label>
+                <input matInput [formControl]="commentSearchControl" placeholder="Search comment...">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                <i class="fas fa-times me-2"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+         <!-- ==================== LOADING SPINNER ==================== -->
+         <div *ngIf="isLoading" class="d-flex flex-column align-items-center justify-content-center py-5">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p class="mt-2 text-muted">Loading reviews...</p>
+        </div>
+
+          <!-- Reviews Table -->
+          <div *ngIf="!isLoading" class="table-responsive">
+            <table mat-table [dataSource]="dataSource" matSort (matSortChange)="onSortChange($event)" class="w-100">
+              
+              <!-- ID Column -->
+              <ng-container matColumnDef="id">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+                <td mat-cell *matCellDef="let review">
+                  <strong>#{{ review.id }}</strong>
+                </td>
+              </ng-container>
+
+              <!-- Reviewer Column -->
+              <ng-container matColumnDef="reviewer">
+                <th mat-header-cell *matHeaderCellDef> Reviewer </th>
+                <td mat-cell *matCellDef="let review">
+                  <div class="user-info">
+                    <strong>{{review.reviewer.fullName}}</strong>
+                    <small class="text-muted d-block">{{ review.reviewer?.email }}</small>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Reviewee Column -->
+              <ng-container matColumnDef="reviewee">
+                <th mat-header-cell *matHeaderCellDef> Reviewee </th>
+                <td mat-cell *matCellDef="let review">
+                  <div class="user-info">
+                    <strong>{{ review.reviewee.fullName }}</strong>
+                    <small class="text-muted d-block">{{ review.reviewee?.email }}</small>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Rating Column -->
+              <ng-container matColumnDef="rating">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Rating </th>
+                <td mat-cell *matCellDef="let review">
+                  <div class="rating-display">
+                    {{ getRatingStars(review.rating) }}
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Comment Column -->
+              <ng-container matColumnDef="comment">
+                <th mat-header-cell *matHeaderCellDef> Comment </th>
+                <td mat-cell *matCellDef="let review">
+                  <div class="comment-text">
+                    {{ truncateText(review.comment, 60) }}
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Request ID Column -->
+              <ng-container matColumnDef="requestId">
+                <th mat-header-cell *matHeaderCellDef> Request </th>
+                <td mat-cell *matCellDef="let review">
+                  <span class="badge badge-info">#{{ review.requestId }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Created At Column -->
+              <ng-container matColumnDef="createdAt">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Created </th>
+                <td mat-cell *matCellDef="let review">
+                  <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #menu="matMenu" class="action-menu">
+                    <button mat-menu-item (click)="onViewReview(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-eye-outline"></i>
+                      <span>View Details</span>
+                    </button>
+
+                    <button mat-menu-item (click)="openModerateModal(row)" class="menu-item moderate-action">
+                      <i class="mdi mdi-18px mdi-shield-check"></i>
+                      <span>Moderate Review</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+
+            <!-- No Data Message -->
+            <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+              <mat-icon class="text-muted" style="font-size: 48px;">rate_review</mat-icon>
+              <h5 class="text-muted mt-2">No reviews found</h5>
+              <p class="text-muted">Try adjusting your search criteria.</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} reviews
+            </div>
+            <mat-paginator 
+              [length]="totalItems"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [pageIndex]="currentPage - 1"
+              (page)="onPageChange($event)"
+              showFirstLastButtons>
+            </mat-paginator>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Moderate Review Modal -->
+<div class="modal fade" [class.show]="showModerateModal" [style.display]="showModerateModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bx bx-shield-check me-2"></i>
+          Moderate Review #{{ selectedReview?.id }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModerateModal()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Review Details -->
+        <div class="review-details-card mb-4" *ngIf="selectedReview">
+          <div class="row">
+            <div class="col-md-6">
+              <p><strong>Reviewer:</strong> {{ getUserName(selectedReview.reviewer) }}</p>
+              <p><strong>Reviewee:</strong> {{ getUserName(selectedReview.reviewee) }}</p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Rating:</strong> {{ getRatingStars(selectedReview.rating) }}</p>
+              <p><strong>Request ID:</strong> #{{ selectedReview.requestId }}</p>
+            </div>
+          </div>
+          <div class="mt-2">
+            <p><strong>Original Comment:</strong></p>
+            <div class="original-comment">{{ selectedReview.comment }}</div>
+          </div>
+        </div>
+
+        <!-- Moderate Form -->
+        <form [formGroup]="moderateForm">
+          <div class="mb-3">
+            <label for="comment" class="form-label">Moderated Comment <span class="text-danger">*</span></label>
+            <textarea 
+              class="form-control" 
+              id="comment" 
+              formControlName="comment" 
+              rows="6"
+              placeholder="Enter the moderated comment..."
+              [class.is-invalid]="mf.comment.invalid && mf.comment.touched">
+            </textarea>
+            <div *ngIf="mf.comment.invalid && mf.comment.touched" class="invalid-feedback">
+              <div *ngIf="mf.comment.errors?.required">Comment is required</div>
+              <div *ngIf="mf.comment.errors?.minlength">Comment must be at least 10 characters</div>
+              <div *ngIf="mf.comment.errors?.maxlength">Comment cannot exceed 2500 characters</div>
+            </div>
+            <small class="text-muted">{{ mf.comment.value?.length || 0 }}/2500 characters</small>
+          </div>
+
+          <div class="alert alert-info">
+            <i class="bx bx-info-circle me-2"></i>
+            <strong>Note:</strong> Only the comment can be moderated. The rating cannot be changed by moderators.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModerateModal()" [disabled]="isModeratingLoading">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="moderateReview()"
+          [disabled]="moderateForm.invalid || isModeratingLoading">
+          <span *ngIf="!isModeratingLoading">
+            <i class="bx bx-shield-check me-2"></i>
+            Moderate Review
+          </span>
+          <span *ngIf="isModeratingLoading">
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            Moderating...
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showModerateModal" *ngIf="showModerateModal" (click)="closeModerateModal()"></div>

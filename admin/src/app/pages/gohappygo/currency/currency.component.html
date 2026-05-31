@@ -1,0 +1,292 @@
+<div class="container-fluid">
+  <app-page-title title="Currency Management" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <!-- Header with title and create button -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h4 class="card-title">Currencies List</h4>
+              <p class="card-sub-title">Manage currency information and exchange rates</p>
+            </div>
+            <button mat-raised-button class="btn btn-primary" (click)="openCreateModal()">
+              <i class="fas fa-plus me-2"></i>
+              Add New Currency
+            </button>
+          </div>
+
+          <!-- Search and Filter Section -->
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Search by Code</mat-label>
+                <input matInput [formControl]="codeSearchControl" placeholder="e.g., USD">
+                <mat-icon matSuffix>currency_exchange</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-4">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Search by Name</mat-label>
+                <input matInput [formControl]="nameSearchControl" placeholder="e.g., US Dollar">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-4">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Search by Country</mat-label>
+                <input matInput [formControl]="countrySearchControl" placeholder="e.g., United States">
+                <mat-icon matSuffix>public</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                <i class="fas fa-times me-2"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div *ngIf="isLoading" class="text-center py-4">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p class="mt-2">Loading currencies...</p>
+          </div>
+
+          <!-- Currencies Table -->
+          <div *ngIf="!isLoading" class="table-responsive">
+            <table mat-table [dataSource]="dataSource" matSort class="w-100">
+              
+              <!-- Code Column -->
+              <ng-container matColumnDef="code">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Code </th>
+                <td mat-cell *matCellDef="let currency">
+                  <span class="badge badge-primary">{{ currency.code }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Name Column -->
+              <ng-container matColumnDef="name">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+                <td mat-cell *matCellDef="let currency">
+                  <strong>{{ currency.name }}</strong>
+                </td>
+              </ng-container>
+
+              <!-- Symbol Column -->
+              <ng-container matColumnDef="symbol">
+                <th mat-header-cell *matHeaderCellDef> Symbol </th>
+                <td mat-cell *matCellDef="let currency">
+                  <span class="currency-symbol">{{ currency.symbol }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Exchange Rate Column -->
+              <ng-container matColumnDef="exchangeRate">
+                <th mat-header-cell *matHeaderCellDef> Exchange Rate </th>
+                <td mat-cell *matCellDef="let currency">
+                  <span class="exchange-rate">{{ formatExchangeRate(currency.exchangeRate) }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Country Column -->
+              <ng-container matColumnDef="country">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Country </th>
+                <td mat-cell *matCellDef="let currency">
+                  <span class="country-name">{{ currency.country }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Status Column -->
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef> Status </th>
+                <td mat-cell *matCellDef="let currency">
+                  <span *ngIf="!currency.isDeactivated" class="badge badge-success">Active</span>
+                  <span *ngIf="currency.isDeactivated" class="badge badge-danger">Deactivated</span>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #menu="matMenu" class="action-menu">
+                    <button mat-menu-item (click)="openEditModal(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-pencil-outline"></i>
+                      <span>Edit</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="onToggleActivation(row)" class="menu-item">
+                      <i class="mdi mdi-18px" [class]="row.isDeactivated ? 'mdi-check-circle text-success' : 'mdi-close-circle text-danger'"></i>
+                      <span>{{ row.isDeactivated ? 'Activate' : 'Deactivate' }}</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="onDeleteCurrency(row)" class="menu-item delete-action">
+                      <i class="mdi mdi-18px mdi-trash-can"></i>
+                      <span>Delete</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+
+            <!-- No Data Message -->
+            <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+              <mat-icon class="text-muted" style="font-size: 48px;">currency_exchange</mat-icon>
+              <h5 class="text-muted mt-2">No currencies found</h5>
+              <p class="text-muted">Try adjusting your search criteria or filters.</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} currencies
+            </div>
+            <mat-paginator 
+              [length]="totalItems"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [pageIndex]="currentPage - 1"
+              (page)="onPageChange($event)"
+              showFirstLastButtons>
+            </mat-paginator>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Currency Modal -->
+<div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog" *ngIf="showModal">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ isEditMode ? 'Edit Currency' : 'Add New Currency' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
+      </div>
+      
+      <form [formGroup]="currencyForm" (ngSubmit)="onSubmit()">
+        <div class="modal-body">
+          <div class="row">
+            <!-- Code -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Currency Code *</mat-label>
+                <input matInput formControlName="code" placeholder="e.g., USD" maxlength="3">
+                <mat-icon matSuffix>currency_exchange</mat-icon>
+                <mat-error *ngIf="currencyForm.get('code')?.hasError('required')">
+                  Currency code is required
+                </mat-error>
+                <mat-error *ngIf="currencyForm.get('code')?.hasError('minlength')">
+                  Currency code must be at least 2 characters
+                </mat-error>
+                <mat-error *ngIf="currencyForm.get('code')?.hasError('maxlength')">
+                  Currency code must not exceed 3 characters
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Name -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Currency Name *</mat-label>
+                <input matInput formControlName="name" placeholder="e.g., US Dollar">
+                <mat-icon matSuffix>text_fields</mat-icon>
+                <mat-error *ngIf="currencyForm.get('name')?.hasError('required')">
+                  Currency name is required
+                </mat-error>
+                <mat-error *ngIf="currencyForm.get('name')?.hasError('minlength')">
+                  Currency name must be at least 2 characters
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Symbol -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Symbol *</mat-label>
+                <input matInput formControlName="symbol" placeholder="e.g., $">
+                <mat-icon matSuffix>attach_money</mat-icon>
+                <mat-error *ngIf="currencyForm.get('symbol')?.hasError('required')">
+                  Currency symbol is required
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Exchange Rate -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Exchange Rate *</mat-label>
+                <input matInput type="number" formControlName="exchangeRate" placeholder="1.000000" step="0.000001">
+                <mat-icon matSuffix>trending_up</mat-icon>
+                <mat-error *ngIf="currencyForm.get('exchangeRate')?.hasError('required')">
+                  Exchange rate is required
+                </mat-error>
+                <mat-error *ngIf="currencyForm.get('exchangeRate')?.hasError('min')">
+                  Exchange rate must be greater than 0
+                </mat-error>
+            
+              </mat-form-field>
+            <small><em>Note: Exhange rate is 1 unit = x in US dollar</em></small>  
+            </div>
+
+            <!-- Country -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Country *</mat-label>
+                <input matInput formControlName="country" placeholder="e.g., United States">
+                <mat-icon matSuffix>public</mat-icon>
+                <mat-error *ngIf="currencyForm.get('country')?.hasError('required')">
+                  Country is required
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Is Active -->
+            <div class="col-md-6 mb-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive">
+                <label class="form-check-label" for="isActive">
+                  Active Currency
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="!currencyForm.valid || isSubmitting">
+            <span *ngIf="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Currency' : 'Create Currency') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showModal" *ngIf="showModal"></div>

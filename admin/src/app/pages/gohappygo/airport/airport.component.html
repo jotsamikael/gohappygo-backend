@@ -1,0 +1,253 @@
+<div class="container-fluid">
+  <app-page-title title="Airports Management" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <!-- Header with title and buttons -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h4 class="card-title">Airports List</h4>
+              <p class="card-sub-title">Manage airport information and locations</p>
+            </div>
+            <div class="d-flex gap-2">
+              <button mat-raised-button class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                Add New Airport
+              </button>
+              <button mat-raised-button class="btn btn-success" (click)="onViewMap()">
+                <i class="fas fa-map-marker-alt me-2"></i>
+                View Map
+              </button>
+            </div>
+          </div>
+
+          <!-- Search and Filter Section -->
+          <div class="row mb-3">
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Name</mat-label>
+                <input matInput [formControl]="nameSearchControl" placeholder="Airport name...">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+          <!--   <div class="col-md-1">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Municipality</mat-label>
+                <input matInput [formControl]="municipalitySearchControl" placeholder="City...">
+                <mat-icon matSuffix>location_city</mat-icon>
+              </mat-form-field>
+            </div> -->
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Country</mat-label>
+                <input matInput [formControl]="isoCountrySearchControl" placeholder="e.g., US">
+                <mat-icon matSuffix>public</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>IATA</mat-label>
+                <input matInput [formControl]="iataCodeSearchControl" placeholder="e.g., JFK">
+                <mat-icon matSuffix>flight</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>ICAO</mat-label>
+                <input matInput [formControl]="icaoCodeSearchControl" placeholder="e.g., KJFK">
+                <mat-icon matSuffix>flight_takeoff</mat-icon>
+              </mat-form-field>
+            </div>
+            <!-- <div class="col-md-1">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Continent</mat-label>
+                <input matInput [formControl]="continentSearchControl" placeholder="e.g., NA">
+                <mat-icon matSuffix>map</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-1">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Region</mat-label>
+                <input matInput [formControl]="isoRegionSearchControl" placeholder="e.g., US-NY">
+                <mat-icon matSuffix>location_on</mat-icon>
+              </mat-form-field>
+            </div> -->
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Type</mat-label>
+                <input matInput [formControl]="typeSearchControl" placeholder="e.g., large_airport">
+                <mat-icon matSuffix>category</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-2">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Service Type</mat-label>
+                <mat-select [formControl]="scheduledServiceControl">
+                  <mat-option value="yes">Scheduled Service</mat-option>
+                  <mat-option value="no">Non-Scheduled</mat-option>
+                </mat-select>
+                <mat-icon matSuffix>flight</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                <i class="fas fa-times me-2"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+         <!-- ==================== LOADING SPINNER ==================== -->
+         <div *ngIf="isLoading" class="d-flex flex-column align-items-center justify-content-center py-5">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p class="mt-2 text-muted">Airports...</p>
+        </div>
+
+          <!-- Airports Table -->
+          <div *ngIf="!isLoading" class="table-responsive">
+            <table mat-table [dataSource]="dataSource" matSort class="w-100">
+              
+              <!-- Ident Column -->
+              <ng-container matColumnDef="ident">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Ident </th>
+                <td mat-cell *matCellDef="let airport">
+                  <code>{{ airport.ident }}</code>
+                </td>
+              </ng-container>
+
+              <!-- Name Column -->
+              <ng-container matColumnDef="name">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Airport Name </th>
+                <td mat-cell *matCellDef="let airport">
+                  <div class="d-flex align-items-center">
+                    <div>
+                      <strong>{{ airport.name }}</strong>
+                      <br>
+                      <small class="text-muted">{{ getCoordinates(airport) }} | {{ getElevation(airport) }}</small>
+                    </div>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Type Column -->
+              <ng-container matColumnDef="type">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Type </th>
+                <td mat-cell *matCellDef="let airport">
+                  <span class="badge badge-primary">{{ airport.type }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Municipality Column -->
+              <ng-container matColumnDef="municipality">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Municipality </th>
+                <td mat-cell *matCellDef="let airport">
+                  <span class="badge badge-secondary">{{ airport.municipality }}</span>
+                </td>
+              </ng-container>
+
+              <!-- ISO Country Column -->
+              <ng-container matColumnDef="isoCountry">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Country </th>
+                <td mat-cell *matCellDef="let airport">
+                  <span class="badge badge-info">{{ airport.isoCountry }}</span>
+                </td>
+              </ng-container>
+
+              <!-- IATA Code Column -->
+              <ng-container matColumnDef="iataCode">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> IATA </th>
+                <td mat-cell *matCellDef="let airport">
+                  <code>{{ airport.iataCode }}</code>
+                </td>
+              </ng-container>
+
+              <!-- ICAO Code Column -->
+              <ng-container matColumnDef="icaoCode">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> ICAO </th>
+                <td mat-cell *matCellDef="let airport">
+                  <code>{{ airport.icaoCode }}</code>
+                </td>
+              </ng-container>
+
+              <!-- Scheduled Service Column -->
+              <ng-container matColumnDef="scheduledService">
+                <th mat-header-cell *matHeaderCellDef> Service </th>
+                <td mat-cell *matCellDef="let airport">
+                  <span [class]="airport.scheduledService === 'yes' ? 'badge-success' : 'badge-warning'" class="badge">
+                    {{ airport.scheduledService === 'yes' ? 'Scheduled' : 'Non-Scheduled' }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #menu="matMenu" class="action-menu">
+                    <button mat-menu-item (click)="onViewAirport(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-eye-outline"></i>
+                      <span>View Details</span>
+                    </button>
+
+                    <button *ngIf="!row.isDeactivated" mat-menu-item (click)="onToggleActivation(row)"
+                      class="menu-item">
+                      <i class="mdi mdi-18px mdi-account-cancel"></i>
+                      <span>Deactivate</span>
+                    </button>
+
+                    <button *ngIf="row.isDeactivated" mat-menu-item (click)="onToggleActivation(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-account-check"></i>
+                      <span>Activate</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="onDeleteAirport(row)" class="menu-item delete-action">
+                      <i class="mdi mdi-18px mdi-trash-can"></i>
+                      <span>Delete Airport</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+
+            <!-- No Data Message -->
+            <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+              <mat-icon class="text-muted" style="font-size: 48px;">flight_takeoff</mat-icon>
+              <h5 class="text-muted mt-2">No airports found</h5>
+              <p class="text-muted">Try adjusting your search criteria or filters.</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} airports
+            </div>
+            <mat-paginator 
+              [length]="totalItems"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [pageIndex]="currentPage - 1"
+              (page)="onPageChange($event)"
+              showFirstLastButtons>
+            </mat-paginator>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,248 @@
+<div class="container-fluid">
+    <app-page-title title="Request Matches" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+    
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <!-- Header with title and buttons -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h4 class="card-title">Request Matches</h4>
+                <p class="card-sub-title">Manage request matches and negotiations</p>
+              </div>
+             
+            </div>
+  
+            <!-- Search and Filter Section -->
+            <div class="row mb-3">
+          <!--     <div class="col-md-1">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>ID</mat-label>
+                  <input matInput type="number" [formControl]="idControl" placeholder="Request ID...">
+                  <mat-icon matSuffix>search</mat-icon>
+                </mat-form-field>
+              </div> -->
+            <!--   <div class="col-md-1">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Requester ID</mat-label>
+                  <input matInput type="number" [formControl]="requesterIdControl" placeholder="User ID...">
+                  <mat-icon matSuffix>person</mat-icon>
+                </mat-form-field>
+              </div> -->
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Requester Email</mat-label>
+                  <input matInput [formControl]="requesterEmailControl" placeholder="Requester email...">
+                  <mat-icon matSuffix>person</mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Traveler Email</mat-label>
+                  <input matInput [formControl]="travelerEmailControl" placeholder="Traveler email...">
+                  <mat-icon matSuffix>flight</mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Package Description</mat-label>
+                  <input matInput [formControl]="packageDescriptionControl" placeholder="Package details...">
+                  <mat-icon matSuffix>description</mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Min Weight</mat-label>
+                  <input matInput type="number" step="0.1" [formControl]="minWeightControl" placeholder="Min kg...">
+                  <mat-icon matSuffix>scale</mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Max Weight</mat-label>
+                  <input matInput type="number" step="0.1" [formControl]="maxWeightControl" placeholder="Max kg...">
+                  <mat-icon matSuffix>scale</mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="col-md-2">
+                <mat-form-field appearance="outline" class="w-100">
+                  <mat-label>Status</mat-label>
+                  <mat-select [formControl]="statusControl">
+                    <mat-option [value]="null">All Statuses</mat-option>
+                    <mat-option value="TO_CONFIRM">To Confirm</mat-option>
+                    <mat-option value="AWAITING_DELIVER">Awaiting Delivery</mat-option>
+                    <mat-option value="PROOF_ISSUE">Proof Issue</mat-option>
+                    <mat-option value="FINISHED">Finished</mat-option>
+                  </mat-select>
+                  <mat-icon matSuffix>flag</mat-icon>
+                </mat-form-field>
+              </div>
+             
+            </div>
+  
+            <!-- Clear Filters Button -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                  <i class="fas fa-times me-2"></i>
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+  
+            <!-- Loading Spinner -->
+           <!-- ==================== LOADING SPINNER ==================== -->
+          <div *ngIf="isLoading" class="d-flex flex-column align-items-center justify-content-center py-5">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p class="mt-2 text-muted">Loading reservations...</p>
+          </div>
+  
+            <!-- Requests Table -->
+            <div *ngIf="!isLoading" class="table-responsive">
+              <table mat-table [dataSource]="dataSource" matSort class="w-100">
+                
+                <!-- ID Column -->
+                <ng-container matColumnDef="id">
+                  <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+                  <td mat-cell *matCellDef="let request">
+                    <code>#{{ request.id }}</code>
+                  </td>
+                </ng-container>
+  
+                <!-- Requester Column -->
+                <ng-container matColumnDef="requester">
+                  <th mat-header-cell *matHeaderCellDef> Requester </th>
+                  <td mat-cell *matCellDef="let request">
+                    <div class="d-flex align-items-center">
+                      <div>
+                        <strong>{{ getRequesterName(request.requester) }}</strong>
+                        <br>
+                        <small class="text-muted">{{ request.requester.email }}</small>
+                      </div>
+                    </div>
+                  </td>
+                </ng-container>
+  
+                <!-- Request travel Owner Column -->
+                <ng-container matColumnDef="travelOwner">
+                  <th mat-header-cell *matHeaderCellDef> Travel Owner </th>
+                  <td mat-cell *matCellDef="let request">
+                    {{ request.travel.owner.fullName }}
+                   <!--  <span [class]="getRequestTypeBadgeClass(request.travel.owner.fullName)" class="badge">
+                    </span> -->
+                  </td>
+                </ng-container>
+  
+                <!-- Package Description Column -->
+                <ng-container matColumnDef="departureAirport">
+                  <th mat-header-cell *matHeaderCellDef>Departure Airport</th>
+                  <td mat-cell *matCellDef="let request">
+                    <div class="package-description">
+                      {{ request.travel.departureAirport.name || 'N/A' }}
+                    </div>
+                  </td>
+                </ng-container>
+  
+                <!-- Weight Column -->
+                <ng-container matColumnDef="weight">
+                  <th mat-header-cell *matHeaderCellDef mat-sort-header> Weight </th>
+                  <td mat-cell *matCellDef="let request">
+                    <span class="weight-info">{{ formatWeight(request.weight) }}</span>
+                  </td>
+                </ng-container>
+  
+                <!-- Limit Date Column -->
+                <ng-container matColumnDef="limitDate">
+                  <th mat-header-cell *matHeaderCellDef mat-sort-header> Travel Date </th>
+                  <td mat-cell *matCellDef="let request">
+                    <span *ngIf="request.travel.departureDatetime" class="date-info">
+                      {{ formatDate(request.travel.departureDatetime) }}
+                    </span>
+                    <span *ngIf="!request.travel.departureDatetime" class="text-muted">N/A</span>
+                  </td>
+                </ng-container>
+  
+                <!-- Status Column -->
+                <ng-container matColumnDef="status">
+                  <th mat-header-cell *matHeaderCellDef> Status </th>
+                  <td mat-cell *matCellDef="let request">
+                    <span [class]="getStatusBadgeClass(request.currentStatus.status)" class="badge">
+                      {{ getStatusDisplayText(request.currentStatus.status) }}
+                    </span>
+                  </td>
+                </ng-container>
+  
+                <!-- Travel Column -->
+                <ng-container matColumnDef="travel">
+                  <th mat-header-cell *matHeaderCellDef> Travel Info </th>
+                  <td mat-cell *matCellDef="let request">
+                    <div class="travel-info">
+                      {{ getTravelInfo(request.travel) }}
+                    </div>
+                  </td>
+                </ng-container>
+  
+                <!-- Actions Column -->
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef> Actions </th>
+                  <td mat-cell *matCellDef="let row">
+                    <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+  
+                    <mat-menu #menu="matMenu" class="action-menu">
+                      <button mat-menu-item (click)="onViewRequest(row)" class="menu-item">
+                        <i class="mdi mdi-18px mdi-eye-outline"></i>
+                        <span>View Details</span>
+                      </button>
+  
+                      <button *ngIf="row.currentStatus.status === 'NEGOTIATING'" mat-menu-item (click)="onAcceptRequest(row)" class="menu-item">
+                        <i class="mdi mdi-18px mdi-check"></i>
+                        <span>Accept Request</span>
+                      </button>
+  
+                      <button *ngIf="row.currentStatus.status === 'NEGOTIATING'" mat-menu-item (click)="onRejectRequest(row)" class="menu-item">
+                        <i class="mdi mdi-18px mdi-close"></i>
+                        <span>Reject Request</span>
+                      </button>
+  
+                      <button *ngIf="row.currentStatus.status === 'ACCEPTED'" mat-menu-item (click)="onCompleteRequest(row)" class="menu-item">
+                        <i class="mdi mdi-18px mdi-check-circle"></i>
+                        <span>Mark as Completed</span>
+                      </button>
+                    </mat-menu>
+                  </td>
+                </ng-container>
+  
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
+  
+              <!-- No Data Message -->
+              <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+                <mat-icon class="text-muted" style="font-size: 48px;">inbox</mat-icon>
+                <h5 class="text-muted mt-2">No requests found</h5>
+                <p class="text-muted">Try adjusting your search criteria or filters.</p>
+              </div>
+            </div>
+  
+            <!-- Pagination -->
+            <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+              <div class="text-muted">
+                Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} requests
+              </div>
+              <mat-paginator 
+                [length]="totalItems"
+                [pageSize]="pageSize"
+                [pageSizeOptions]="pageSizeOptions"
+                [pageIndex]="currentPage - 1"
+                (page)="onPageChange($event)"
+                showFirstLastButtons>
+              </mat-paginator>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

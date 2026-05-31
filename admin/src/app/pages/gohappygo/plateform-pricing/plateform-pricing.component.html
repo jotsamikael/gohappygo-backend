@@ -1,0 +1,252 @@
+<div class="container-fluid">
+  <app-page-title title="Platform Pricing Management" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <!-- Header with title and create button -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h4 class="card-title">Platform Pricing Tiers</h4>
+              <p class="card-sub-title">Manage pricing tiers for traveler payments. Amounts >= €151 use a fixed 15% fee.</p>
+            </div>
+            <button mat-raised-button class="btn btn-primary" (click)="openCreateModal()">
+              <i class="fas fa-plus me-2"></i>
+              Add New Pricing Tier
+            </button>
+          </div>
+
+          <!-- Search and Filter Section -->
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Filter by Lower Bound (EUR)</mat-label>
+                <input matInput type="number" [formControl]="lowerBoundSearchControl" placeholder="e.g., 1" min="0" max="150">
+                <mat-icon matSuffix>euro</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-6">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Filter by Upper Bound (EUR)</mat-label>
+                <input matInput type="number" [formControl]="upperBoundSearchControl" placeholder="e.g., 6" min="0" max="150">
+                <mat-icon matSuffix>euro</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                <i class="fas fa-times me-2"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+         <!-- ==================== LOADING SPINNER ==================== -->
+         <div *ngIf="isLoading" class="d-flex flex-column align-items-center justify-content-center py-5">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p class="mt-2 text-muted">Loading plateform pricing...</p>
+        </div>
+
+          <!-- Platform Pricing Table -->
+          <div *ngIf="!isLoading" class="table-responsive">
+            <table mat-table [dataSource]="dataSource" matSort class="w-100">
+              
+
+              <!-- Lower Bound Column -->
+              <ng-container matColumnDef="lowerBound">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Lower Bound (EUR) </th>
+                <td mat-cell *matCellDef="let pricing">
+                  <strong>{{ formatCurrency(pricing.lowerBound) }}</strong>
+                </td>
+              </ng-container>
+
+              <!-- Upper Bound Column -->
+              <ng-container matColumnDef="upperBound">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Upper Bound (EUR) </th>
+                <td mat-cell *matCellDef="let pricing">
+                  <strong>{{ formatCurrency(pricing.upperBound) }}</strong>
+                </td>
+              </ng-container>
+
+              <!-- Fee Column -->
+              <ng-container matColumnDef="fee">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header class="fee-header"> Fee (EUR) </th>
+                <td mat-cell *matCellDef="let pricing">
+                  <span class="badge badge-primary" *ngIf="pricing?.fee !== null && pricing?.fee !== undefined">
+                    {{ formatCurrency(pricing.fee) }}
+                  </span>
+                  <span class="text-muted" *ngIf="pricing?.fee === null || pricing?.fee === undefined">N/A</span>
+                </td>
+              </ng-container>
+
+              <!-- Created At Column -->
+              <ng-container matColumnDef="createdAt">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Created At </th>
+                <td mat-cell *matCellDef="let pricing">
+                  <small class="text-muted">{{ formatDate(pricing.createdAt) }}</small>
+                </td>
+              </ng-container>
+
+              <!-- Updated At Column -->
+              <ng-container matColumnDef="updatedAt">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Updated At </th>
+                <td mat-cell *matCellDef="let pricing">
+                  <small class="text-muted">{{ formatDate(pricing.updatedAt) }}</small>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #menu="matMenu" class="action-menu">
+                    <button mat-menu-item (click)="openEditModal(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-pencil-outline"></i>
+                      <span>Edit</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="onDeletePricing(row)" class="menu-item delete-action">
+                      <i class="mdi mdi-18px mdi-trash-can"></i>
+                      <span>Delete</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+
+            <!-- No Data Message -->
+            <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+              <mat-icon class="text-muted" style="font-size: 48px;">price_change</mat-icon>
+              <h5 class="text-muted mt-2">No pricing tiers found</h5>
+              <p class="text-muted">Try adjusting your search criteria or create a new pricing tier.</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} pricing tiers
+            </div>
+            <mat-paginator 
+              [length]="totalItems"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [pageIndex]="currentPage - 1"
+              (page)="onPageChange($event)"
+              showFirstLastButtons>
+            </mat-paginator>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Platform Pricing Modal -->
+<div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog" *ngIf="showModal">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ isEditMode ? 'Edit Pricing Tier' : 'Add New Pricing Tier' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
+      </div>
+      
+      <form [formGroup]="pricingForm" (ngSubmit)="onSubmit()">
+        <div class="modal-body">
+          <div class="alert alert-info" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Note:</strong> Lower bound and upper bound must be less than 151. Amounts >= €151 use a fixed 15% fee.
+          </div>
+          
+          <div class="row">
+            <!-- Lower Bound -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Lower Bound (EUR) *</mat-label>
+                <input matInput type="number" formControlName="lowerBound" placeholder="e.g., 1" min="0" max="150" step="0.01">
+                <mat-icon matSuffix>euro</mat-icon>
+                <mat-error *ngIf="pricingForm.get('lowerBound')?.hasError('required')">
+                  Lower bound is required
+                </mat-error>
+                <mat-error *ngIf="pricingForm.get('lowerBound')?.hasError('min')">
+                  Lower bound must be at least 0
+                </mat-error>
+                <mat-error *ngIf="pricingForm.get('lowerBound')?.hasError('max')">
+                  Lower bound must be less than 151
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Upper Bound -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Upper Bound (EUR) *</mat-label>
+                <input matInput type="number" formControlName="upperBound" placeholder="e.g., 6" min="0" max="150" step="0.01">
+                <mat-icon matSuffix>euro</mat-icon>
+                <mat-error *ngIf="pricingForm.get('upperBound')?.hasError('required')">
+                  Upper bound is required
+                </mat-error>
+                <mat-error *ngIf="pricingForm.get('upperBound')?.hasError('min')">
+                  Upper bound must be at least 0
+                </mat-error>
+                <mat-error *ngIf="pricingForm.get('upperBound')?.hasError('max')">
+                  Upper bound must be less than 151
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Fee -->
+            <div class="col-md-6 mb-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Platform Fee (EUR) *</mat-label>
+                <input matInput type="number" formControlName="fee" placeholder="e.g., 2" min="0" step="0.01">
+                <mat-icon matSuffix>euro</mat-icon>
+                <mat-hint>Fixed fee amount (not percentage)</mat-hint>
+                <mat-error *ngIf="pricingForm.get('fee')?.hasError('required')">
+                  Platform fee is required
+                </mat-error>
+                <mat-error *ngIf="pricingForm.get('fee')?.hasError('min')">
+                  Platform fee must be at least 0
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Range Validation Error -->
+          <div *ngIf="pricingForm.hasError('invalidRange') && pricingForm.get('lowerBound')?.touched && pricingForm.get('upperBound')?.touched" class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Lower bound must be less than upper bound
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="!pricingForm.valid || isSubmitting">
+            <span *ngIf="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Pricing Tier' : 'Create Pricing Tier') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showModal" *ngIf="showModal"></div>

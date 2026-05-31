@@ -1,0 +1,91 @@
+// Add these styles for better SweetAlert appearance
+::ng-deep .swal2-popup {
+  .swal2-title {
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .swal2-content {
+    color: #666;
+  }
+  
+  .swal2-input, .swal2-textarea {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    
+    &:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+  }
+  
+  .swal2-confirm {
+    font-weight: 500;
+  }
+  
+  .swal2-cancel {
+    font-weight: 500;
+  }
+}
+
+.verification-modal {
+  .user-info {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+  
+  .file-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    
+    .file-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      
+      mat-icon {
+        margin-right: 0.5rem;
+        color: #6c757d;
+      }
+      
+      .file-purpose {
+        font-weight: 500;
+      }
+    }
+    
+    .file-preview {
+      cursor: pointer;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+      
+      img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        transition: transform 0.2s;
+        
+        &:hover {
+          transform: scale(1.05);
+        }
+      }
+    }
+    
+    .file-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+    }
+  }
+}
+
+.image-modal {
+  img {
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+}

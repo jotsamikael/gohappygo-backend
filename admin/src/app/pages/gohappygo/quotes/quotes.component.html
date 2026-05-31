@@ -1,0 +1,337 @@
+<div class="container-fluid">
+  <app-page-title title="Quotes Management" [breadcrumbItems]="breadCrumbItems"></app-page-title>
+  
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <!-- Header with title and create button -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h4 class="card-title">Travel Quotes</h4>
+              <p class="card-sub-title">Manage inspirational travel quotes</p>
+            </div>
+            <button mat-raised-button class="btn btn-primary" (click)="openCreateModal()">
+              <i class="fas fa-plus me-2"></i>
+              Add New Quote
+            </button>
+          </div>
+
+          <!-- Search and Filter Section -->
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Search Quote</mat-label>
+                <input matInput [formControl]="quoteSearchControl" placeholder="Search by quote text...">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Author</mat-label>
+                <input matInput [formControl]="authorSearchControl" placeholder="Search by author...">
+                <mat-icon matSuffix>person</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Font Family</mat-label>
+                <input matInput [formControl]="fontFamilySearchControl" placeholder="e.g., Arial">
+                <mat-icon matSuffix>font_download</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-md-3">
+              <mat-form-field appearance="outline" class="w-100">
+                <mat-label>Font Size</mat-label>
+                <input matInput type="number" [formControl]="fontSizeSearchControl" placeholder="e.g., 18">
+                <mat-icon matSuffix>format_size</mat-icon>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <button mat-stroked-button (click)="clearFilters()" class="me-2">
+                <i class="fas fa-times me-2"></i>
+                Clear Filters
+              </button>
+            </div>
+          </div>
+
+         <!-- ==================== LOADING SPINNER ==================== -->
+         <div *ngIf="isLoading" class="d-flex flex-column align-items-center justify-content-center py-5">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p class="mt-2 text-muted">Loading quotes...</p>
+        </div>
+
+          <!-- Quotes Table -->
+          <div *ngIf="!isLoading" class="table-responsive">
+            <table mat-table [dataSource]="dataSource" matSort (matSortChange)="onSortChange($event)" class="w-100">
+              
+              <!-- Quote Column -->
+              <ng-container matColumnDef="quote">
+                <th mat-header-cell *matHeaderCellDef> Quote </th>
+                <td mat-cell *matCellDef="let quote">
+                  <div class="quote-text">
+                    <i class="bx bxs-quote-left text-primary me-2"></i>
+                    {{ truncateText(quote.quote, 100) }}
+                    <i class="bx bxs-quote-right text-primary ms-2"></i>
+                  </div>
+                </td>
+              </ng-container>
+
+              <!-- Author Column -->
+              <ng-container matColumnDef="author">
+                <th mat-header-cell *matHeaderCellDef> Author </th>
+                <td mat-cell *matCellDef="let quote">
+                  <strong>{{ quote.author }}</strong>
+                </td>
+              </ng-container>
+
+              <!-- Font Family Column -->
+              <ng-container matColumnDef="fontFamily">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Font Family </th>
+                <td mat-cell *matCellDef="let quote">
+                  <span class="badge badge-info" [style.fontFamily]="quote.fontFamily">
+                    {{ quote.fontFamily }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <!-- Font Size Column -->
+              <ng-container matColumnDef="fontSize">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Font Size </th>
+                <td mat-cell *matCellDef="let quote">
+                  <span class="badge badge-secondary">{{ quote.fontSize }}</span>
+                </td>
+              </ng-container>
+
+              <!-- Created At Column -->
+              <ng-container matColumnDef="createdAt">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Created </th>
+                <td mat-cell *matCellDef="let quote">
+                  <small class="text-muted">{{ formatDate(quote.createdAt) }}</small>
+                </td>
+              </ng-container>
+
+              <!-- Status Column -->
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef> Status </th>
+                <td mat-cell *matCellDef="let quote">
+                  <span [class]="getStatusBadgeClass(quote.isDeactivated)" class="quote-status">
+                    {{ getStatusText(quote.isDeactivated) }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button [matMenuTriggerFor]="menu" class="action-menu-button">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #menu="matMenu" class="action-menu">
+                    <button mat-menu-item (click)="onViewQuote(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-eye-outline"></i>
+                      <span>View Details</span>
+                    </button>
+
+                    <button mat-menu-item (click)="onEditQuote(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-pencil-outline"></i>
+                      <span>Edit Quote</span>
+                    </button>
+
+                    <button *ngIf="!row.isDeactivated" mat-menu-item (click)="onToggleActivation(row)"
+                      class="menu-item">
+                      <i class="mdi mdi-18px mdi-cancel"></i>
+                      <span>Deactivate</span>
+                    </button>
+
+                    <button *ngIf="row.isDeactivated" mat-menu-item (click)="onToggleActivation(row)" class="menu-item">
+                      <i class="mdi mdi-18px mdi-check-circle"></i>
+                      <span>Activate</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="onDeleteQuote(row)" class="menu-item delete-action">
+                      <i class="mdi mdi-18px mdi-trash-can"></i>
+                      <span>Delete Quote</span>
+                    </button>
+                  </mat-menu>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+
+            <!-- No Data Message -->
+            <div *ngIf="dataSource.data.length === 0 && !isLoading" class="text-center py-4">
+              <mat-icon class="text-muted" style="font-size: 48px;">format_quote</mat-icon>
+              <h5 class="text-muted mt-2">No quotes found</h5>
+              <p class="text-muted">Try adjusting your search criteria or add new quotes.</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalItems > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, totalItems) }} of {{ totalItems }} quotes
+            </div>
+            <mat-paginator 
+              [length]="totalItems"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              [pageIndex]="currentPage - 1"
+              (page)="onPageChange($event)"
+              showFirstLastButtons>
+            </mat-paginator>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Quote Modal -->
+<div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bx bxs-quote-alt-left me-2"></i>
+          {{ isEditMode ? 'Edit Quote' : 'Create New Quote' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="quoteForm">
+          <!-- Quote Text -->
+          <div class="mb-3">
+            <label for="quote" class="form-label">Quote Text <span class="text-danger">*</span></label>
+            <textarea 
+              class="form-control" 
+              id="quote" 
+              formControlName="quote" 
+              rows="4"
+              placeholder="Enter the quote text..."
+              [class.is-invalid]="f.quote.invalid && f.quote.touched">
+            </textarea>
+            <div *ngIf="f.quote.invalid && f.quote.touched" class="invalid-feedback">
+              <div *ngIf="f.quote.errors?.required">Quote text is required</div>
+              <div *ngIf="f.quote.errors?.minlength">Quote must be at least 10 characters</div>
+              <div *ngIf="f.quote.errors?.maxlength">Quote cannot exceed 500 characters</div>
+            </div>
+            <small class="text-muted">{{ f.quote.value?.length || 0 }}/500 characters</small>
+          </div>
+
+          <!-- Author -->
+          <div class="mb-3">
+            <label for="author" class="form-label">Author <span class="text-danger">*</span></label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="author" 
+              formControlName="author"
+              placeholder="Enter author name..."
+              [class.is-invalid]="f.author.invalid && f.author.touched">
+            <div *ngIf="f.author.invalid && f.author.touched" class="invalid-feedback">
+              <div *ngIf="f.author.errors?.required">Author is required</div>
+              <div *ngIf="f.author.errors?.minlength">Author must be at least 2 characters</div>
+            </div>
+          </div>
+
+          <!-- Font Family -->
+          <div class="mb-3">
+            <label for="fontFamily" class="form-label">Font Family <span class="text-danger">*</span></label>
+            <select 
+              class="form-select" 
+              id="fontFamily" 
+              formControlName="fontFamily"
+              [class.is-invalid]="f.fontFamily.invalid && f.fontFamily.touched">
+              <option *ngFor="let font of availableFonts" [value]="font" [style.fontFamily]="font">
+                {{ font }}
+              </option>
+            </select>
+            <div *ngIf="f.fontFamily.invalid && f.fontFamily.touched" class="invalid-feedback">
+              <div *ngIf="f.fontFamily.errors?.required">Font family is required</div>
+            </div>
+          </div>
+
+          <!-- Font Size -->
+          <div class="mb-3">
+            <label for="fontSize" class="form-label">Font Size (px) <span class="text-danger">*</span></label>
+            <input 
+              type="number" 
+              class="form-control" 
+              id="fontSize" 
+              formControlName="fontSize"
+              min="10"
+              max="72"
+              placeholder="e.g., 18"
+              [class.is-invalid]="f.fontSize.invalid && f.fontSize.touched">
+            <div *ngIf="f.fontSize.invalid && f.fontSize.touched" class="invalid-feedback">
+              <div *ngIf="f.fontSize.errors?.required">Font size is required</div>
+              <div *ngIf="f.fontSize.errors?.min">Font size must be at least 10px</div>
+              <div *ngIf="f.fontSize.errors?.max">Font size cannot exceed 72px</div>
+            </div>
+            <small class="text-muted">Enter size between 10 and 72 pixels</small>
+          </div>
+
+          <!-- Preview Button -->
+          <div class="mb-3">
+            <button 
+              type="button" 
+              class="btn btn-outline-primary w-100" 
+              (click)="togglePreview()"
+              [disabled]="quoteForm.invalid">
+              <i class="bx bx-show me-2"></i>
+              {{ showPreview ? 'Hide Preview' : 'Show Preview' }}
+            </button>
+          </div>
+
+          <!-- Preview Section -->
+          <div *ngIf="showPreview" class="preview-section">
+            <h6 class="mb-3">Preview:</h6>
+            <div class="preview-box">
+              <div class="quote-preview" [ngStyle]="getPreviewStyle()">
+                <i class="bx bxs-quote-left"></i>
+                {{ f.quote.value }}
+                <i class="bx bxs-quote-right"></i>
+              </div>
+              <div class="author-preview mt-3">
+                <small>— {{ f.author.value }}</small>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSaving">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="saveQuote()"
+          [disabled]="quoteForm.invalid || isSaving">
+          <span *ngIf="!isSaving">
+            <i class="bx bx-save me-2"></i>
+            {{ isEditMode ? 'Update Quote' : 'Create Quote' }}
+          </span>
+          <span *ngIf="isSaving">
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            Saving...
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showModal" *ngIf="showModal" (click)="closeModal()"></div>

@@ -1,0 +1,118 @@
+.currency-status {
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.currency-symbol {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.exchange-rate {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #28a745;
+}
+
+.country-name {
+  color: #495057;
+}
+
+.action-menu-button {
+  color: #666;
+  
+  &:hover {
+    color: #333;
+  }
+}
+
+.action-menu {
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    mat-icon {
+      margin-right: 8px;
+    }
+    
+    &.delete-action {
+      color: #dc3545;
+    }
+  }
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.mat-table {
+  .mat-header-cell {
+    font-weight: 600;
+    color: #495057;
+  }
+  
+  .mat-cell {
+    vertical-align: middle;
+  }
+}
+
+.mat-form-field {
+  .mat-form-field-wrapper {
+    padding-bottom: 0;
+  }
+}
+
+// Modal styles
+.modal {
+  &.show {
+    display: block !important;
+  }
+}
+
+.modal-backdrop {
+  &.show {
+    opacity: 0.5;
+  }
+}
+
+.modal-dialog {
+  max-width: 600px;
+}
+
+// Form styles
+.form-check-input:checked {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .displayedColumns {
+    display: none;
+  }
+  
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+}

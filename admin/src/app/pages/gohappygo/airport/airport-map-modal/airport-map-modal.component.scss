@@ -1,0 +1,102 @@
+.airport-map-modal {
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .close-button {
+      color: #6c757d;
+      
+      &:hover {
+        color: #dc3545;
+      }
+    }
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+
+    .map-info {
+      background-color: #f8f9fa;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      border: 1px solid #e9ecef;
+    }
+
+    .map-container {
+      border: 1px solid #dee2e6;
+      border-radius: 0.375rem;
+      overflow: hidden;
+    }
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+    text-align: right;
+  }
+}
+
+// Custom airport icon styles
+::ng-deep .custom-airport-icon {
+  background: none !important;
+  border: none !important;
+  
+  i {
+    display: block;
+    text-align: center;
+    line-height: 1;
+  }
+}
+
+// Custom popup styles
+::ng-deep .airport-popup {
+  h6 {
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+
+    strong {
+      color: #495057;
+    }
+
+    a {
+      color: #007bff;
+      text-decoration: none;
+      
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .airport-map-modal {
+    .modal-body {
+      padding: 1rem;
+
+      .map-container {
+        height: 400px;
+      }
+    }
+  }
+}

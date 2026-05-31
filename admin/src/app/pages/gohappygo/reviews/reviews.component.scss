@@ -1,0 +1,116 @@
+.user-info {
+  line-height: 1.4;
+}
+
+.rating-display {
+  font-size: 1.1rem;
+  color: #ffc107;
+}
+
+.comment-text {
+  font-style: italic;
+  line-height: 1.6;
+  max-width: 300px;
+  color: #666;
+}
+
+.action-menu-button {
+  color: #666;
+  
+  &:hover {
+    color: #333;
+  }
+}
+
+.action-menu {
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    mat-icon {
+      margin-right: 8px;
+    }
+  }
+  
+  .moderate-action {
+    color: #17a2b8;
+  }
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.mat-table {
+  .mat-header-cell {
+    font-weight: 600;
+    color: #495057;
+  }
+  
+  .mat-cell {
+    vertical-align: middle;
+    padding: 16px 8px;
+  }
+}
+
+.mat-form-field {
+  .mat-form-field-wrapper {
+    padding-bottom: 0;
+  }
+}
+
+// Modal styles
+.modal {
+  &.show {
+    display: block;
+    opacity: 1;
+  }
+}
+
+.modal-backdrop {
+  &.show {
+    opacity: 0.5;
+  }
+}
+
+// Review details card
+.review-details-card {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+
+  p {
+    margin-bottom: 8px;
+  }
+
+  .original-comment {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+    font-style: italic;
+    color: #666;
+    margin-top: 10px;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .comment-text {
+    max-width: 150px;
+  }
+  
+  .review-details-card {
+    padding: 15px;
+  }
+}

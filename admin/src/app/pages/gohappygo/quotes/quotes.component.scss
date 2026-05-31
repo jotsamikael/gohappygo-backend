@@ -1,0 +1,149 @@
+.quote-status {
+    border-radius: 5px;
+    padding: 5px;
+  }
+  
+  .quote-text {
+    font-style: italic;
+    line-height: 1.6;
+    max-width: 400px;
+  }
+  
+  .action-menu-button {
+    color: #666;
+    
+    &:hover {
+      color: #333;
+    }
+  }
+  
+  .action-menu {
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+    
+    .delete-action {
+      color: #dc3545;
+    }
+  }
+  
+  .badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  
+  .badge-primary {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .badge-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  .badge-info {
+    background-color: #17a2b8;
+    color: white;
+  }
+  
+  .badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+  }
+  
+  .badge-success {
+    background-color: #28a745;
+    color: white;
+  }
+  
+  .badge-danger {
+    background-color: #dc3545;
+    color: white;
+  }
+  
+  .mat-table {
+    .mat-header-cell {
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .mat-cell {
+      vertical-align: middle;
+      padding: 16px 8px;
+    }
+  }
+  
+  .mat-form-field {
+    .mat-form-field-wrapper {
+      padding-bottom: 0;
+    }
+  }
+  
+  // Modal styles
+  .modal {
+    &.show {
+      display: block;
+      opacity: 1;
+    }
+  }
+
+  .modal-backdrop {
+    &.show {
+      opacity: 0.5;
+    }
+  }
+
+  // Preview section
+  .preview-section {
+    background-color: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+
+  .preview-box {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+
+  .quote-preview {
+    font-style: italic;
+    color: #333;
+    line-height: 1.8;
+    
+    i {
+      color: #007bff;
+      font-size: 1.2em;
+    }
+  }
+
+  .author-preview {
+    text-align: right;
+    color: #666;
+    font-weight: 500;
+    margin-right: 20px;
+  }
+
+  // Responsive adjustments
+  @media (max-width: 768px) {
+    .quote-text {
+      max-width: 200px;
+    }
+    
+    .preview-box {
+      padding: 20px;
+    }
+  }

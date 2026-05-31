@@ -1,0 +1,289 @@
+<div class="p-0" style="min-width: 560px; max-width: 680px;">
+  <!-- Loading state -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p class="mt-2 text-muted">Loading details...</p>
+  </div>
+
+  <!-- Error state -->
+  <div *ngIf="error" class="text-center py-4">
+    <mat-icon class="text-danger" style="font-size: 40px;">error_outline</mat-icon>
+    <h5 class="mt-2 text-danger">Error</h5>
+    <p class="text-muted">{{ error }}</p>
+  </div>
+
+  <!-- ===================== DEMAND DETAIL ===================== -->
+  <ng-container *ngIf="!isLoading && !error && demandDetail">
+    <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
+      <h5 class="m-0">Demand Details</h5>
+      <span class="badge badge-soft-primary">Demand #{{ demandDetail.id }}</span>
+    </div>
+
+    <mat-dialog-content class="px-3 py-2">
+      <!-- User Info -->
+      <div class="detail-section">
+        <div class="section-title">User Information</div>
+        <div class="d-flex align-items-center mb-2">
+          <div class="me-3">
+            <img *ngIf="demandDetail.user?.profilePictureUrl" [src]="demandDetail.user.profilePictureUrl" alt="user"
+              class="rounded-circle user-avatar-md" (error)="$event.target.style.display='none'">
+            <span *ngIf="!demandDetail.user?.profilePictureUrl"
+              class="rounded-circle avatar-placeholder-md d-inline-flex align-items-center justify-content-center">
+              {{ getUserInitial(demandDetail.user?.name || demandDetail.user?.fullName) }}
+            </span>
+          </div>
+          <div>
+            <div class="detail-value">{{ demandDetail.user?.name || demandDetail.user?.fullName || 'N/A' }}</div>
+            <small class="text-muted">User ID: {{ demandDetail.userId }}</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Info -->
+      <div class="detail-section">
+        <div class="section-title">Flight Information</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="detail-label">Flight Number</div>
+            <div class="detail-value">{{ demandDetail.flightNumber || '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="detail-label">Airline</div>
+            <div class="detail-value d-flex align-items-center gap-1">
+              <img *ngIf="demandDetail.airline?.logoUrl" [src]="demandDetail.airline.logoUrl" alt="logo"
+                class="airline-logo-md me-1" (error)="$event.target.style.display='none'">
+              {{ demandDetail.airline?.name || '-' }}
+            </div>
+          </div>
+          <div class="col-6 mt-2">
+            <div class="detail-label">Departure Airport</div>
+            <div class="detail-value">{{ demandDetail.departureAirport?.name || '-' }}</div>
+            <small class="text-muted">{{ demandDetail.departureAirport?.municipality || '' }}</small>
+          </div>
+          <div class="col-6 mt-2">
+            <div class="detail-label">Arrival Airport</div>
+            <div class="detail-value">{{ demandDetail.arrivalAirport?.name || '-' }}</div>
+            <small class="text-muted">{{ demandDetail.arrivalAirport?.municipality || '' }}</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Package Info -->
+      <div class="detail-section">
+        <div class="section-title">Package Information</div>
+        <div class="row g-2">
+          <div class="col-4">
+            <div class="detail-label">Weight</div>
+            <div class="detail-value">{{ formatWeight(demandDetail.weight) }}</div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Price / kg</div>
+            <div class="detail-value">{{ formatPrice(demandDetail.pricePerKg) }}</div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Package Kind</div>
+            <div class="detail-value">{{ demandDetail.packageKind || '-' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="detail-section">
+        <div class="section-title">Description</div>
+        <p class="detail-value mb-0">{{ demandDetail.description || 'No description' }}</p>
+      </div>
+
+      <!-- Status & Dates -->
+      <div class="detail-section">
+        <div class="section-title">Status & Dates</div>
+        <div class="row g-2">
+          <div class="col-4">
+            <div class="detail-label">Status</div>
+            <div class="detail-value">
+              <span [class]="'badge ' + getStatusBadgeClass(demandDetail.status)">
+                {{ demandDetail.status | titlecase }}
+              </span>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Travel Date</div>
+            <div class="detail-value">{{ formatDate(demandDetail.travelDate) }}</div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Created</div>
+            <div class="detail-value">{{ formatDate(demandDetail.createdAt) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Images -->
+      <div class="detail-section" *ngIf="demandDetail.images && demandDetail.images.length > 0">
+        <div class="section-title">Images ({{ demandDetail.images.length }})</div>
+        <div class="d-flex flex-wrap gap-2">
+          <img *ngFor="let img of demandDetail.images" [src]="img.fileUrl" alt="Package image"
+            class="rounded" style="width: 72px; height: 72px; object-fit: cover; border: 1px solid #dee2e6;"
+            (error)="$event.target.style.display='none'">
+        </div>
+      </div>
+
+      <!-- Reviews -->
+      <div class="detail-section" *ngIf="demandDetail.reviews && demandDetail.reviews.length > 0">
+        <div class="section-title">Reviews ({{ demandDetail.reviews.length }})</div>
+        <div *ngFor="let review of demandDetail.reviews" class="border rounded p-2 mb-1">
+          <small class="text-muted">{{ review.comment || 'No comment' }}</small>
+          <div><small class="fw-medium">Rating: {{ review.rating || '-' }}/5</small></div>
+        </div>
+      </div>
+
+      <!-- Requests -->
+      <div class="detail-section" *ngIf="demandDetail.requests && demandDetail.requests.length > 0">
+        <div class="section-title">Requests ({{ demandDetail.requests.length }})</div>
+        <div *ngFor="let req of demandDetail.requests" class="border rounded p-2 mb-1">
+          <small>{{ req }}</small>
+        </div>
+      </div>
+    </mat-dialog-content>
+  </ng-container>
+
+  <!-- ===================== TRAVEL DETAIL ===================== -->
+  <ng-container *ngIf="!isLoading && !error && travelDetail">
+    <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
+      <h5 class="m-0">Travel Details</h5>
+      <span class="badge badge-soft-info">Travel #{{ travelDetail.id }}</span>
+    </div>
+
+    <mat-dialog-content class="px-3 py-2">
+      <!-- User Info -->
+      <div class="detail-section">
+        <div class="section-title">User Information</div>
+        <div class="d-flex align-items-center mb-2">
+          <div class="me-3">
+            <img *ngIf="travelDetail.user?.profilePictureUrl" [src]="travelDetail.user.profilePictureUrl" alt="user"
+              class="rounded-circle user-avatar-md" (error)="$event.target.style.display='none'">
+            <span *ngIf="!travelDetail.user?.profilePictureUrl"
+              class="rounded-circle avatar-placeholder-md d-inline-flex align-items-center justify-content-center">
+              {{ getUserInitial(travelDetail.user?.name || travelDetail.user?.fullName) }}
+            </span>
+          </div>
+          <div>
+            <div class="detail-value">{{ travelDetail.user?.name || travelDetail.user?.fullName || 'N/A' }}</div>
+            <small class="text-muted">User ID: {{ travelDetail.user?.id }}</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Info -->
+      <div class="detail-section">
+        <div class="section-title">Flight Information</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="detail-label">Flight Number</div>
+            <div class="detail-value">{{ travelDetail.flightNumber || '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="detail-label">Airline</div>
+            <div class="detail-value d-flex align-items-center gap-1">
+              <img *ngIf="travelDetail.airline?.logoUrl" [src]="travelDetail.airline.logoUrl" alt="logo"
+                class="airline-logo-md me-1" (error)="$event.target.style.display='none'">
+              {{ travelDetail.airline?.name || '-' }}
+            </div>
+          </div>
+          <div class="col-6 mt-2">
+            <div class="detail-label">Departure Airport</div>
+            <div class="detail-value">{{ travelDetail.departureAirport?.name || '-' }}</div>
+            <small class="text-muted">{{ travelDetail.departureAirport?.municipality || '' }}</small>
+          </div>
+          <div class="col-6 mt-2">
+            <div class="detail-label">Arrival Airport</div>
+            <div class="detail-value">{{ travelDetail.arrivalAirport?.name || '-' }}</div>
+            <small class="text-muted">{{ travelDetail.arrivalAirport?.municipality || '' }}</small>
+          </div>
+          <div class="col-6 mt-2">
+            <div class="detail-label">Departure Datetime</div>
+            <div class="detail-value">{{ formatDate(travelDetail.departureDatetime) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weight & Pricing -->
+      <div class="detail-section">
+        <div class="section-title">Weight & Pricing</div>
+        <div class="row g-2">
+          <div class="col-4">
+            <div class="detail-label">Total Weight Allowance</div>
+            <div class="detail-value">{{ formatWeight(travelDetail.totalWeightAllowance) }}</div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Weight Available</div>
+            <div class="detail-value">{{ formatWeight(travelDetail.weightAvailable) }}</div>
+          </div>
+          <div class="col-4">
+            <div class="detail-label">Price / kg</div>
+            <div class="detail-value">{{ formatPrice(travelDetail.pricePerKg) }}</div>
+          </div>
+          <div class="col-4 mt-2">
+            <div class="detail-label">Fee for Gloomy</div>
+            <div class="detail-value">{{ formatPrice(travelDetail.feeForGloomy) }}</div>
+          </div>
+          <div class="col-4 mt-2">
+            <div class="detail-label">Punctuality Level</div>
+            <div class="detail-value">{{ travelDetail.punctualityLevel ? 'Very Punctual' : 'Punctual' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="detail-section">
+        <div class="section-title">Options</div>
+        <div class="d-flex gap-3">
+          <span class="badge" [class.badge-soft-success]="travelDetail.isAllowExtraWeight" [class.badge-soft-secondary]="!travelDetail.isAllowExtraWeight">
+            {{ travelDetail.isAllowExtraWeight ? 'Allow Extra Weight' : 'No Extra Weight' }}
+          </span>
+          <span class="badge" [class.badge-soft-success]="travelDetail.isInstant" [class.badge-soft-secondary]="!travelDetail.isInstant">
+            {{ travelDetail.isInstant ? 'Instant' : 'Not Instant' }}
+          </span>
+          <span class="badge" [class.badge-soft-success]="travelDetail.isSharedWeight" [class.badge-soft-secondary]="!travelDetail.isSharedWeight">
+            {{ travelDetail.isSharedWeight ? 'Shared Weight' : 'Private' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="detail-section">
+        <div class="section-title">Description</div>
+        <p class="detail-value mb-0">{{ travelDetail.description || 'No description' }}</p>
+      </div>
+
+      <!-- Status -->
+      <div class="detail-section">
+        <div class="section-title">Status</div>
+        <span [class]="'badge ' + getStatusBadgeClass(travelDetail.status)">
+          {{ travelDetail.status | titlecase }}
+        </span>
+      </div>
+
+      <!-- Images -->
+      <div class="detail-section" *ngIf="travelDetail.images && travelDetail.images.length > 0">
+        <div class="section-title">Images ({{ travelDetail.images.length }})</div>
+        <div class="d-flex flex-wrap gap-2">
+          <img *ngFor="let img of travelDetail.images" [src]="img.fileUrl" alt="Travel image"
+            class="rounded" style="width: 72px; height: 72px; object-fit: cover; border: 1px solid #dee2e6;"
+            (error)="$event.target.style.display='none'">
+        </div>
+      </div>
+
+      <!-- Reviews -->
+      <div class="detail-section" *ngIf="travelDetail.reviews && travelDetail.reviews.length > 0">
+        <div class="section-title">Reviews ({{ travelDetail.reviews.length }})</div>
+        <div *ngFor="let review of travelDetail.reviews" class="border rounded p-2 mb-1">
+          <small class="text-muted">{{ review.comment || 'No comment' }}</small>
+          <div><small class="fw-medium">Rating: {{ review.rating || '-' }}/5</small></div>
+        </div>
+      </div>
+    </mat-dialog-content>
+  </ng-container>
+
+  <mat-dialog-actions align="end" class="px-3 pb-3">
+    <button mat-button color="primary" (click)="close()">Close</button>
+  </mat-dialog-actions>
+</div>

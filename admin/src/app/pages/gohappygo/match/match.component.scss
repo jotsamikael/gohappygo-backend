@@ -1,0 +1,121 @@
+.action-menu-button {
+  color: #666;
+  
+  &:hover {
+    color: #333;
+  }
+}
+
+.action-menu {
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    mat-icon {
+      margin-right: 8px;
+    }
+  }
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+code {
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #e83e8c;
+  font-family: 'Courier New', monospace;
+}
+
+.mat-table {
+  .mat-header-cell {
+    font-weight: 600;
+    color: #495057;
+  }
+  
+  .mat-cell {
+    vertical-align: middle;
+  }
+}
+
+.mat-form-field {
+  .mat-form-field-wrapper {
+    padding-bottom: 0;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .displayedColumns {
+    display: none;
+  }
+  
+  .col-md-1, .col-md-2 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+// Request specific styles
+.package-description {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.travel-info {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.requester-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.requester-email {
+  font-size: 0.75rem;
+  color: #666;
+  line-height: 1.2;
+}
