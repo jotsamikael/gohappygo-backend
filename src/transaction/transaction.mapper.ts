@@ -41,12 +41,12 @@ export class TransactionMapper {
             payer: transaction.payer ? {
                 id: transaction.payer.id,
                 email: transaction.payer.email,
-                fullName: this.commonService.userFullName(transaction.payer),
+                fullName: transaction.payer.username,
             } : null,
             payee: transaction.payee ? {
                 id: transaction.payee.id,
                 email: transaction.payee.email,
-                fullName: this.commonService.userFullName(transaction.payee),
+                fullName: transaction.payee.username,
             } : null,
             request: transaction.request ? {
                 id: transaction.request.id,

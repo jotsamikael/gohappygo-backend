@@ -11,4 +11,5 @@ export enum FilePurpose {
   'DEMAND_IMAGE_3',
   'REQUEST_IMAGE_1',
   'REQUEST_IMAGE_2',
+  'AIRLINE_LOGO'
 }

@@ -202,7 +202,9 @@ export class ReviewService implements OnModuleInit {
       comment,
       createdAt,
       orderBy = 'createdAt:desc',
-      asReviewer
+      asReviewer,
+      reviewerEmail,
+      revieweeEmail,
     } = query;
 
     // Validate filter combinations
@@ -324,6 +326,22 @@ export class ReviewService implements OnModuleInit {
       queryBuilder.andWhere('review.revieweeId = :revieweeId', { revieweeId });
     }
 
+    // Filter by reviewer email
+    if (reviewerEmail) {
+      // Use the already-joined 'reviewer' alias from leftJoinAndSelect
+      queryBuilder.andWhere('LOWER(reviewer.email) = LOWER(:reviewerEmail)', {
+        reviewerEmail,
+      });
+    }
+
+    // Filter by reviewee email
+    if (revieweeEmail) {
+      // Use the already-joined 'reviewee' alias from leftJoinAndSelect
+      queryBuilder.andWhere('LOWER(reviewee.email) = LOWER(:revieweeEmail)', {
+        revieweeEmail,
+      });
+    }
+
     if (requestId) {
       queryBuilder.andWhere('review.requestId = :requestId', { requestId });
     }
@@ -432,14 +450,16 @@ export class ReviewService implements OnModuleInit {
       comment,
       createdAt,
       orderBy = 'createdAt:desc',
-      asReviewer = false
+      asReviewer = false,
+      reviewerEmail,
+      revieweeEmail,
     } = query;
 
     // Ensure asReviewer is properly converted to boolean for cache key
     // Query parameters can come as strings, so we need to handle both boolean and string types
     const isAsReviewer = asReviewer === true || String(asReviewer) === 'true';
 
-    return `reviews_list_user${userId ?? 'visitor'}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}_asReviewer${isAsReviewer}`;
+    return `reviews_list_user${userId ?? 'visitor'}_page${page}_limit${limit}_id${id || 'all'}_reviewer${reviewerId || 'all'}_reviewee${revieweeId || 'all'}_reviewerEmail${reviewerEmail || 'all'}_revieweeEmail${revieweeEmail || 'all'}_request${requestId || 'all'}_rating${rating || 'all'}_comment${comment || 'all'}_date${createdAt || 'all'}_order${orderBy}_asReviewer${isAsReviewer}`;
   }
 
   // Add cache clearing method

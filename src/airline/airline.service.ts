@@ -1,23 +1,38 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import * as https from 'https';
+import * as stream from 'stream';
 import { AirlineEntity } from './entities/airline.entity';
 import { FindAirlinesQueryDto } from './dto/FindAirlinesQueryDto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
+import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
+import { UpdateAirlineDto } from './dto/update-airline.dto';
+import { CreateAirlineDto } from './dto/create-airline.dto';
+import { CloudinaryService } from 'src/file-upload/cloudinary/cloudinary.service';
 
 @Injectable()
-export class AirlineService {
+export class AirlineService implements OnModuleInit {
+
+  private readonly logger = new Logger(AirlineService.name);
   private airlineListCacheKeys: Set<string> = new Set();
 
   constructor(
     @InjectRepository(AirlineEntity)
     private airlineRepository: Repository<AirlineEntity>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
 
+  async onModuleInit() {
+    // Uncomment the line below to run logo migration on startup.
+    // Adjust the ID range to match your airline records.
+    // await this.downloadLogoAndUpdateUrl(2, 3);
+  }
 
   /**
    * Get all airlines with pagination, filtering, and sorting
@@ -222,5 +237,261 @@ export class AirlineService {
     this.airlineListCacheKeys.clear();
   }
 
+  /**
+   * Toggle the activation status of an airline (admin/operator only).
+   * If the airline is currently active it will be deactivated, and vice versa.
+   * A deactivated airline is hidden from regular users but still visible to admins/operators.
+   * 
+   * @param id - Airline ID
+   * @param user - The authenticated admin/operator user
+   * @returns The updated airline entity
+   */
+  async toggleActivation(id: number, user: any): Promise<AirlineEntity> {
+    const airline = await this.airlineRepository.findOne({ where: { id } });
+
+    if (!airline) {
+      throw new CustomNotFoundException(`Airline with ID ${id} not found`, ErrorCode.AIRLINE_NOT_FOUND);
+    }
+
+    // Toggle the current state
+    airline.isDeactivated = !airline.isDeactivated;
+    airline.updatedBy = user.id;
+
+    const savedAirline = await this.airlineRepository.save(airline);
+
+    // Clear cache so the change takes effect immediately
+    await this.clearAirlineListCache();
+
+    const newState = airline.isDeactivated ? 'deactivated' : 'activated';
+    this.logger.log(`Airline #${id} (${airline.name}) ${newState} by user #${user.id}`);
+
+    return savedAirline;
+  }
+
+  async createAirline(
+    createAirlineDto: CreateAirlineDto,
+    user: any,
+    logo?: Express.Multer.File,
+  ): Promise<AirlineEntity> {
+    // Check for duplicate ICAO code
+    const existing = await this.airlineRepository.findOne({
+      where: { icaoCode: createAirlineDto.icaoCode },
+    });
+    if (existing) {
+      throw new CustomNotFoundException(
+        `Airline with ICAO code '${createAirlineDto.icaoCode}' already exists`,
+        ErrorCode.REVIEW_ALREADY_EXISTS,
+      );
+    }
+
+    // Handle logo upload if provided
+    let logoUrl: string | undefined;
+    if (logo) {
+      const publicId = createAirlineDto.iataCode || createAirlineDto.icaoCode;
+      const result = await this.cloudinaryService.storeAirlineLogoFiles(logo, publicId);
+      logoUrl = result.secure_url;
+    }
+
+    const airline = this.airlineRepository.create({
+      ...createAirlineDto,
+      logoUrl,
+      createdBy: user.id,
+      updatedBy: user.id,
+    });
+
+    const savedAirline = await this.airlineRepository.save(airline);
+
+    // Clear cache
+    await this.clearAirlineListCache();
+
+    this.logger.log(`Airline created: ${savedAirline.name} (${savedAirline.icaoCode}) by user #${user.id}`);
+    return savedAirline;
+  }
+
+  async updateAirline(
+    id: number,
+    updateAirlineDto: UpdateAirlineDto,
+    user: any,
+    logo?: Express.Multer.File,
+  ): Promise<AirlineEntity> {
+    const airline = await this.airlineRepository.findOne({ where: { id } });
+    if (!airline) {
+      throw new CustomNotFoundException(`Airline with ID ${id} not found`, ErrorCode.AIRLINE_NOT_FOUND);
+    }
+
+    // Check for duplicate ICAO code if being changed
+    if (updateAirlineDto.icaoCode && updateAirlineDto.icaoCode !== airline.icaoCode) {
+      const existing = await this.airlineRepository.findOne({
+        where: { icaoCode: updateAirlineDto.icaoCode },
+      });
+      if (existing) {
+        throw new CustomNotFoundException(
+          `Airline with ICAO code '${updateAirlineDto.icaoCode}' already exists`,
+          ErrorCode.REVIEW_ALREADY_EXISTS,
+        );
+      }
+    }
+
+    // Handle logo upload if provided
+    if (logo) {
+      const publicId = updateAirlineDto.iataCode || airline.iataCode || updateAirlineDto.icaoCode || airline.icaoCode;
+      const result = await this.cloudinaryService.storeAirlineLogoFiles(logo, publicId);
+      airline.logoUrl = result.secure_url;
+    }
+
+    // Merge the DTO fields into the airline entity
+    Object.assign(airline, updateAirlineDto);
+    airline.updatedBy = user.id;
+
+    const savedAirline = await this.airlineRepository.save(airline);
+
+    // Clear cache
+    await this.clearAirlineListCache();
+
+    this.logger.log(`Airline updated: ${savedAirline.name} (ID: ${id}) by user #${user.id}`);
+    return savedAirline;
+  }
+
+  deleteAirline(id: number) {
+    throw new Error('Method not implemented.');
+  }
+
+
+  /**
+   * Download airline logos from their current logoUrl and re-upload to Cloudinary.
+   * Each logo is stored in Cloudinary under the 'airlinelogos' folder, named with the airline's IATA code.
+   * The airline's logoUrl in the database is then updated to the Cloudinary public URL.
+   * 
+   * This ensures logos are self-hosted and not dependent on third-party services.
+   * 
+   * @param startId - The starting airline ID (inclusive)
+   * @param endId - The ending airline ID (inclusive)
+   */
+  async downloadLogoAndUpdateUrl(startId: number, endId: number): Promise<void> {
+    this.logger.log(`Starting logo migration for airlines with IDs ${startId} to ${endId}...`);
+
+    const airlines = await this.airlineRepository
+      .createQueryBuilder('airline')
+      .where('airline.id BETWEEN :startId AND :endId', { startId, endId })
+      .andWhere('airline.iataCode IS NOT NULL')
+      .andWhere('airline.iataCode != :empty', { empty: '' })
+      .getMany();
+
+    this.logger.log(`Found ${airlines.length} airlines with IATA codes in the specified ID range.`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const airline of airlines) {
+      if (!airline.logoUrl) {
+        this.logger.warn(`Airline #${airline.id} (${airline.iataCode}) has no logoUrl. Skipping.`);
+        continue;
+      }
+
+      try {
+        this.logger.log(`Downloading logo for ${airline.name} (${airline.iataCode}) from ${airline.logoUrl}...`);
+
+        // Download the image as a buffer
+        const imageBuffer = await this.downloadImage(airline.logoUrl);
+
+        // Create a Multer-like file object for CloudinaryService.storeAirlineLogoFiles
+        const fileName = `${airline.iataCode}.${this.getExtension(airline.logoUrl)}`;
+        const multerFile: Express.Multer.File = {
+          fieldname: 'file',
+          originalname: fileName,
+          encoding: '7bit',
+          mimetype: this.getMimeType(airline.logoUrl),
+          buffer: imageBuffer,
+          size: imageBuffer.length,
+          stream: stream.Readable.from(imageBuffer),
+          destination: '',
+          filename: fileName,
+          path: '',
+        };
+
+        // Upload to Cloudinary
+        const result = await this.cloudinaryService.storeAirlineLogoFiles(multerFile);
+
+        // Update the airline record with the Cloudinary URL
+        airline.logoUrl = result.secure_url;
+        await this.airlineRepository.save(airline);
+
+        this.logger.log(`✅ Logo migrated for ${airline.name} (${airline.iataCode}): ${result.secure_url}`);
+        successCount++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`❌ Failed to migrate logo for airline #${airline.id} (${airline.iataCode}): ${msg}`);
+        failCount++;
+      }
+    }
+
+    // Clear cache after bulk update
+    await this.clearAirlineListCache();
+
+    this.logger.log(
+      `Logo migration complete. Success: ${successCount}, Failed: ${failCount}, Total processed: ${airlines.length}`,
+    );
+  }
+
+  /**
+   * Download an image from a URL and return it as a Buffer.
+   */
+  private downloadImage(url: string): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      // Handle both http and https URLs
+      const protocol = url.startsWith('https') ? https : require('http');
+      
+      protocol.get(url, { timeout: 15000 }, (response) => {
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 307) {
+          if (response.headers.location) {
+            resolve(this.downloadImage(response.headers.location));
+            return;
+          }
+        }
+
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download ${url}: HTTP ${response.statusCode}`));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+        response.on('error', reject);
+      }).on('error', reject)
+        .on('timeout', function (this: any) {
+          this.destroy();
+          reject(new Error(`Timeout downloading ${url}`));
+        });
+    });
+  }
+
+  /**
+   * Extract file extension from a URL.
+   */
+  private getExtension(url: string): string {
+    const cleaned = url.split('?')[0].split('#')[0];
+    const ext = cleaned.split('.').pop()?.toLowerCase() || 'png';
+    // Only allow common image extensions
+    const valid = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'];
+    return valid.includes(ext) ? ext : 'png';
+  }
+
+  /**
+   * Get MIME type from a URL based on file extension.
+   */
+  private getMimeType(url: string): string {
+    const ext = this.getExtension(url);
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      svg: 'image/svg+xml',
+      webp: 'image/webp',
+    };
+    return mimeMap[ext] || 'image/png';
+  }
 
 }

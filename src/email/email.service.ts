@@ -23,7 +23,8 @@ export class EmailService {
  
  
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null;
+  private supportTransporter: nodemailer.Transporter | null;
 
   private parseBoolean(value: unknown): boolean | undefined {
     if (typeof value === 'boolean') return value;
@@ -40,6 +41,7 @@ export class EmailService {
     private emailTemplatesService: EmailTemplatesService,
   ) {
     this.initializeTransporter();
+    this.initializeSupportTransporter();
   }
 
   private initializeTransporter(): void {
@@ -96,6 +98,53 @@ export class EmailService {
     });
   }
 
+  private initializeSupportTransporter(): void {
+    const supportEmail = this.configService.get<string>('SUPPORT_EMAIL_USER');
+    const supportPass = this.configService.get<string>('SUPPORT_EMAIL_PASSWORD');
+
+    if (!supportEmail || !supportPass) {
+      this.logger.warn(
+        'Support email credentials (SUPPORT_EMAIL_USER / SUPPORT_EMAIL_PASSWORD) not configured. Support emails will fallback to primary transporter.',
+      );
+      this.supportTransporter = null;
+      return;
+    }
+
+    const host =
+      this.configService.get<string>('SUPPORT_EMAIL_HOST') ||
+      this.configService.get<string>('EMAIL_HOST');
+    const portValue =
+      this.configService.get<string | number>('SUPPORT_EMAIL_PORT') ||
+      this.configService.get<string | number>('EMAIL_PORT');
+    const port = typeof portValue === 'number' ? portValue : parseInt(portValue ?? '587', 10);
+    const secureEnv = this.configService.get<boolean | string>('EMAIL_SECURE');
+    const secure = this.parseBoolean(secureEnv) ?? port === 465;
+    const rejectUnauthorizedEnv = this.configService.get<boolean | string>('EMAIL_TLS_REJECT_UNAUTHORIZED');
+    const rejectUnauthorized = this.parseBoolean(rejectUnauthorizedEnv);
+    const requireTlsEnv = this.configService.get<boolean | string>('EMAIL_REQUIRE_TLS');
+    const requireTLS = this.parseBoolean(requireTlsEnv) ?? port === 587;
+
+    this.supportTransporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      requireTLS,
+      auth: {
+        user: supportEmail,
+        pass: supportPass,
+      },
+      tls: {
+        rejectUnauthorized: rejectUnauthorized ?? true,
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+    this.logger.log(
+      `Support email transporter created: host=${host}, port=${port}, secure=${secure}, requireTLS=${requireTLS}, rejectUnauthorized=${rejectUnauthorized ?? true}, user=${supportEmail}`,
+    );
+  }
+
   async sendEmail(options: EmailOptions): Promise<boolean> {
     if (!this.transporter) {
       this.logger.warn(
@@ -149,6 +198,74 @@ export class EmailService {
       );
       return false;
     }
+  }
+
+  /**
+   * Send an email using the support transporter (support@gohappygo.fr).
+   * Requires SUPPORT_EMAIL_USER and SUPPORT_EMAIL_PASSWORD to be configured.
+   * If the support transporter is not configured, it falls back to the primary
+   * transporter with a message indicating it's from support (though the envelope
+   * sender will still be the primary email address).
+   */
+  async sendSupportEmail(options: EmailOptions): Promise<boolean> {
+    const supportEmail =
+      this.configService.get<string>('SUPPORT_EMAIL') || 'support@gohappygo.fr';
+
+    if (!this.supportTransporter) {
+      this.logger.warn(
+        'Support email transporter not configured. Falling back to primary email transporter to send support response.',
+      );
+      return this.sendEmail({
+        ...options,
+        from: options.from || `"GoHappyGo Support" <${supportEmail}>`,
+      });
+    }
+
+    const mailOptions = {
+      from: options.from || `"GoHappyGo Support" <${supportEmail}>`,
+      replyTo: supportEmail,
+      to: options.to,
+      bcc: options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      attachments: options.attachments,
+    };
+
+    try {
+      const info = await this.supportTransporter.sendMail(mailOptions);
+      this.logger.log(
+        `[Support Email] Sent successfully: messageId=${info.messageId}, from=${supportEmail}`,
+      );
+      return true;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[Support Email] Failed to send via support transporter: to=${options.to}, subject="${options.subject}", error=${msg}`,
+      );
+      // Log the failure clearly but do NOT fallback to primary transporter
+      // because Mailcow will reject the sender address "support@gohappygo.fr"
+      // when authenticated as "noreply@gohappygo.fr".
+      this.logger.error(
+        `[Support Email] Support email delivery FAILED. The support transporter could not send to ${options.to}. Check the TLS configuration and ensure the support mailbox exists in Mailcow.`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Send a response to a support request from the support email address.
+   */
+  async respondToSupportRequest(
+    userEmail: string,
+    subject: string,
+    htmlContent: string,
+  ): Promise<boolean> {
+    return this.sendSupportEmail({
+      to: userEmail,
+      subject,
+      html: htmlContent,
+    });
   }
 
   // Convenience methods for common emails

@@ -22,6 +22,9 @@ export class DemandAndTravelController {
         description: `
         Retrieve demands and travels with various filter options:
         - No filters: Returns all demands and travels
+        - If accessed by visitor, can only see upcoming demands/travels and demands and travels under MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE 
+        - If user is connected as user, can see same as visitor + all his previous demands/travels even very old OnfidoKycService
+        - If user is connected as admin, can see every user's demands and travels irrespective of date.
         - userId: Returns demands and travels for specific user
         - flightNumber: Returns demands and travels for specific flight
         - originAirportId: Returns demands and travels from specific airport
@@ -48,7 +51,7 @@ export class DemandAndTravelController {
         @Query() query: FindDemandsAndTravelsQueryDto,  
         @CurrentUser() user: any
     ) {
-        console.log('User is:', user);
+        //console.log('User is:', user);
         return await this.demandAndTravelService.getDemandsAndTravels(query, user);
     }
 

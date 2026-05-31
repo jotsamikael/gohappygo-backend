@@ -40,6 +40,9 @@ export enum UserEventType {
     CANCELLATION_CONFIRMED = 'request.cancellation_confirmed',
     CANCELLATION_DISPUTED = 'request.cancellation_disputed',
     REQUEST_AUTO_COMPLETED = 'request.auto_completed',
+    MEETING_PROOF_UPLOADED = 'request.meeting_proof_uploaded',
+    PROOF_DEADLINE_MISSED = 'request.proof_deadline_missed',
+    REQUEST_SETTLED_BY_ADMIN = 'request.settled_by_admin',
     
     // Transaction Events
     TRANSACTION_CREATED = 'transaction.created',

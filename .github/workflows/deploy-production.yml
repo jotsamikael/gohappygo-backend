@@ -1,0 +1,209 @@
+# Display name for this workflow in the GitHub Actions tab
+name: Deploy Production
+
+# Events that trigger this workflow
+on:
+  # Deploy when commits are pushed to the production branch
+  push:
+    branches:
+      - main
+    # Skip deploys when only unrelated files change (repo root is backend/)
+    paths:
+      - 'src/**'
+      - 'admin/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/deploy-production.yml'
+
+  # Allow manual deploy or re-deploy of a previous commit from the Actions UI
+  workflow_dispatch:
+
+# Only one production deploy at a time; do not cancel an in-flight deploy
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+# Default env vars shared by all jobs in this workflow
+env:
+  # Node version used to build on GitHub runners
+  NODE_VERSION: '20'
+  # Relative app root on the VPS (resolved under $HOME on the server)
+  VPS_APP_DIR: htdocs/api.gohappygo.fr
+  # PM2 app name — must match shared/ecosystem.config.js on the VPS
+  PM2_APP_NAME: gohappygo-api
+  # Number of release folders to keep on the VPS for rollback
+  RELEASES_TO_KEEP: 5
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: install dependencies and build on GitHub (not on the VPS)
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clone the repository at the commit that triggered the workflow
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Node.js and cache npm dependencies using lockfiles at repo root
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            admin/package-lock.json
+
+      # Install backend dependencies from package-lock.json (reproducible)
+      - name: Install backend dependencies
+        run: npm ci
+
+      # Install admin (Angular) dependencies from package-lock.json
+      - name: Install admin dependencies
+        working-directory: admin
+        run: npm ci
+
+      # Build NestJS (dist/) and Angular admin (admin/dist/skote/) on GitHub
+      - name: Build backend and admin
+        run: npm run complete-build
+
+      # Optional: uncomment to block deploy when tests fail
+      # - name: Run backend tests
+      #   run: npm test -- --passWithNoTests
+
+      # Upload compiled artifacts for the deploy job
+      # Paths are relative to repo root (backend/) — same layout used by rsync below
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: |
+            dist
+            admin/dist
+            package.json
+            package-lock.json
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Job 2: deploy release to VPS, switch symlink, restart PM2, verify health
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Download artifacts into the runner working directory
+      # Resulting layout: ./dist, ./admin/dist, ./package.json, ./package-lock.json
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: production-build
+          path: .
+
+      # Write the SSH private key from GitHub secrets and trust the VPS host key
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      # Rsync compiled output into a new immutable release folder on the VPS
+      - name: Sync release files to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          REMOTE_RELEASE="${VPS_APP_DIR}/releases/${RELEASE_ID}"
+          ssh -p "$VPS_PORT" "${VPS_USER}@${VPS_HOST}" "mkdir -p '${REMOTE_RELEASE}/dist' '${REMOTE_RELEASE}/admin/dist'"
+          rsync -az --delete \
+            -e "ssh -p ${VPS_PORT}" \
+            dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_RELEASE}/dist/"
+          rsync -az --delete \
+            -e "ssh -p ${VPS_PORT}" \
+            admin/dist/ "${VPS_USER}@${VPS_HOST}:${REMOTE_RELEASE}/admin/dist/"
+          scp -P "$VPS_PORT" package.json package-lock.json \
+            "${VPS_USER}@${VPS_HOST}:${REMOTE_RELEASE}/"
+
+      # Install prod deps, switch current symlink, restart PM2, health-check, rollback if needed
+      - name: Activate release, restart PM2, and verify health
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          RELEASE_ID: ${{ github.sha }}
+        run: |
+          ssh -p "$VPS_PORT" "${VPS_USER}@${VPS_HOST}" \
+            "APP_DIR='${VPS_APP_DIR}' RELEASE_ID='${RELEASE_ID}' RELEASES_TO_KEEP='${RELEASES_TO_KEEP}' PM2_APP_NAME='${PM2_APP_NAME}' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          # Resolve paths under the deploy user's home directory
+          APP_DIR="${HOME}/${APP_DIR}"
+          RELEASE_DIR="${APP_DIR}/releases/${RELEASE_ID}"
+          SHARED_DIR="${APP_DIR}/shared"
+          CURRENT_LINK="${APP_DIR}/current"
+          ECOSYSTEM_FILE="${SHARED_DIR}/ecosystem.config.js"
+
+          # Remember the previously active release so we can roll back on failure
+          PREVIOUS_RELEASE=""
+          if [ -L "${CURRENT_LINK}" ]; then
+            PREVIOUS_RELEASE="$(readlink -f "${CURRENT_LINK}")"
+          fi
+
+          # Ensure shared PM2 config and env file exist on the VPS
+          if [ ! -f "${ECOSYSTEM_FILE}" ]; then
+            echo "Missing ${ECOSYSTEM_FILE}. Create shared/ecosystem.config.js on the VPS."
+            exit 1
+          fi
+          if [ ! -f "${SHARED_DIR}/.env.production" ]; then
+            echo "Missing ${SHARED_DIR}/.env.production on the VPS."
+            exit 1
+          fi
+
+          # Install production node_modules inside the new release folder
+          cd "${RELEASE_DIR}"
+          npm ci --omit=dev
+
+          # Point the current symlink at this release (atomic switch)
+          ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
+
+          # (Re)load PM2 using the shared ecosystem file; cwd must be current/ in that file
+          if pm2 describe "${PM2_APP_NAME}" >/dev/null 2>&1; then
+            pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
+          else
+            pm2 start "${ECOSYSTEM_FILE}" --update-env
+          fi
+          pm2 save
+
+          # Wait briefly for NestJS to boot, then verify the API responds
+          sleep 5
+          if ! curl -sf "http://127.0.0.1:3000/api/airports?limit=1" -o /dev/null; then
+            echo "Health check failed after deploy."
+
+            # Roll back to the previous release if one existed
+            if [ -n "${PREVIOUS_RELEASE}" ] && [ -d "${PREVIOUS_RELEASE}" ]; then
+              echo "Rolling back to ${PREVIOUS_RELEASE}"
+              ln -sfn "${PREVIOUS_RELEASE}" "${CURRENT_LINK}"
+              pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
+              pm2 save
+            fi
+            exit 1
+          fi
+
+          echo "Deploy successful: ${RELEASE_ID}"
+
+          # Remove old releases, keeping the most recent N for manual rollback
+          if [ -d "${APP_DIR}/releases" ]; then
+            cd "${APP_DIR}/releases"
+            ls -1dt */ 2>/dev/null | tail -n +$((RELEASES_TO_KEEP + 1)) | xargs -r rm -rf
+          fi
+          REMOTE_SCRIPT

@@ -11,6 +11,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { TravelEntity } from 'src/travel/travel.entity';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class AlertEventsListener {
@@ -21,6 +22,7 @@ export class AlertEventsListener {
     private notificationService: NotificationService,
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
+    private commonService: CommonService,
     @InjectRepository(DemandEntity)
     private demandRepository: Repository<DemandEntity>,
     @InjectRepository(TravelEntity)
@@ -84,7 +86,7 @@ export class AlertEventsListener {
 
           // Send email
           const emailTemplate = this.emailTemplatesService.getAlertMatchedEmailTemplate({
-            userName: alert.user.firstName || 'User',
+            userName: this.commonService.userGreetingName(alert.user, 'User'),
             alertType: 'Demand',
             departureAirport: demand.departureAirport?.name || 'Unknown',
             arrivalAirport: demand.arrivalAirport?.name || 'Unknown',
@@ -166,7 +168,7 @@ export class AlertEventsListener {
 
           // Send email
           const emailTemplate = this.emailTemplatesService.getAlertMatchedEmailTemplate({
-            userName: alert.user.firstName || 'User',
+            userName: this.commonService.userGreetingName(alert.user, 'User'),
             alertType: 'Travel',
             departureAirport: travel.departureAirport?.name || 'Unknown',
             arrivalAirport: travel.arrivalAirport?.name || 'Unknown',

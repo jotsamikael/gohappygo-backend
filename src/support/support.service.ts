@@ -315,7 +315,7 @@ export class SupportService {
       });
     }
 
-    // Send email to requester
+    // Send email to requester FROM the support email address (support@gohappygo.fr)
     const responseTemplate = this.emailTemplatesService.getSupportResponseFromOperatorTemplate({
       requestId: supportRequest.id,
       email: supportRequest.email,
@@ -323,8 +323,7 @@ export class SupportService {
       category: supportRequest.supportCategory,
     });
 
-    await this.emailService.sendEmail({
-      from: this.configService.get<string>('SUPPORT_EMAIL') || 'support@gohappygo.fr',
+    await this.emailService.sendSupportEmail({
       to: supportRequest.email,
       subject: `Response to Support Request #${supportRequest.id}`,
       html: responseTemplate,
@@ -476,14 +475,14 @@ export class SupportService {
       updatedAt: new Date(),
     });
 
-    // Send notification email to requester
+    // Send notification email to requester FROM the support email address
     const closedTemplate = this.emailTemplatesService.getSupportRequestClosedTemplate({
       requestId: supportRequest.id,
       email: supportRequest.email,
       category: supportRequest.supportCategory,
     });
 
-    await this.emailService.sendEmail({
+    await this.emailService.sendSupportEmail({
       to: supportRequest.email,
       subject: `Support Request #${supportRequest.id} Closed`,
       html: closedTemplate,

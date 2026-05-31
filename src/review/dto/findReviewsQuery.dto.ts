@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type, Transform } from "class-transformer";
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber, IsBoolean } from "class-validator";
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber, IsBoolean, IsEmail } from "class-validator";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 
 export class FindReviewsQueryDto extends PaginationQueryDto {
@@ -35,6 +35,31 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
     revieweeId?: number;
 
     @ApiProperty({
+        description: 'Filter by reviewerEmail (admin only)',
+        example: 'andycole@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'reviewerEmail can not be more than 80 characters' })
+    reviewerEmail?: string;
+
+    @ApiProperty({
+        description: 'Filter by revieweeEmail (admin only)',
+        example: 'jasontodd@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'revieweeEmail can not be more than 80 characters' })
+    revieweeEmail?: string;
+
+
+    @ApiProperty({
         description: 'Filter by request ID',
         example: 1,
         required: false
@@ -59,8 +84,8 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
     })
     @IsOptional()
     @IsString()
-
     comment?: string;
+    
     @ApiProperty({
         description: 'Filter by createdAt',
         example: '2025-01-01',
@@ -93,3 +118,4 @@ export class FindReviewsQueryDto extends PaginationQueryDto {
     @IsBoolean()
     asReviewer?: boolean;
 }
+

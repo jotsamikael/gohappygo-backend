@@ -24,7 +24,16 @@ export class CommonService {
      * This keeps API responses consistent and avoids relying on first/last name being present
      * on "public user" objects (e.g. JWT validate payload shaping).
      */
-    userFullName(user: { username?: string | null; firstName?: string | null; lastName?: string | null } | null | undefined): string {
+    userFullName(
+        user:
+            | { username?: string | null; firstName?: string | null; lastName?: string | null; fullName?: string | null }
+            | null
+            | undefined,
+    ): string {
+        const explicitFullName = (user?.fullName ?? '').trim();
+        if (explicitFullName) {
+            return explicitFullName;
+        }
         const username = (user?.username ?? '').trim();
         if (username) {
             return username;
@@ -32,5 +41,16 @@ export class CommonService {
         const firstName = (user?.firstName ?? '').trim();
         const lastName = (user?.lastName ?? '').trim();
         return this.formatFullName(firstName, lastName) || firstName || '';
+    }
+
+    /** Greeting for emails/events; safe for JWT public user objects without firstName. */
+    userGreetingName(
+        user:
+            | { username?: string | null; firstName?: string | null; lastName?: string | null; fullName?: string | null }
+            | null
+            | undefined,
+        fallback = 'there',
+    ): string {
+        return this.userFullName(user) || fallback;
     }
 }

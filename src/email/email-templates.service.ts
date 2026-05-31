@@ -1,10 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RequestEvent } from 'src/events/user-events.service';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class EmailTemplatesService {
   private readonly logger = new Logger(EmailTemplatesService.name);
   private readonly baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  constructor(private readonly commonService: CommonService) {}
+
+  /** Resolve display name from public user, entity, or precomputed event field. */
+  private resolveUserDisplayName(
+    user: { username?: string | null; firstName?: string | null; lastName?: string | null; fullName?: string | null } | null | undefined,
+    precomputedName?: string | null,
+    fallback = 'Unknown',
+  ): string {
+    const preset = (precomputedName ?? '').trim();
+    if (preset) {
+      return preset;
+    }
+    return this.commonService.userGreetingName(user, fallback);
+  }
 
   /** Escape HTML entities so dynamic content cannot break the email HTML. */
   private escapeHtml(value: string | number | null | undefined): string {
@@ -2442,7 +2458,7 @@ export class EmailTemplatesService {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const requestType = requestData.requestType || 'N/A';
     const weight = requestData.weight != null ? `${requestData.weight}kg` : 'N/A';
-    const requesterName = requestData.requester?.firstName || requestData.requesterName || 'the requester';
+    const requesterName = this.resolveUserDisplayName(requestData.requester, requestData.requesterName, 'the requester');
     const baseUrl = this.baseUrl;
 
     return `
@@ -2627,7 +2643,7 @@ export class EmailTemplatesService {
     const now = Date.now();
     const requestsList = requests.map(req => {
       const requestId = req.id || req.requestId || 'N/A';
-      const requesterName = req.requester?.firstName || req.requesterName || 'Unknown';
+      const requesterName = this.resolveUserDisplayName(req.requester, req.requesterName, 'Unknown');
       const requestedDate = req.cancellationRequestedAt
         ? (this.formatEmailDate(req.cancellationRequestedAt) || 'N/A')
         : 'N/A';
@@ -2692,10 +2708,10 @@ export class EmailTemplatesService {
    */
   getAdminCancellationDisputedTemplate(adminName: string, requestData: any): string {
     const requestId = requestData.id || requestData.requestId || 'N/A';
-    const requesterName = requestData.requester?.firstName || requestData.requesterName || 'Unknown';
+    const requesterName = this.resolveUserDisplayName(requestData.requester, requestData.requesterName, 'Unknown');
     const sellerName = requestData.ownerName
-      || requestData.travel?.user?.firstName
-      || requestData.demand?.user?.firstName
+      || this.resolveUserDisplayName(requestData.travel?.user, null, '')
+      || this.resolveUserDisplayName(requestData.demand?.user, null, '')
       || 'Unknown';
     const baseUrl = this.baseUrl;
 

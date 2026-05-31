@@ -4,6 +4,7 @@ import { UserEntity } from 'src/user/user.entity';
 import { UserEventType } from './event-types';
 import { RequestEntity } from 'src/request/request.entity';
 import { UserService } from 'src/user/user.service';
+import { CommonService } from 'src/common/service/common.service';
 
 // Base event interface
 export interface BaseUserEvent {
@@ -128,33 +129,31 @@ export class UserEventsService {
   constructor(
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
+    private readonly commonService: CommonService,
   ) {}
 
-  /** Load requester from DB; format as "First L.". Safe when relation/JWT user omits first/last name. */
+  /** Load requester from DB; format display name. Safe when relation/JWT user omits first/last name. */
   private async resolveRequesterDisplayName(requesterId: number | null | undefined): Promise<string> {
     if (requesterId == null || !Number.isFinite(Number(requesterId))) {
       return 'Unknown User';
     }
     const requester = await this.userService.findOne({ id: Number(requesterId) });
+    return this.requesterDisplayNameFromEntity(requester);
+  }
+
+  private requesterDisplayNameFromEntity(requester: UserEntity | null | undefined): string {
     if (!requester) {
       return 'Unknown User';
     }
-    const firstName = (requester.firstName ?? '').trim();
-    const lastName = (requester.lastName ?? '').trim();
-    if (!firstName && !lastName) {
-      return 'Unknown User';
-    }
-    if (!lastName) {
-      return firstName;
-    }
-    return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+    const name = this.commonService.userGreetingName(requester, '');
+    return name || 'Unknown User';
   }
 
   // Authentication Events
   emitUserRegistered(user: UserEntity): void {
     const event: UserRegisteredEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       user: {
@@ -170,7 +169,7 @@ export class UserEventsService {
   emitUserLoggedIn(user: UserEntity, ipAddress?: string): void {
     const event: BaseUserEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       metadata: { ipAddress, userAgent: 'web' },
@@ -181,7 +180,7 @@ export class UserEventsService {
   emitPasswordChanged(user: UserEntity): void {
     const event: BaseUserEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
     };
@@ -192,7 +191,7 @@ export class UserEventsService {
   emitPhoneVerificationRequested(user: UserEntity, phoneNumber: string): void {
     const event: PhoneVerificationEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       phoneNumber,
@@ -203,7 +202,7 @@ export class UserEventsService {
   emitPhoneVerified(user: UserEntity, phoneNumber: string): void {
     const event: PhoneVerificationEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -215,7 +214,7 @@ export class UserEventsService {
   emitEmailVerified(user: UserEntity, email: string): void {
     const event: EmailVerificationEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -232,7 +231,7 @@ export class UserEventsService {
   ): void {
     const event: VerificationDocumentsEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       documentTypes,
@@ -262,7 +261,7 @@ export class UserEventsService {
   emitTravelPublished(user: UserEntity, travelData: any): void {
     const event: TravelEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       travelId: travelData.id,
@@ -280,7 +279,7 @@ export class UserEventsService {
   emitTravelUpdated(user: UserEntity, travelData: any): void {
     const event: TravelEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       travelId: travelData.id,
@@ -298,7 +297,7 @@ export class UserEventsService {
   emitTravelCancelled(user: UserEntity, travelData: any): void {
     const event: TravelEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       travelId: travelData.id,
@@ -317,7 +316,7 @@ export class UserEventsService {
   emitDemandPublished(user: UserEntity, demandData: any): void {
     const event: DemandEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       demandId: demandData.id,
@@ -335,7 +334,7 @@ export class UserEventsService {
   emitDemandUpdated(user: UserEntity, demandData: any): void {
     const event: DemandEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       demandId: demandData.id,
@@ -353,7 +352,7 @@ export class UserEventsService {
   emitDemandCancelled(user: UserEntity, demandData: any): void {
     const event: DemandEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       demandId: demandData.id,
@@ -379,7 +378,7 @@ export class UserEventsService {
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       userEmail: user.email,
       requesterId: requestData.requesterId,
@@ -406,7 +405,7 @@ export class UserEventsService {
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       userEmail: user.email,
       requesterId: requestData.requesterId,
@@ -424,7 +423,7 @@ export class UserEventsService {
   emitTransactionCreated(user: UserEntity, transactionData: any): void {
     const event: TransactionEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -439,7 +438,7 @@ export class UserEventsService {
   emitTransactionCompleted(user: UserEntity, transactionData: any): void {
     const event: TransactionEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -455,7 +454,7 @@ export class UserEventsService {
   emitMessageSent(user: UserEntity, messageData: any): void {
     const event: MessageEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -471,7 +470,7 @@ export class UserEventsService {
   emitReviewPosted(user: UserEntity, reviewData: any): void {
     const event: ReviewEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -487,7 +486,7 @@ export class UserEventsService {
   emitSuspiciousActivity(user: UserEntity, activity: string): void {
     const event: BaseUserEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
 
       userEmail: user.email,
       timestamp: new Date(),
@@ -498,15 +497,11 @@ export class UserEventsService {
 
 
   emitRequestCompletedForOwner(user: UserEntity, updatedRequest: RequestEntity, isForOwner: boolean, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released') {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (updatedRequest.requester) {
-      requesterName = `${updatedRequest.requester.firstName} ${updatedRequest.requester.lastName.charAt(0)}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(updatedRequest.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       requesterId: updatedRequest.requesterId,
       requesterName: requesterName,
@@ -522,15 +517,11 @@ export class UserEventsService {
   }
 
   emitRequestCompleted(user: UserEntity, updatedRequest: RequestEntity, isForOwner: boolean) {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (updatedRequest.requester) {
-      requesterName = `${updatedRequest.requester.firstName} ${updatedRequest.requester.lastName.charAt(0)}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(updatedRequest.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       requesterId: updatedRequest.requesterId || 0,
       requesterName: requesterName,
@@ -553,15 +544,11 @@ export class UserEventsService {
     cancellationReason?: string,
     emailAlreadySent?: boolean,
   ): void {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName.charAt(0)}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       requesterId: requestData.requesterId,
       requesterName: requesterName,
@@ -578,15 +565,11 @@ export class UserEventsService {
   }
 
   emitRequestRejected(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {
-    // Determine requester name from available data
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName.charAt(0)}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       isForOwner: isForOwner,
       requesterId: requestData.requesterId,
       requesterName: requesterName,
@@ -604,7 +587,7 @@ export class UserEventsService {
   emitKycStarted(user: UserEntity, sessionId: string, redirectUrl: string, provider: string): void {
     const event: KycStartedEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       sessionId,
@@ -624,7 +607,7 @@ export class UserEventsService {
   ): void {
     const event: KycCompletedEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       sessionId,
@@ -637,14 +620,11 @@ export class UserEventsService {
   }
 
   emitCancellationConfirmationRequested(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       requesterId: requestData.requesterId,
@@ -660,14 +640,11 @@ export class UserEventsService {
 
   /** @param user Buyer (requester) — confirmation email is sent to this user via the event listener. */
   emitCancellationConfirmed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       requesterId: requestData.requesterId,
@@ -682,14 +659,11 @@ export class UserEventsService {
   }
 
   emitCancellationDisputed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       requesterId: requestData.requesterId,
@@ -704,14 +678,11 @@ export class UserEventsService {
   }
 
   emitRequestAutoCompleted(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {
-    let requesterName = 'Unknown User';
-    if (requestData.requester) {
-      requesterName = `${requestData.requester.firstName} ${requestData.requester.lastName?.charAt(0) ?? ''}.`;
-    }
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
       userId: user.id,
-      userFirstName: user.firstName,
+      userFirstName: this.commonService.userGreetingName(user),
       userEmail: user.email,
       timestamp: new Date(),
       requesterId: requestData.requesterId,

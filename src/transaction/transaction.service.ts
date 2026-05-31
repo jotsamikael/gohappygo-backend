@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Transaction } from 'typeorm';
+import { Like, Repository, Transaction } from 'typeorm';
 import { TransactionEntity } from './transaction.entity';
 import { RequestEntity } from 'src/request/request.entity';
 import { UserEntity, UserRole } from 'src/user/user.entity';
@@ -13,6 +13,8 @@ import { FindTransactionQueryDto } from './dto/request/find-transaction-requests
 import { PaginatedTransactionResponseDto } from './dto/response/paginated-transaction-response.dto';
 import { TransactionMapper } from './transaction.mapper';
 import Stripe from 'stripe';
+import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
 export class TransactionService {
@@ -22,6 +24,8 @@ export class TransactionService {
     constructor(
         @InjectRepository(TransactionEntity)
         private transactionRepository: Repository<TransactionEntity>,
+        @InjectRepository(UserEntity)
+        private userRepository: Repository<UserEntity>,
         private stripeService: StripeService,
         private currencyService: CurrencyService,
         private platformPricingService: PlatformPricingService,
@@ -172,7 +176,7 @@ export class TransactionService {
     async getTransactionById(id: number): Promise<TransactionEntity> {
         const transaction = await this.transactionRepository.findOne({ where: { id } });
         if (!transaction) {
-            throw new NotFoundException('Transaction not found');
+            throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
         }
         return transaction;
     }
@@ -214,6 +218,8 @@ export class TransactionService {
       date,
       status,
       orderBy = 'createdAt:desc',
+      payerEmail,
+      payeeEmail,
     } = query;
 
     const skip = (page - 1) * limit;
@@ -282,9 +288,55 @@ export class TransactionService {
       queryBuilder.andWhere('transaction.status = :status', { status });
     }
 
+    // Handle payerEmail filter (admin/operator only)
+    if (payerEmail) {
+      if (!isAdmin && !isOperator) {
+        console.log('🔒 Ignoring payerEmail filter - user is not admin or operator');
+      } else {
+        console.log('🔍 Debug - Admin/Operator filtering by payerEmail:', payerEmail);
+        
+        const matchingUsers = await this.userRepository.find({
+          where: { email: Like(`%${payerEmail}%`) },
+          select: ['id', 'email']
+        });
+        
+        const matchingUserIds = matchingUsers.map(u => u.id);
+        console.log('🔍 Debug - Found users matching payerEmail:', matchingUserIds.length, 'user IDs:', matchingUserIds);
+        
+        if (matchingUserIds.length > 0) {
+          queryBuilder.andWhere('transaction.payerId IN (:...payerEmailUserIds)', { payerEmailUserIds: matchingUserIds });
+        } else {
+          queryBuilder.andWhere('1 = 0');
+        }
+      }
+    }
+
+    // Handle payeeEmail filter (admin/operator only)
+    if (payeeEmail) {
+      if (!isAdmin && !isOperator) {
+        console.log('🔒 Ignoring payeeEmail filter - user is not admin or operator');
+      } else {
+        console.log('🔍 Debug - Admin/Operator filtering by payeeEmail:', payeeEmail);
+        
+        const matchingUsers = await this.userRepository.find({
+          where: { email: Like(`%${payeeEmail}%`) },
+          select: ['id', 'email']
+        });
+        
+        const matchingUserIds = matchingUsers.map(u => u.id);
+        console.log('🔍 Debug - Found users matching payeeEmail:', matchingUserIds.length, 'user IDs:', matchingUserIds);
+        
+        if (matchingUserIds.length > 0) {
+          queryBuilder.andWhere('transaction.payeeId IN (:...payeeEmailUserIds)', { payeeEmailUserIds: matchingUserIds });
+        } else {
+          queryBuilder.andWhere('1 = 0');
+        }
+      }
+    }
+
     // Apply sorting
     const [sortField, sortDirection] = orderBy.split(':');
-    const validSortFields = ['id', 'amount', 'createdAt', 'updatedAt', 'status'];
+    const validSortFields = ['convertedAmount', 'createdAt'];
     const validSortDirections = ['asc', 'desc'];
 
     if (validSortFields.includes(sortField) && validSortDirections.includes(sortDirection)) {
@@ -316,7 +368,7 @@ export class TransactionService {
 
     await this.cacheManager.set(cacheKey, responseResult, 30000);
     return responseResult;
-   }
+  }
 
    /**
     * Generate cache key for transaction list queries
@@ -334,9 +386,11 @@ export class TransactionService {
       date,
       status,
       orderBy = 'createdAt:desc',
+      payerEmail,
+      payeeEmail,
     } = query;
 
-    return `transactions_list_page${page}_limit${limit}_id${id || 'all'}_payer${payerId || 'all'}_payee${payeeId || 'all'}_request${requestId || 'all'}_min${minAmount || 'all'}_max${maxAmount || 'all'}_date${date || 'all'}_status${status || 'all'}_order${orderBy}_user${userId}`;
+    return `transactions_list_page${page}_limit${limit}_id${id || 'all'}_payer${payerId || 'all'}_payee${payeeId || 'all'}_request${requestId || 'all'}_min${minAmount || 'all'}_max${maxAmount || 'all'}_date${date || 'all'}_status${status || 'all'}_order${orderBy}_user${userId}_payerEmail${payerEmail || 'all'}_payeeEmail${payeeEmail || 'all'}`;
    }
 
    /**

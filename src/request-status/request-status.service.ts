@@ -71,6 +71,11 @@ constructor(@InjectRepository(RequestStatusEntity) private requestStatusReposito
         status: 'CANCELLATION_DISPUTED',
         comment: 'Seller disputed cancellation (claims service was fulfilled), awaiting admin review',
       },
+      {
+        label: 'Proof deadline missed',
+        status: 'PROOF_DEADLINE_MISSED',
+        comment: 'No meeting proof uploaded before deadline; awaiting admin settlement',
+      },
     ];
 
     for (const requestStatus of defaultRequestatus) {

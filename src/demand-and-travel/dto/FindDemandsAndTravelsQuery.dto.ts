@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsOptional, IsString, MaxLength, IsEnum, IsInt, IsNumber, Min, Max, IsISO8601, IsPositive } from "class-validator";
+import { IsOptional, IsString, MaxLength, IsEnum, IsInt, IsNumber, Min, Max, IsISO8601, IsPositive, IsEmail } from "class-validator";
 import { Type, Transform } from "class-transformer";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 
@@ -65,6 +65,56 @@ export class FindDemandsAndTravelsQueryDto extends PaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   userId?: number;
+
+  @ApiProperty({
+    description: 'Filter by airport Iata code (searches both demands and travels, admin only)',
+    example: 'FRA',
+    minLength: 1,
+    maxLength: 5,
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5,{message:'Iata code can not be more than 5 characters'})
+  departureAirportIataCode: string;
+
+  @ApiProperty({
+    description: 'Filter by airport Iata code (searches both demands and travels, admin only)',
+    example: 'OBS',
+    minLength: 1,
+    maxLength: 5,
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5,{message:'Iata code can not be more than 5 characters'})
+  arrivalAirportIataCode: string;
+
+
+  @ApiProperty({
+    description: 'Filter by airline Iata code (searches both demands and travels, admin only)',
+    example: 'QC',
+    minLength: 1,
+    maxLength: 5,
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5,{message:'Iata code can not be more than 5 characters'})
+  airlineIataCode: string;
+
+
+  @ApiProperty({
+    description: 'Filter by user email (searches both demands and travels, admin only)',
+    example: 'jamesward@gmail.com',
+    minLength: 2,
+    maxLength: 80,
+    required: false
+  })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(50,{message:'Email can not be more than 80 characters'})
+  email?: string;
 
   @ApiProperty({
     description: 'Filter by status (searches both demands and travels)',

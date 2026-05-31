@@ -14,16 +14,16 @@ export class File{
     @Column()
     mimeType: string
 
-      @Column()
+    @Column()
     size: number
 
-      @Column()
+    @Column()
     url: string
 
-      @Column()
+    @Column()
     publicId: string
 
-      @Column({nullable:true})
+    @Column({nullable:true})
     description: string
 
       @ManyToOne(()=>UserEntity, {eager: true})

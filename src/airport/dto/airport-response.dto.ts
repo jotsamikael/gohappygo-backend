@@ -46,9 +46,6 @@ export class AirportResponseDto {
     @Expose()
     municipality: string;
 
-    @ApiProperty({ example: 'yes', nullable: true })
-    @Expose()
-    scheduledService: string;
 
     @ApiProperty({ example: 'KJFK', nullable: true })
     @Expose()
@@ -66,22 +63,7 @@ export class AirportResponseDto {
     @Expose()
     localCode: string;
 
-    @ApiProperty({ example: 'https://www.panynj.gov/airports/jfk.html', nullable: true })
-    homeLink: string;
-
-    @ApiProperty({ example: 'https://en.wikipedia.org/wiki/John_F._Kennedy_International_Airport', nullable: true })
-    wikipediaLink: string;
-
-    @ApiProperty({ example: 'JFK, Kennedy, New York airport', nullable: true })
-    @Expose()
-    keywords: string;
-
-    @ApiProperty()  
-    @Expose()
-    createdAt: Date;
-
-    @ApiProperty()
-    updatedAt: Date;
+  
 }
 
 export class CreateAirportResponseDto {

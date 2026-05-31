@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RequestEntity } from './request.entity';
-import { EntityManager, FindOptionsWhere, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, Like, Repository } from 'typeorm';
 import { UserEntity, UserRole } from 'src/user/user.entity';
 import { RequestStatusHistoryService } from 'src/request-status-history/request-status-history.service';
 import { RequestStatusService } from 'src/request-status/request-status.service';
@@ -34,6 +34,9 @@ import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
 import { RequestEvent } from 'src/events/user-events.service';
 import { UserEventType } from 'src/events/event-types';
+import { DeliveryProofService } from 'src/delivery-proof/delivery-proof.service';
+import { getRequestTravelDateOnly, toDateOnly } from './utils/request-date-policy';
+import { SettleRequestDto, SettleRequestAction } from './dto/settle-request.dto';
 
 @Injectable()
 export class RequestService {
@@ -43,6 +46,7 @@ export class RequestService {
   constructor(
     @InjectRepository(RequestEntity) private requestRepository: Repository<RequestEntity>,
     @InjectRepository(ReviewEntity) private reviewRepository: Repository<ReviewEntity>,
+    @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
     private requestStatusHistoryService: RequestStatusHistoryService,
     private requestStatusService: RequestStatusService,
     private travelService: TravelService,
@@ -60,8 +64,264 @@ export class RequestService {
     @Inject(forwardRef(() => MessageService))
     private readonly messageService: MessageService,
     private readonly configService: ConfigService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly deliveryProofService: DeliveryProofService,
   ) { }
+
+  private canBypassTravelDateRules(): boolean {
+    return this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
+  }
+
+  private assertTravelDateAllowsCompletion(request: RequestEntity): void {
+    if (this.canBypassTravelDateRules()) {
+      return;
+    }
+    const travelDate = getRequestTravelDateOnly(request);
+    if (!travelDate) {
+      return;
+    }
+    const currentDate = toDateOnly(new Date());
+    if (currentDate < travelDate) {
+      throw new CustomBadRequestException(
+        `Cannot complete request before the travel date (${travelDate.toISOString().split('T')[0]}). The travel has not yet departed.`,
+        ErrorCode.REQUEST_NOT_COMPLETED,
+      );
+    }
+  }
+
+  private async refundRequestTransaction(requestId: number): Promise<void> {
+    const transaction = await this.transactionService.findTransactionByRequestId(requestId);
+    if (!transaction) {
+      return;
+    }
+    if (transaction.stripeTransferId) {
+      this.logger.warn(
+        `Refund skipped for request ${requestId}: funds already transferred (transfer ${transaction.stripeTransferId}).`,
+      );
+      return;
+    }
+    if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+      let travelerPaymentUSD: number;
+      if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
+        travelerPaymentUSD = await this.stripeService.convertToUSD(
+          transaction.travelerPayment,
+          transaction.currencyCode || 'USD',
+        );
+      } else {
+        throw new CustomBadRequestException(
+          'Traveler payment amount not found in transaction',
+          ErrorCode.INTERNAL_ERROR,
+        );
+      }
+      await this.stripeService.refundPaymentIntentPartial(
+        transaction.stripePaymentIntentId,
+        travelerPaymentUSD,
+      );
+      await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+    }
+  }
+
+  private async releaseFundsForRequest(requestId: number, actingUser: UserEntity): Promise<void> {
+    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+    if (!transaction) {
+      throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
+    }
+
+    const tryRelease = async () => {
+      await this.transactionService.releaseFundsFromStripe(transaction.id, actingUser);
+    };
+
+    if (
+      !transaction.stripeTransferId &&
+      (transaction.status === 'paid' ||
+        transaction.status === 'awaiting_transfer' ||
+        transaction.status === 'awaiting_available_funds')
+    ) {
+      try {
+        await tryRelease();
+      } catch (error: any) {
+        const msg = error?.message ?? '';
+        if (
+          msg.includes('transfers enabled') ||
+          msg.includes('onboarding') ||
+          msg.includes('capability') ||
+          msg.includes('stripe_balance.stripe_transfers') ||
+          msg.includes('stripe_transfers feature') ||
+          msg.includes('bank account') ||
+          msg.includes('debit card') ||
+          msg.includes('external account') ||
+          msg.includes('payout method')
+        ) {
+          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+        } else if (
+          msg.includes('insufficient') ||
+          msg.includes('available balance') ||
+          msg.includes('available funds')
+        ) {
+          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+        } else {
+          throw new CustomBadRequestException(
+            `Failed to release funds: ${msg}. Request status remains ACCEPTED.`,
+            ErrorCode.INTERNAL_ERROR,
+          );
+        }
+      }
+    } else if (transaction.stripeTransferId) {
+      this.logger.log(
+        `Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`,
+      );
+    } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
+      if (transaction.stripePaymentIntentId) {
+        const paymentIntent = await this.stripeService.getPaymentIntent(transaction.stripePaymentIntentId);
+        if (paymentIntent.status === 'succeeded') {
+          await this.transactionService.updateTransactionStatus(transaction.id, 'paid');
+          try {
+            await tryRelease();
+          } catch (error: any) {
+            const msg = error?.message ?? '';
+            if (msg.includes('transfers enabled') || msg.includes('onboarding') || msg.includes('capability')) {
+              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
+            } else if (
+              msg.includes('insufficient') ||
+              msg.includes('available balance') ||
+              msg.includes('available funds')
+            ) {
+              await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
+            } else {
+              throw new CustomBadRequestException(
+                `Failed to release funds: ${msg}. Request status remains ACCEPTED.`,
+                ErrorCode.INTERNAL_ERROR,
+              );
+            }
+          }
+        } else {
+          throw new CustomBadRequestException(
+            `Transaction payment is not yet successful (Payment Intent status: ${paymentIntent.status}). Cannot release funds.`,
+            ErrorCode.INTERNAL_ERROR,
+          );
+        }
+      } else {
+        throw new CustomBadRequestException(
+          `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
+          ErrorCode.INTERNAL_ERROR,
+        );
+      }
+    }
+  }
+
+  private async markRequestCompleted(
+    requestId: number,
+    request: RequestEntity,
+    completingUser: UserEntity,
+    options: { autoComplete?: boolean } = {},
+  ): Promise<RequestEntity> {
+    const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
+    if (!completedStatus) {
+      throw new NotFoundException('Completed status not found');
+    }
+
+    request.currentStatusId = completedStatus.id;
+    request.currentStatus = completedStatus;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(requestId, completedStatus.id);
+
+    const affectedUserIds = [request.requesterId];
+    if (request.travel) {
+      affectedUserIds.push(request.travel.userId);
+    } else if (request.demand) {
+      affectedUserIds.push(request.demand.userId);
+    }
+    await this.clearRequestListCacheForUsers(affectedUserIds);
+
+    const updatedRequest = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['transactions', 'demand', 'travel', 'demand.user', 'travel.user', 'currentStatus', 'requester', 'deliveryProof'],
+    });
+
+    if (!updatedRequest) {
+      throw new CustomNotFoundException('Updated Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const ownerId = updatedRequest.travelId
+      ? updatedRequest.travel?.userId
+      : updatedRequest.demandId
+        ? updatedRequest.demand?.userId
+        : null;
+
+    const updatedTransaction = await this.transactionService.getTransactionByRequestId(requestId);
+    let fundStatus: 'pending_funds' | 'pending_onboarding' | 'released' | undefined;
+    if (updatedTransaction) {
+      if (updatedTransaction.stripeTransferId) {
+        fundStatus = 'released';
+      } else if (updatedTransaction.status === 'awaiting_available_funds') {
+        fundStatus = 'pending_funds';
+      } else if (updatedTransaction.status === 'awaiting_transfer') {
+        fundStatus = 'pending_onboarding';
+      }
+    }
+
+    if (options.autoComplete) {
+      if (ownerId) {
+        const owner = await this.userService.findOne({ id: ownerId });
+        const requester = await this.userService.findOne({ id: request.requesterId });
+        if (requester && owner) {
+          this.userEventService.emitRequestAutoCompleted(requester, updatedRequest, false, ownerId);
+          this.userEventService.emitRequestAutoCompleted(owner, updatedRequest, true, ownerId);
+        }
+      }
+    } else {
+      this.userEventService.emitRequestCompleted(completingUser, updatedRequest, false);
+      if (ownerId) {
+        const owner = await this.userService.findOne({ id: ownerId });
+        if (owner) {
+          await this.userEventService.emitRequestCompletedForOwner(owner, updatedRequest, true, fundStatus);
+        }
+      }
+    }
+
+    return updatedRequest;
+  }
+
+  async releaseFundsAndMarkCompleted(
+    requestId: number,
+    actingUser: UserEntity,
+    options: { autoComplete?: boolean } = {},
+  ): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+    await this.releaseFundsForRequest(requestId, actingUser);
+    return this.markRequestCompleted(requestId, request, actingUser, options);
+  }
+
+  private async markProofDeadlineMissed(request: RequestEntity): Promise<RequestEntity> {
+    const missedStatus = await this.requestStatusService.getRequestByStatus('PROOF_DEADLINE_MISSED');
+    if (!missedStatus) {
+      throw new CustomNotFoundException('PROOF_DEADLINE_MISSED status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    request.currentStatusId = missedStatus.id;
+    request.currentStatus = missedStatus;
+    await this.requestRepository.save(request);
+    await this.requestStatusHistoryService.record(request.id, missedStatus.id);
+
+    const affectedUserIds = [request.requesterId];
+    if (request.travel) {
+      affectedUserIds.push(request.travel.userId);
+    } else if (request.demand) {
+      affectedUserIds.push(request.demand.userId);
+    }
+    await this.clearRequestListCacheForUsers(affectedUserIds);
+
+    this.userEventService['eventEmitter'].emit(UserEventType.PROOF_DEADLINE_MISSED, {
+      requestId: request.id,
+      requesterId: request.requesterId,
+      timestamp: new Date(),
+    });
+
+    return request;
+  }
 
   //createRequest to seek travel - Updated to only require weight
   async createRequestToTravel(createRequestDto: CreateRequestToTravelDto, user: UserEntity): Promise<RequestEntity> {
@@ -516,208 +776,114 @@ export class RequestService {
     if (!acceptedStatus) {
       throw new CustomNotFoundException('Accepted status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
-    //0. check if request is in ACCEPTED status
     if (request.currentStatusId !== acceptedStatus.id) {
       throw new CustomBadRequestException('Request is not in ACCEPTED status', ErrorCode.REQUEST_NOT_IN_ACCEPTED_STATUS);
     }
-    // 1. Check if the user is authorized to complete this request
-    const isAuthorized = request.requesterId === user.id;
-    if (!isAuthorized) {
+    if (request.requesterId !== user.id) {
       throw new CustomForbiddenException('Only the requester can complete this request', ErrorCode.REQUEST_UNAUTHORIZED);
     }
 
-    // 1.5 Check if travel date has passed (unless CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE is true)
-    // Only compares dates, not times - allows completion on the same day regardless of time
-    const canCompleteTravelBeforeTravelDate = this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
-    console.log('canCompleteTravelBeforeTravelDate ->', canCompleteTravelBeforeTravelDate)
-    //check if travel date has passed
-    if (!canCompleteTravelBeforeTravelDate && request.travel) {
-      const travelDatetime = new Date((request.travel as any).travelDate ?? request.travel.departureDatetime);
-      const now = new Date();
+    this.assertTravelDateAllowsCompletion(request);
 
-      // Extract only the date portion (year, month, day) for comparison
-      const travelDate = new Date(travelDatetime.getFullYear(), travelDatetime.getMonth(), travelDatetime.getDate());
-      const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const hasProof = await this.deliveryProofService.hasMeetingProof(requestId);
+    if (!hasProof) {
+      throw new CustomBadRequestException(
+        'Meeting proof is required before completing this request',
+        ErrorCode.MEETING_PROOF_REQUIRED,
+      );
+    }
 
-      if (currentDate < travelDate) {
-        throw new CustomBadRequestException(
-          `Cannot complete request before the travel date (${travelDate.toISOString().split('T')[0]}). The travel has not yet departed.`,
-          ErrorCode.REQUEST_NOT_COMPLETED
-        );
+    return this.releaseFundsAndMarkCompleted(requestId, user);
+  }
+
+  async settleProofDeadlineMissed(
+    requestId: number,
+    admin: UserEntity,
+    dto: SettleRequestDto,
+  ): Promise<RequestEntity> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const missedStatus = await this.requestStatusService.getRequestByStatus('PROOF_DEADLINE_MISSED');
+    if (!missedStatus || request.currentStatusId !== missedStatus.id) {
+      throw new CustomBadRequestException(
+        'Request is not in PROOF_DEADLINE_MISSED status',
+        ErrorCode.REQUEST_NOT_PROOF_DEADLINE_MISSED,
+      );
+    }
+
+    if (request.settledAt) {
+      throw new CustomBadRequestException('Request has already been settled by an admin', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const settleAction =
+      dto.action === SettleRequestAction.CANCEL_AND_REFUND
+        ? 'CANCEL_AND_REFUND'
+        : 'COMPLETE_AND_RELEASE_FUNDS';
+
+    request.settledAt = new Date();
+    request.settledByUserId = admin.id;
+    request.settleAction = settleAction;
+    request.settleNote = dto.note ?? null;
+    await this.requestRepository.save(request);
+
+    let result: RequestEntity;
+
+    if (dto.action === SettleRequestAction.CANCEL_AND_REFUND) {
+      await this.refundRequestTransaction(requestId);
+
+      const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+      if (!cancelledStatus) {
+        throw new CustomNotFoundException('CANCELLED status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
       }
-    }
 
-    // 2. Get transaction and attempt fund release FIRST (before changing status)
-    // This ensures that if transfer fails, the request status remains ACCEPTED
-    const transaction = await this.transactionService.getTransactionByRequestId(requestId);
-    if (!transaction) {
-      throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
-    }
-
-    // 3. Release funds from stripe to payee (only if transfer hasn't been created yet)
-    // Do this BEFORE changing status so that if it fails, status remains ACCEPTED
-    // Check if transfer hasn't been created (stripeTransferId is null) AND payment is successful (status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds')
-    if (!transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
-      try {
-        await this.transactionService.releaseFundsFromStripe(transaction.id, user);
-        // If transfer succeeds, status will be updated to 'paid' by releaseFundsFromStripe
-      } catch (error) {
-        // If transfer fails due to onboarding or missing external account, mark as awaiting_transfer and allow completion
-        if (error.message.includes('transfers enabled') ||
-          error.message.includes('onboarding') ||
-          error.message.includes('capability') ||
-          error.message.includes('stripe_balance.stripe_transfers') ||
-          error.message.includes('stripe_transfers feature') ||
-          error.message.includes('bank account') ||
-          error.message.includes('debit card') ||
-          error.message.includes('external account') ||
-          error.message.includes('payout method')) {
-          // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding/adds payout method
-          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
-          console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding and adds a payout method.`);
-          // Allow request completion - funds are safely held by platform
-        } else if (error.message.includes('insufficient') ||
-          error.message.includes('available balance') ||
-          error.message.includes('available funds')) {
-          // Insufficient balance handling - mark as awaiting_available_funds and allow completion
-          await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
-          console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
-          // Allow request completion - funds will be released when available
-        } else {
-          // For other errors, don't allow completion
-          throw new CustomBadRequestException(
-            `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
-            ErrorCode.INTERNAL_ERROR
-          );
+      await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+        const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+          where: { id: requestId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedRequest) {
+          throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
         }
+        lockedRequest.currentStatusId = cancelledStatus.id;
+        lockedRequest.currentStatus = cancelledStatus;
+        lockedRequest.settledAt = request.settledAt;
+        lockedRequest.settledByUserId = request.settledByUserId;
+        lockedRequest.settleAction = request.settleAction;
+        lockedRequest.settleNote = request.settleNote;
+        await transactionalEntityManager.save(RequestEntity, lockedRequest);
+        await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
+        await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
+      });
+
+      result = (await this.getRequestById(requestId))!;
+      const ownerId = result.travelId ? result.travel?.userId : result.demand?.userId;
+      const requester = await this.userService.findOne({ id: result.requesterId });
+      if (requester && ownerId) {
+        this.userEventService.emitRequestCancelled(requester, result, false, ownerId);
       }
-    } else if (transaction.stripeTransferId) {
-      console.log(`Transaction ${transaction.id} already has transfer ${transaction.stripeTransferId}, skipping fund release`);
-    } else if (transaction.status !== 'paid' && transaction.status !== 'awaiting_transfer') {
-      // Before throwing error, check Payment Intent status from Stripe
-      if (transaction.stripePaymentIntentId) {
-        try {
-          const paymentIntent = await this.stripeService.getPaymentIntent(transaction.stripePaymentIntentId);
-          if (paymentIntent.status === 'succeeded') {
-            // Payment succeeded but status not updated yet - update it and proceed
-            await this.transactionService.updateTransactionStatus(transaction.id, 'paid');
-            // Retry the fund release
-            try {
-              await this.transactionService.releaseFundsFromStripe(transaction.id, user);
-            } catch (error) {
-              // If transfer fails due to onboarding, mark as awaiting_transfer and allow completion
-              if (error.message.includes('transfers enabled') ||
-                error.message.includes('onboarding') ||
-                error.message.includes('capability')) {
-                // Mark transaction as awaiting_transfer - funds will be released when payee completes onboarding
-                await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_transfer');
-                console.log(`Transaction ${transaction.id} marked as awaiting_transfer. Funds will be released when payee completes onboarding.`);
-                // Allow request completion - funds are safely held by platform
-              } else if (error.message.includes('insufficient') ||
-                error.message.includes('available balance') ||
-                error.message.includes('available funds')) {
-                // NEW: Insufficient balance handling - mark as awaiting_available_funds and allow completion
-                await this.transactionService.updateTransactionStatus(transaction.id, 'awaiting_available_funds');
-                console.log(`Transaction ${transaction.id} marked as awaiting_available_funds. Funds will be released when platform balance becomes available.`);
-                // Allow request completion - funds will be released when available
-              } else {
-                // For other errors, don't allow completion
-                throw new CustomBadRequestException(
-                  `Failed to release funds: ${error.message}. Request status remains ACCEPTED.`,
-                  ErrorCode.INTERNAL_ERROR
-                );
-              }
-            }
-          } else {
-            // Payment actually not succeeded
-            console.log(`Transaction ${transaction.id} is ${transaction.status}, Payment Intent status: ${paymentIntent.status}. Payment not yet successful. Cannot release funds.`);
-            throw new CustomBadRequestException(
-              `Transaction payment is not yet successful (Payment Intent status: ${paymentIntent.status}). Cannot release funds.`,
-              ErrorCode.INTERNAL_ERROR
-            );
-          }
-        } catch (error) {
-          // If we can't check Payment Intent, fall back to original behavior
-          console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds. Error checking Payment Intent: ${error.message}`);
-          throw new CustomBadRequestException(
-            `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
-            ErrorCode.INTERNAL_ERROR
-          );
-        }
-      } else {
-        // No Payment Intent - throw error as before
-        console.log(`Transaction ${transaction.id} is ${transaction.status}, payment not yet successful. Cannot release funds.`);
-        throw new CustomBadRequestException(
-          `Transaction payment is not yet successful (status: ${transaction.status}). Cannot release funds.`,
-          ErrorCode.INTERNAL_ERROR
-        );
-      }
+    } else if (dto.action === SettleRequestAction.COMPLETE_AND_RELEASE_FUNDS) {
+      result = await this.releaseFundsAndMarkCompleted(requestId, admin);
+      result.settledAt = request.settledAt;
+      result.settledByUserId = request.settledByUserId;
+      result.settleAction = request.settleAction;
+      result.settleNote = request.settleNote;
+      await this.requestRepository.save(result);
+    } else {
+      throw new CustomBadRequestException('Invalid settle action', ErrorCode.SETTLE_ACTION_INVALID);
     }
 
-    // 4. Only update request status to completed if transfer succeeded
-    const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
-    if (!completedStatus) {
-      throw new NotFoundException('Completed status not found');
-    }
-    console.log("completed request status->", completedStatus)
-
-    // Update the status ID directly on the entity
-    request.currentStatusId = completedStatus.id;
-    request.currentStatus = completedStatus;
-    const savedRequest = await this.requestRepository.save(request);
-
-    console.log("updates request ->", savedRequest)
-
-
-    // 5. Add status history record (IMPORTANT: This was missing!)
-    await this.requestStatusHistoryService.record(requestId, completedStatus.id);
-
-    // 6. Clear cache for affected users (requester and travel/demand owner)
-    const affectedUserIds = [user.id]; // Requester
-    // getRequestById already loads travel and demand relations, so we can use them here
-    if (request.travel) {
-      affectedUserIds.push(request.travel.userId);
-    } else if (request.demand) {
-      affectedUserIds.push(request.demand.userId);
-    }
-    // Clear cache early so users see updated data
-    await this.clearRequestListCacheForUsers(affectedUserIds);
-
-    // 6. Fetch the request again with updated relations including currentStatus
-    const updatedRequest = await this.requestRepository.findOne({
-      where: { id: requestId },
-      relations: ['transactions', 'demand', 'travel', 'demand.user', 'travel.user', 'currentStatus', 'requester']
+    this.userEventService['eventEmitter'].emit(UserEventType.REQUEST_SETTLED_BY_ADMIN, {
+      requestId,
+      adminId: admin.id,
+      action: dto.action,
+      timestamp: new Date(),
     });
 
-    if (!updatedRequest) {
-      throw new CustomNotFoundException('Updated Request not found', ErrorCode.REQUEST_NOT_FOUND);
-    }
-
-    // 8. Send email to the requester
-    this.userEventService.emitRequestCompleted(user, updatedRequest, false);
-
-    // 9. Get user who published the travel or demand
-    const travel = await this.userService.findOne({
-      id: updatedRequest.travel!.userId,
-    });
-
-    // 10. Determine fund status from transaction for seller notification
-    let fundStatus: 'pending_funds' | 'pending_onboarding' | 'released' | undefined = undefined;
-    const updatedTransaction = await this.transactionService.getTransactionByRequestId(requestId);
-    if (updatedTransaction) {
-      if (updatedTransaction.stripeTransferId) {
-        fundStatus = 'released';
-      } else if (updatedTransaction.status === 'awaiting_available_funds') {
-        fundStatus = 'pending_funds';
-      } else if (updatedTransaction.status === 'awaiting_transfer') {
-        fundStatus = 'pending_onboarding';
-      }
-    }
-
-    //also send email to the user who published the travel or demand
-    await this.userEventService.emitRequestCompletedForOwner(travel!, updatedRequest, true, fundStatus);
-
-    return updatedRequest;
+    await this.clearRequestListCache();
+    return (await this.getRequestById(requestId))!;
   }
 
   /**
@@ -770,11 +936,11 @@ export class RequestService {
       request.requester = requester;
       const eventPayload: RequestEvent = {
         userId: requester.id,
-        userFirstName: requester.firstName,
+        userFirstName: this.commonService.userGreetingName(requester),
         userEmail: requester.email,
         timestamp: new Date(),
         requesterId: request.requesterId,
-        requesterName: `${requester.firstName} ${requester.lastName?.charAt(0) ?? ''}.`,
+        requesterName: this.commonService.userFullName(requester),
         ownerId,
         requestId: request.id,
         requestType: request.requestType,
@@ -785,7 +951,7 @@ export class RequestService {
       try {
         const sent = await this.emailService.sendRequestCancelledDueToPaymentFailureConfirmation(
           requester.email,
-          requester.firstName,
+          this.commonService.userGreetingName(requester),
           eventPayload,
           paymentErrorMessage,
         );
@@ -1075,42 +1241,16 @@ export class RequestService {
       throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
-    const transaction = await this.transactionService.findTransactionByRequestId(requestId);
-    let fundsAlreadyTransferred = false;
-    if (transaction && transaction.stripeTransferId) {
-      fundsAlreadyTransferred = true;
-      this.logger.warn(
-        `Cancellation confirmed but funds already transferred for request ${requestId}. Admin intervention required.`
+    try {
+      await this.refundRequestTransaction(requestId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to refund transaction for request ${requestId}: ${error instanceof Error ? error.message : error}`,
       );
-    }
-
-    if (!fundsAlreadyTransferred && transaction) {
-      if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-        try {
-          let travelerPaymentUSD: number;
-          if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-            travelerPaymentUSD = await this.stripeService.convertToUSD(
-              transaction.travelerPayment,
-              transaction.currencyCode || 'USD'
-            );
-          } else {
-            throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
-          }
-
-          await this.stripeService.refundPaymentIntentPartial(
-            transaction.stripePaymentIntentId,
-            travelerPaymentUSD
-          );
-
-          await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-        } catch (error) {
-          this.logger.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-          throw new CustomBadRequestException(
-            `Failed to process refund: ${error.message}`,
-            ErrorCode.INTERNAL_ERROR
-          );
-        }
-      }
+      throw new CustomBadRequestException(
+        `Failed to process refund: ${error instanceof Error ? error.message : error}`,
+        ErrorCode.INTERNAL_ERROR,
+      );
     }
 
     await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
@@ -1246,16 +1386,14 @@ export class RequestService {
       // `user` comes from JWT payload and may not contain firstName/lastName.
       // Use the seller loaded via request.travel.user / request.demand.user instead.
       const sellerUser = request.travel?.user ?? request.demand?.user;
-      const sellerName = sellerUser?.firstName
-        ? `${sellerUser.firstName} ${sellerUser.lastName?.charAt(0) ?? ''}.`.trim()
-        : 'Unknown';
+      const sellerName = this.commonService.userFullName(sellerUser) || 'Unknown';
       const buyerEvent: RequestEvent = {
         userId: requester.id,
-        userFirstName: requester.firstName,
+        userFirstName: this.commonService.userGreetingName(requester),
         userEmail: requester.email,
         timestamp: new Date(),
         requesterId: request.requesterId,
-        requesterName: `${requester.firstName} ${requester.lastName?.charAt(0) ?? ''}.`,
+        requesterName: this.commonService.userFullName(requester),
         ownerId: ownerId,
         ownerName: sellerName,
         requestId: request.id,
@@ -1275,36 +1413,37 @@ export class RequestService {
   /**
    * Auto-complete requests that haven't been completed after specified days past travel date
    */
-  async autoCompleteRequests(): Promise<{ completed: number; errors: number }> {
+  async autoCompleteRequests(): Promise<{ completed: number; proofDeadlineMissed: number; errors: number }> {
     const autoCompleteDays = this.configService.get<number>('AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE', 7);
     const acceptedStatus = await this.requestStatusService.getRequestByStatus('ACCEPTED');
     if (!acceptedStatus) {
       this.logger.error('ACCEPTED status not found');
-      return { completed: 0, errors: 0 };
+      return { completed: 0, proofDeadlineMissed: 0, errors: 0 };
     }
 
     const now = new Date();
     const cutoffDate = new Date(now);
     cutoffDate.setDate(cutoffDate.getDate() - autoCompleteDays);
 
-    // Find requests that should be auto-completed
-    const requestsToComplete = await this.requestRepository
+    const requestsPastDeadline = await this.requestRepository
       .createQueryBuilder('request')
       .leftJoinAndSelect('request.travel', 'travel')
       .leftJoinAndSelect('request.demand', 'demand')
       .leftJoinAndSelect('request.requester', 'requester')
+      .leftJoinAndSelect('request.deliveryProof', 'deliveryProof')
       .where('request.currentStatusId = :acceptedStatusId', { acceptedStatusId: acceptedStatus.id })
       .andWhere(
         '(COALESCE(travel.travelDate, travel.departureDatetime) IS NOT NULL AND DATE(COALESCE(travel.travelDate, travel.departureDatetime)) <= DATE(:cutoffDate)) OR ' +
         '(demand.travelDate IS NOT NULL AND DATE(demand.travelDate) <= DATE(:cutoffDate))',
-        { cutoffDate: cutoffDate.toISOString().split('T')[0] }
+        { cutoffDate: cutoffDate.toISOString().split('T')[0] },
       )
       .getMany();
 
     let completed = 0;
+    let proofDeadlineMissed = 0;
     let errors = 0;
 
-    for (const request of requestsToComplete) {
+    for (const request of requestsPastDeadline) {
       try {
         const requester = await this.userService.findOne({ id: request.requesterId });
         if (!requester) {
@@ -1313,58 +1452,28 @@ export class RequestService {
           continue;
         }
 
-        // Complete the request (similar to completeRequest but without user validation)
-        const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
-        if (!completedStatus) {
-          this.logger.error('COMPLETED status not found');
-          errors++;
-          continue;
+        const hasProof =
+          !!request.deliveryProof || (await this.deliveryProofService.hasMeetingProof(request.id));
+
+        if (hasProof) {
+          await this.releaseFundsAndMarkCompleted(request.id, requester, { autoComplete: true });
+          completed++;
+        } else {
+          await this.markProofDeadlineMissed(request);
+          proofDeadlineMissed++;
         }
-
-        // Release funds if not already released
-        const transaction = await this.transactionService.getTransactionByRequestId(request.id);
-        if (transaction && !transaction.stripeTransferId && (transaction.status === 'paid' || transaction.status === 'awaiting_transfer' || transaction.status === 'awaiting_available_funds')) {
-          try {
-            // Use the same logic as completeRequest for fund release
-            const payee = request.travelId 
-              ? await this.userService.findOne({ id: request.travel.userId })
-              : (request.demandId ? await this.userService.findOne({ id: request.demand.userId }) : null);
-            
-            if (payee) {
-              await this.transactionService.releaseFundsFromStripe(transaction.id, payee);
-            }
-          } catch (error) {
-            this.logger.warn(`Failed to release funds for transaction ${transaction.id}: ${error.message}`);
-            // Continue with completion even if fund release fails (similar to completeRequest error handling)
-            // Transaction may be marked as awaiting_transfer or awaiting_available_funds
-          }
-        }
-
-        // Update request status
-        request.currentStatusId = completedStatus.id;
-        request.currentStatus = completedStatus;
-        await this.requestRepository.save(request);
-        await this.requestStatusHistoryService.record(request.id, completedStatus.id);
-
-        // Send emails to both parties
-        const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
-        if (ownerId) {
-          const owner = await this.userService.findOne({ id: ownerId });
-          if (owner) {
-            this.userEventService.emitRequestAutoCompleted(requester, request, false, ownerId);
-            this.userEventService.emitRequestAutoCompleted(owner, request, true, ownerId);
-          }
-        }
-
-        completed++;
       } catch (error) {
-        this.logger.error(`Failed to auto-complete request ${request.id}: ${error.message}`);
+        this.logger.error(
+          `Failed post-deadline processing for request ${request.id}: ${error instanceof Error ? error.message : error}`,
+        );
         errors++;
       }
     }
 
-    this.logger.log(`Auto-completion completed: ${completed} requests completed, ${errors} errors`);
-    return { completed, errors };
+    this.logger.log(
+      `Post-deadline processing: ${completed} auto-completed, ${proofDeadlineMissed} proof deadline missed, ${errors} errors`,
+    );
+    return { completed, proofDeadlineMissed, errors };
   }
 
   private async reserveTravelWeightOrThrow(
@@ -1453,7 +1562,7 @@ export class RequestService {
         throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
       }
 
-      const holdingStatuses = ['NEGOTIATING', 'ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION'];
+      const holdingStatuses = ['NEGOTIATING', 'ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION', 'PROOF_DEADLINE_MISSED'];
       const reserved = await transactionalEntityManager
         .createQueryBuilder(RequestEntity, 'request')
         .leftJoin('request.currentStatus', 'currentStatus')
@@ -1552,7 +1661,9 @@ export class RequestService {
       status,
       orderBy = 'createdAt:desc',
       minWeight,
-      maxWeight
+      maxWeight,
+      requesterEmail,
+      travelerEmail
     } = query;
 
     const skip = (page - 1) * limit;
@@ -1566,6 +1677,7 @@ export class RequestService {
       .leftJoinAndSelect('request.demand', 'demand')
       .leftJoinAndSelect('demand.currency', 'demandCurrency')
       .leftJoinAndSelect('request.currentStatus', 'currentStatus')
+      .leftJoinAndSelect('request.deliveryProof', 'deliveryProof')
       .leftJoinAndSelect('request.requestStatusHistory', 'requestStatusHistory')
       .leftJoinAndSelect('requestStatusHistory.requestStatus', 'requestStatus') // Fixed: was 'requestStatuses'
       .skip(skip)
@@ -1625,15 +1737,68 @@ export class RequestService {
     }
 
     if (status) {
-      const statusGroupMap: Record<'TO_CONFIRM' | 'AWAITING_DELIVER' | 'FINISHED', string[]> = {
+      const statusGroupMap: Record<'TO_CONFIRM' | 'AWAITING_DELIVER' | 'FINISHED' | 'PROOF_ISSUE', string[]> = {
         TO_CONFIRM: ['NEGOTIATING'],
         AWAITING_DELIVER: ['ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION'],
+        PROOF_ISSUE: ['PROOF_DEADLINE_MISSED'],
         FINISHED: ['COMPLETED', 'CANCELLATION_DISPUTED', 'DELIVERED'],
       };
 
       const mappedStatuses = statusGroupMap[status as keyof typeof statusGroupMap];
       if (mappedStatuses?.length) {
         queryBuilder.andWhere('currentStatus.status IN (:...mappedStatuses)', { mappedStatuses });
+      }
+    }
+
+    // Handle requesterEmail filter (admin/operator only) - look up user IDs and filter at DB level
+    if (requesterEmail) {
+      if (!isAdmin && !isOperator) {
+        console.log('🔒 Ignoring requesterEmail filter - user is not admin or operator');
+      } else {
+        console.log('🔍 Debug - Admin/Operator filtering by requesterEmail:', requesterEmail);
+        
+        // Look up users with matching email (partial match)
+        const matchingUsers = await this.userRepository.find({
+          where: { email: Like(`%${requesterEmail}%`) },
+          select: ['id', 'email']
+        });
+        
+        const matchingUserIds = matchingUsers.map(u => u.id);
+        console.log('🔍 Debug - Found users matching requesterEmail:', matchingUserIds.length, 'user IDs:', matchingUserIds);
+        
+        if (matchingUserIds.length > 0) {
+          // Filter requests where the requester's email matches
+          queryBuilder.andWhere('request.requesterId IN (:...requesterEmailUserIds)', { requesterEmailUserIds: matchingUserIds });
+        } else {
+          // No users match this email - force empty result by adding impossible condition
+          queryBuilder.andWhere('1 = 0');
+        }
+      }
+    }
+
+    // Handle travelerEmail filter (admin/operator only) - look up user IDs and filter at DB level
+    if (travelerEmail) {
+      if (!isAdmin && !isOperator) {
+        console.log('🔒 Ignoring travelerEmail filter - user is not admin or operator');
+      } else {
+        console.log('🔍 Debug - Admin/Operator filtering by travelerEmail:', travelerEmail);
+        
+        // Look up users with matching email (partial match)
+        const matchingUsers = await this.userRepository.find({
+          where: { email: Like(`%${travelerEmail}%`) },
+          select: ['id', 'email']
+        });
+        
+        const matchingUserIds = matchingUsers.map(u => u.id);
+        console.log('🔍 Debug - Found users matching travelerEmail:', matchingUserIds.length, 'user IDs:', matchingUserIds);
+        
+        if (matchingUserIds.length > 0) {
+          // Filter requests where the travel owner's email matches (request.travel.userId)
+          queryBuilder.andWhere('travel.userId IN (:...travelerEmailUserIds)', { travelerEmailUserIds: matchingUserIds });
+        } else {
+          // No users match this email - force empty result by adding impossible condition
+          queryBuilder.andWhere('1 = 0');
+        }
       }
     }
 
@@ -1701,10 +1866,12 @@ export class RequestService {
       status,
       orderBy = 'createdAt:desc',
       minWeight,
-      maxWeight
+      maxWeight,
+      requesterEmail,
+      travelerEmail
     } = query;
 
-    return `requests_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_requester${requesterId || 'all'}_travel${travelId || 'all'}_demand${demandId || 'all'}_type${requestType || 'all'}_desc${packageDescription || 'all'}_minWeight${minWeight || 'all'}_maxWeight${maxWeight || 'all'}_date${limitDate || 'all'}_status${status || 'all'}_order${orderBy}`;
+    return `requests_list_user${userId}_page${page}_limit${limit}_id${id || 'all'}_requester${requesterId || 'all'}_travel${travelId || 'all'}_demand${demandId || 'all'}_type${requestType || 'all'}_desc${packageDescription || 'all'}_minWeight${minWeight || 'all'}_maxWeight${maxWeight || 'all'}_date${limitDate || 'all'}_status${status || 'all'}_order${orderBy}_requesterEmail${requesterEmail || 'all'}_travelerEmail${travelerEmail || 'all'}`;
   }
 
   // Enhanced cache clearing method with selective invalidation
@@ -1813,7 +1980,18 @@ export class RequestService {
   async getRequestById(id: number): Promise<RequestEntity | null> {
     return await this.requestRepository.findOne({
       where: { id },
-      relations: ['demand', 'travel', 'demand.user', 'travel.user', 'requester', 'currentStatus', 'requestStatusHistory', 'transactions', 'messages'],
+      relations: [
+        'demand',
+        'travel',
+        'demand.user',
+        'travel.user',
+        'requester',
+        'currentStatus',
+        'requestStatusHistory',
+        'transactions',
+        'messages',
+        'deliveryProof',
+      ],
     });
   }
 
@@ -1989,7 +2167,10 @@ export class RequestService {
       currency: currency,
       unReadMessages: unreadCount,
       lastMessageDateTime: lastMessageDateTime ?? null,
-      canReview
+      canReview,
+      hasMeetingProof: !!request.deliveryProof,
+      meetingProofUploadedAt: request.deliveryProof?.uploadedAt ?? null,
+      meetingProofUploadedByUserId: request.deliveryProof?.uploadedByUserId ?? null,
     };
   }
 

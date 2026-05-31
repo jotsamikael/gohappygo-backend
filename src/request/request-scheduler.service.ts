@@ -10,6 +10,8 @@ import { UserService } from 'src/user/user.service';
 import { RoleService } from 'src/role/role.service';
 import { UserEntity, UserRole } from 'src/user/user.entity';
 import { EmailService } from 'src/email/email.service';
+import { DeliveryProofService } from 'src/delivery-proof/delivery-proof.service';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class RequestSchedulerService {
@@ -26,6 +28,8 @@ export class RequestSchedulerService {
     private roleService: RoleService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private deliveryProofService: DeliveryProofService,
+    private commonService: CommonService,
   ) {}
 
   /**
@@ -37,7 +41,9 @@ export class RequestSchedulerService {
     this.logger.log('Starting auto-completion processing...');
     try {
       const result = await this.requestService.autoCompleteRequests();
-      this.logger.log(`Auto-completion completed: ${result.completed} requests completed, ${result.errors} errors`);
+      this.logger.log(
+        `Post-travel deadline job: ${result.completed} auto-completed, ${result.proofDeadlineMissed} proof deadline missed, ${result.errors} errors`,
+      );
     } catch (error) {
       this.logger.error(`Error in auto-completion processing: ${error.message}`, error.stack);
     }
@@ -56,6 +62,26 @@ export class RequestSchedulerService {
       .andWhere('request.cancellationConfirmedAt IS NULL')
       .andWhere('request.cancellationDisputedAt IS NULL')
       .getMany();
+  }
+
+  /**
+   * Delete meeting proof images past SELFIE_RETENTION_DAYS (per-file lifecycle).
+   * Runs daily at 2 AM.
+   */
+  @Cron('0 2 * * *')
+  async processMeetingProofRetention(): Promise<void> {
+    this.logger.log('Starting meeting proof retention purge...');
+    try {
+      const result = await this.deliveryProofService.purgeExpiredProofs();
+      this.logger.log(
+        `Meeting proof retention: ${result.deleted} deleted, ${result.errors} errors`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error in meeting proof retention: ${error instanceof Error ? error.message : error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   /**
@@ -112,7 +138,7 @@ export class RequestSchedulerService {
               try {
                 await this.emailService.sendCancellationConfirmationRequest(
                   owner.email,
-                  owner.firstName,
+                  this.commonService.userGreetingName(owner, 'User'),
                   request,
                   true,
                 );
@@ -150,7 +176,7 @@ export class RequestSchedulerService {
 
       for (const admin of adminUsers) {
         try {
-          await this.emailService.sendAdminCancellationPending(admin.email, admin.firstName, requests);
+          await this.emailService.sendAdminCancellationPending(admin.email, this.commonService.userGreetingName(admin, 'Admin'), requests);
           this.logger.log(`Sent admin pending-cancellation digest to ${admin.email} (${requests.length} request(s))`);
         } catch (error) {
           this.logger.error(`Failed to send admin notification to ${admin.email}: ${error.message}`);

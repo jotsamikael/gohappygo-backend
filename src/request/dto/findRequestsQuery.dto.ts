@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber } from "class-validator";
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength, IsNumber, IsEmail } from "class-validator";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 
 export class FindRequestsQueryDto extends PaginationQueryDto {
@@ -64,6 +64,32 @@ export class FindRequestsQueryDto extends PaginationQueryDto {
     packageDescription?: string;
 
     @ApiProperty({
+        description: 'Filter by requesterEmail (admin only)',
+        example: 'jamesward@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'requesterEmail can not be more than 80 characters' })
+    requesterEmail?: string;
+
+
+    @ApiProperty({
+        description: 'Filter by travelerEmail (admin only)',
+        example: 'andycole@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'travelerEmail can not be more than 80 characters' })
+    travelerEmail?: string;
+
+
+    @ApiProperty({
         description: 'Filter by minimum weight',
         example: 2.5,
         required: false
@@ -94,12 +120,12 @@ export class FindRequestsQueryDto extends PaginationQueryDto {
 
     @ApiProperty({
         description: 'Filter by grouped frontend status',
-        enum: ['TO_CONFIRM', 'AWAITING_DELIVER', 'FINISHED'],
+        enum: ['TO_CONFIRM', 'AWAITING_DELIVER', 'PROOF_ISSUE', 'FINISHED'],
         required: false
     })
     @IsOptional()
-    @IsEnum(['TO_CONFIRM', 'AWAITING_DELIVER', 'FINISHED'])
-    status?: 'TO_CONFIRM' | 'AWAITING_DELIVER' | 'FINISHED';
+    @IsEnum(['TO_CONFIRM', 'AWAITING_DELIVER', 'PROOF_ISSUE', 'FINISHED'])
+    status?: 'TO_CONFIRM' | 'AWAITING_DELIVER' | 'PROOF_ISSUE' | 'FINISHED';
 
     @ApiProperty({
         description: 'Sort order (field:direction)',

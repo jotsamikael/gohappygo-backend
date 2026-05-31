@@ -16,6 +16,8 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationType, EntityType, NotificationPriority } from 'src/notification/entities/notification.entity';
+import { CommonService } from 'src/common/service/common.service';
+import { CommonModule } from 'src/common/common.module';
 
 @Injectable()
 export class AlertService {
@@ -34,7 +36,8 @@ export class AlertService {
     private alertMapper: AlertMapper,
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
-    private notificationService: NotificationService, 
+    private notificationService: NotificationService,
+    private commonService: CommonService,
   ) {}
 
   /**
@@ -72,7 +75,7 @@ export class AlertService {
       const user = alertWithRelations.user;
       if (user && user.email) {
         const emailTemplate = this.emailTemplatesService.getAlertCreatedEmailTemplate({
-          userName: user.firstName || 'User',
+          userName: this.commonService.userGreetingName(user, 'User'),
           alertType: alertWithRelations.alertType,
           departureAirport: alertWithRelations.departureAirport?.name || 'Unknown',
           arrivalAirport: alertWithRelations.arrivalAirport?.name || 'Unknown',

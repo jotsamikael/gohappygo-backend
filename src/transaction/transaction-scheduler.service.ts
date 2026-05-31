@@ -11,6 +11,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { PlatformPricingService } from 'src/platform-pricing/platform-pricing.service';
 import { UserEntity } from 'src/user/user.entity';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class TransactionSchedulerService {
@@ -25,6 +26,7 @@ export class TransactionSchedulerService {
     private emailTemplatesService: EmailTemplatesService,
     private platformPricingService: PlatformPricingService,
     private configService: ConfigService,
+    private commonService: CommonService,
   ) {
     // EventEmitter2 is available globally via EventsModule
   }
@@ -156,7 +158,7 @@ export class TransactionSchedulerService {
     }
 
     const payee = transaction.payee as UserEntity;
-    const userName = payee.firstName || 'User';
+    const userName = this.commonService.userGreetingName(payee, 'User');
     const userEmail = payee.email;
 
     // Get updated transaction with transfer ID

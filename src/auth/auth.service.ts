@@ -56,6 +56,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { FirebaseAuthService } from 'src/firebase/firebase-auth.service';
 import { CompleteSocialRegistrationDto } from './dto/complete-social-registration.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -98,6 +99,7 @@ export class AuthService {
     private commonService: CommonService,
     private messageService: MessageService,
     private firebaseAuthService: FirebaseAuthService,
+    private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -859,7 +861,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
     };
     return this.jwtService.sign(payload, {
       secret: 'jwt_secret',
-      expiresIn: '5m',//5 minutes
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m'),
     });
   }
 

@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsNumber, Min, IsString } from "class-validator";
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsNumber, Min, IsString, IsEmail, MaxLength } from "class-validator";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 
 export class FindTransactionQueryDto extends PaginationQueryDto {
@@ -33,6 +33,33 @@ export class FindTransactionQueryDto extends PaginationQueryDto {
     @Type(() => Number)
     @IsInt()
     payeeId?: number;
+
+
+    @ApiProperty({
+        description: 'Filter by payerEmail (admin only)',
+        example: 'jamesward@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'payerEmail can not be more than 80 characters' })
+    payerEmail?: string;
+
+
+    @ApiProperty({
+        description: 'Filter by payeeEmail (admin only)',
+        example: 'andycole@gmail.com',
+        minLength: 2,
+        maxLength: 80,
+        required: false
+    })
+    @IsOptional()
+    @IsEmail()
+    @MaxLength(50, { message: 'payeeEmail can not be more than 80 characters' })
+    payeeEmail?: string;
+
 
     @ApiProperty({
         description: 'Filter by request ID (admin only)',
@@ -88,7 +115,8 @@ export class FindTransactionQueryDto extends PaginationQueryDto {
         description: 'Sort order (field:direction)',
         example: 'createdAt:desc',
         required: false,
-        default: 'createdAt:desc'
+        enum: ['createdAt:asc', 'createdAt:desc', 'convertedAmount:asc', 'convertedAmount:desc'],
+
     })
     @IsOptional()
     @IsString()

@@ -1,20 +1,43 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { RequestService } from './request.service';
+import { DeliveryProofService } from 'src/delivery-proof/delivery-proof.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles-guard';
+import { Roles } from 'src/auth/decorators/role.decorators';
 import { CreateRequestToTravelDto } from './dto/createRequestToTravel.dto';
 import { FindRequestsQueryDto } from './dto/findRequestsQuery.dto';
 import { UserEntity, UserRole } from 'src/user/user.entity';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, ApiConsumes } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CreateRequestResponseDto, PaginatedRequestsResponseDto, RequestResponseDto } from './dto/request-response.dto';
 import { RequestAcceptResponseDto } from './dto/request-accept-response.dto';
+import { UploadMeetingProofResponseDto } from 'src/delivery-proof/dto/upload-meeting-proof-response.dto';
+import { SettleRequestDto } from './dto/settle-request.dto';
+import { MeetingProofSignedUrlResponseDto } from 'src/delivery-proof/dto/meeting-proof-signed-url-response.dto';
 
 
 @ApiTags('requests')
 @Controller('request')
 export class RequestController {
 
-  constructor(private requestService: RequestService) { }
+  constructor(
+    private requestService: RequestService,
+    private deliveryProofService: DeliveryProofService,
+  ) {}
 
   @Post('to-travel')
   @UseGuards(JwtAuthGuard)
@@ -34,6 +57,22 @@ export class RequestController {
     return this.requestService.createRequestToTravel(createRequestDto, user);
   }
 
+
+  @Get(':id/meeting-proof')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get short-lived signed URL for meeting proof (admin only)',
+  })
+  @ApiParam({ name: 'id', description: 'Request ID' })
+  @ApiResponse({ status: 200, type: MeetingProofSignedUrlResponseDto })
+  async getMeetingProofSignedUrl(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() admin: UserEntity,
+  ): Promise<MeetingProofSignedUrlResponseDto> {
+    return this.deliveryProofService.getSignedUrlForAdmin(id, admin.id);
+  }
 
 
   // Unified GET endpoint that handles all filtering scenarios
@@ -80,6 +119,57 @@ export class RequestController {
   }
 
   
+
+  @Patch('settle/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Admin settle a request in PROOF_DEADLINE_MISSED status',
+    description:
+      'CANCEL_AND_REFUND: cancel and refund buyer. COMPLETE_AND_RELEASE_FUNDS: complete and release funds (proof not required).',
+  })
+  @ApiParam({ name: 'id', description: 'Request ID' })
+  @ApiResponse({ status: 200, type: RequestResponseDto })
+  @ApiConsumes('multipart/form-data')
+  async settleRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SettleRequestDto,
+    @CurrentUser() admin: UserEntity,
+  ): Promise<RequestResponseDto> {
+    const settled = await this.requestService.settleProofDeadlineMissed(id, admin, dto);
+    const unreadCountsMap = await this.requestService.getUnreadCountsForRequests([settled.id], admin.id);
+    const latestMessageDatesMap = await this.requestService.getLatestMessageDatesForRequests([settled.id]);
+    return this.requestService.transformRequestToResponse(
+      settled,
+      unreadCountsMap.get(settled.id) || 0,
+      admin,
+      latestMessageDatesMap.get(settled.id) || null,
+    );
+  }
+
+  @Post(':id/meeting-proof')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload meeting proof selfie (buyer or seller, one per request)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', description: 'Request ID' })
+  @ApiResponse({ status: 201, type: UploadMeetingProofResponseDto })
+  async uploadMeetingProof(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: UserEntity,
+  ): Promise<UploadMeetingProofResponseDto> {
+    return this.deliveryProofService.uploadMeetingProof(id, user, file);
+  }
 
   @Patch(':id/accept')
   @UseGuards(JwtAuthGuard)

@@ -11,11 +11,13 @@ import { DemandOrTravelResponseDto, PaginatedDemandsAndTravelsResponseDto } from
 import { PackageKind } from 'src/demand/package-kind.enum';
 import { DemandTravelAirlineResponseDto } from './dto/airlineResponseDto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { BookmarkEntity, BookmarkType } from 'src/bookmark/entities/bookmark.entity';
 import { JwtService } from '@nestjs/jwt';
 import { DemandAndTravelMapper } from './demand-and-travel.mapper';
 import { ConfigService } from '@nestjs/config';
+import { UserEntity, UserRole } from 'src/user/user.entity';
+import { AirportEntity } from 'src/airport/entities/airport.entity';
 
 @Injectable()
 export class DemandAndTravelService {
@@ -28,6 +30,8 @@ export class DemandAndTravelService {
         private currencyService: CurrencyService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectRepository(BookmarkEntity) private readonly bookmarkRepository: Repository<BookmarkEntity>,
+        @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
+        @InjectRepository(AirportEntity) private readonly airportRepository: Repository<AirportEntity>,
         private readonly jwtService: JwtService,
         private readonly demandAndTravelMapper: DemandAndTravelMapper,
         private readonly configService: ConfigService
@@ -37,6 +41,11 @@ export class DemandAndTravelService {
         // Get current user ID - only check bookmarks if user is actually logged in (has numeric ID)
         const currentUserId: number | null = (user?.id && typeof user.id === 'number') ? user.id : null;
         console.log('Current user id:', currentUserId || 'anonymous');
+        console.log('🔍 User object:', JSON.stringify(user, null, 2));
+        console.log('🔍 User role:', user?.role);
+        console.log('🔍 User role type:', typeof user?.role);
+        
+        console.log('🔍 RAW query received:', JSON.stringify(query));
         
         // Clean query parameters - remove null, undefined, empty string values
         const cleanedQuery = Object.fromEntries(
@@ -48,6 +57,8 @@ export class DemandAndTravelService {
                 value !== 'undefined'
             )
         ) as FindDemandsAndTravelsQueryDto;
+        
+        console.log('🔍 Cleaned query:', JSON.stringify(cleanedQuery));
         
         // Include user ID in cache key to prevent cache collisions between authenticated and anonymous users
         const cacheKey = this.generateDemandTravelListCacheKey(cleanedQuery, currentUserId);
@@ -72,6 +83,7 @@ export class DemandAndTravelService {
             departureAirportId,
             arrivalAirportId,
             userId,
+            email,
             status,
             travelDate,
             type,
@@ -81,6 +93,9 @@ export class DemandAndTravelService {
             maxPricePerKg,
             weightAvailable,
             isVerified,
+            airlineIataCode,
+            departureAirportIataCode,
+            arrivalAirportIataCode,
             orderBy = 'createdAt:desc'
         } = cleanedQuery;
 
@@ -120,12 +135,130 @@ export class DemandAndTravelService {
             allTravelsQuery.flightNumber = flightNumber;
         }
 
+        // Handle email filter (admin only) - look up user IDs by email and filter after fetching
+        const isAdmin = user?.role?.code === 'ADMIN';
+        let matchingUserIds: number[] | null = null;
+        if (email) {
+            if (!isAdmin) {
+                console.log('🔒 Ignoring email filter - user is not admin');
+            } else {
+                console.log('🔍 Debug - Admin filtering by email:', email);
+                
+                // Look up users with matching email (partial match)
+                console.log('🔍 Debug - Searching users with email LIKE:', `%${email}%`);
+                const matchingUsers = await this.userRepository.find({
+                    where: { email: Like(`%${email}%`) },
+                    select: ['id', 'email']
+                });
+                
+                console.log('🔍 Debug - Raw matching users:', JSON.stringify(matchingUsers));
+                matchingUserIds = matchingUsers.map(u => u.id);
+                console.log('🔍 Debug - Found users matching email:', matchingUserIds.length, 'user IDs:', matchingUserIds);
+                
+                if (matchingUserIds.length === 0) {
+                    // No users match this email - return empty result early
+                    console.log('🔍 Debug - No users found matching email, returning empty result');
+                    const emptyResponse: PaginatedDemandsAndTravelsResponseDto = {
+                        items: [],
+                        meta: {
+                            currentPage: page,
+                            itemsPerPage: limit,
+                            totalItems: 0,
+                            totalPages: 0,
+                            hasPreviousPage: false,
+                            hasNextPage: false
+                        }
+                    };
+                    await this.cacheManager.set(cacheKey, emptyResponse, 30000);
+                    return emptyResponse;
+                }
+            }
+        }
+
         // Add airlineId filter if provided (filters by airline at DB level)
         // Note: If both flightNumber and airlineId are provided, flightNumber takes precedence for exact matching
         if (airlineId) {
             console.log('✅ Filtering by airlineId:', airlineId);
             allDemandsQuery.airlineId = airlineId;
             allTravelsQuery.airlineId = airlineId;
+        }
+
+        // Resolve airlineIataCode to airlineId if provided
+        // This converts the IATA code to the numeric airline ID before the DB query
+        if (airlineIataCode) {
+            console.log('✅ Filtering by airlineIataCode:', airlineIataCode);
+            const airline = await this.airlineService.findByIataCode(airlineIataCode);
+            if (airline) {
+                allDemandsQuery.airlineId = airline.id;
+                allTravelsQuery.airlineId = airline.id;
+            } else {
+                console.log('⚠️ No airline found for IATA code:', airlineIataCode);
+                // No airline found - return empty result early
+                const emptyResponse: PaginatedDemandsAndTravelsResponseDto = {
+                    items: [],
+                    meta: {
+                        currentPage: page,
+                        itemsPerPage: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasPreviousPage: false,
+                        hasNextPage: false
+                    }
+                };
+                await this.cacheManager.set(cacheKey, emptyResponse, 30000);
+                return emptyResponse;
+            }
+        }
+
+        // Resolve departureAirportIataCode to departureAirportId if provided
+        // This converts the IATA code to the numeric airport ID before the DB query
+        if (departureAirportIataCode) {
+            console.log('✅ Filtering by departureAirportIataCode:', departureAirportIataCode);
+            const airport = await this.airportRepository.findOne({ where: { iataCode: departureAirportIataCode.toUpperCase() } });
+            if (airport) {
+                allDemandsQuery.departureAirportId = airport.id;
+                allTravelsQuery.departureAirportId = airport.id;
+            } else {
+                console.log('⚠️ No airport found for IATA code:', departureAirportIataCode);
+                const emptyResponse: PaginatedDemandsAndTravelsResponseDto = {
+                    items: [],
+                    meta: {
+                        currentPage: page,
+                        itemsPerPage: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasPreviousPage: false,
+                        hasNextPage: false
+                    }
+                };
+                await this.cacheManager.set(cacheKey, emptyResponse, 30000);
+                return emptyResponse;
+            }
+        }
+
+        // Resolve arrivalAirportIataCode to arrivalAirportId if provided
+        if (arrivalAirportIataCode) {
+            console.log('✅ Filtering by arrivalAirportIataCode:', arrivalAirportIataCode);
+            const airport = await this.airportRepository.findOne({ where: { iataCode: arrivalAirportIataCode.toUpperCase() } });
+            if (airport) {
+                allDemandsQuery.arrivalAirportId = airport.id;
+                allTravelsQuery.arrivalAirportId = airport.id;
+            } else {
+                console.log('⚠️ No airport found for IATA code:', arrivalAirportIataCode);
+                const emptyResponse: PaginatedDemandsAndTravelsResponseDto = {
+                    items: [],
+                    meta: {
+                        currentPage: page,
+                        itemsPerPage: limit,
+                        totalItems: 0,
+                        totalPages: 0,
+                        hasPreviousPage: false,
+                        hasNextPage: false
+                    }
+                };
+                await this.cacheManager.set(cacheKey, emptyResponse, 30000);
+                return emptyResponse;
+            }
         }
 
         // Fetch demands and travels in parallel (filtered by exact flightNumber at DB level if provided)
@@ -312,28 +445,25 @@ export class DemandAndTravelService {
         
         combinedItems = combinedItems.filter(item => {
             if (!item.deliveryDate) {
-                // If no delivery date, show to everyone
                 return true;
             }
             
             const deliveryDate = new Date(item.deliveryDate);
-            deliveryDate.setUTCHours(0, 0, 0, 0); // Normalize to UTC midnight
+            deliveryDate.setUTCHours(0, 0, 0, 0);
             
-            // Calculate the expiration date (deliveryDate + maxDisplayDays)
             const expirationDate = new Date(deliveryDate);
             expirationDate.setUTCDate(expirationDate.getUTCDate() + maxDisplayDays);
             
-            // If expiration date is in the past, only show to owner
             if (expirationDate < currentDate) {
-                // Only show if current user is the owner
+                // Check if user is admin (role.code === 'ADMIN') - admin should see everything
+                const isAdmin = user?.role?.code === 'ADMIN';
                 const isOwner = currentUserId !== null && item.userId === currentUserId;
-                if (!isOwner) {
-                    console.log(`🔒 Filtering out expired item: id=${item.id}, type=${item.type}, deliveryDate=${item.deliveryDate}, expirationDate=${expirationDate.toISOString()}, currentDate=${currentDate.toISOString()}, currentUserId=${currentUserId}, ownerId=${item.userId}`);
+                if (!isOwner && !isAdmin) {
+                    console.log(`🔒 Filtering out expired item: id=${item.id}, type=${item.type}, deliveryDate=${item.deliveryDate}, currentUserId=${currentUserId}, ownerId=${item.userId}`);
                 }
-                return isOwner;
+                return isOwner || isAdmin; // Show to owner OR admin
             }
             
-            // Otherwise, show to everyone
             return true;
         });
 
@@ -362,6 +492,17 @@ export class DemandAndTravelService {
             combinedItems = combinedItems.filter(item => 
                 item.userId === userId
             );
+        }
+
+        // Filter by matching user IDs from email lookup (admin only)
+        if (matchingUserIds && matchingUserIds.length > 0) {
+            const userIdSet = new Set(matchingUserIds);
+            console.log('🔍 Debug - Email filter userIdSet:', Array.from(userIdSet));
+            console.log('🔍 Debug - Combined items userIds before filter:', combinedItems.map(i => i.userId));
+            combinedItems = combinedItems.filter(item => 
+                userIdSet.has(item.userId)
+            );
+            console.log('🔍 Debug - After email filter - demands and travels:', combinedItems.length);
         }
 
         if (status) {
@@ -536,6 +677,9 @@ export class DemandAndTravelService {
             maxPricePerKg,
             weightAvailable,
             isVerified,
+            airlineIataCode,
+            departureAirportIataCode,
+            arrivalAirportIataCode,
             orderBy = 'createdAt:desc'
         } = query;
 
@@ -550,7 +694,7 @@ export class DemandAndTravelService {
         // Include current user ID in cache key to prevent cache collisions
         const userContext = userId ? `user${userId}` : 'anon';
         
-        return `demand_travel_list_${userContext}_page${normalize(page)}_limit${normalize(limit)}_desc${normalize(description)}_flight${normalize(flightNumber)}_airline${normalize(airlineId)}_origin${normalize(departureAirportId)}_dest${normalize(arrivalAirportId)}_user${normalize(queryUserId)}_status${normalize(status)}_date${normalize(travelDate)}_type${normalize(type)}_minWeight${normalize(minWeight)}_maxWeight${normalize(maxWeight)}_minPrice${normalize(minPricePerKg)}_maxPrice${normalize(maxPricePerKg)}_weightAvail${normalize(weightAvailable)}_verified${normalize(isVerified)}_order${normalize(orderBy)}`;
+        return `demand_travel_list_${userContext}_page${normalize(page)}_limit${normalize(limit)}_desc${normalize(description)}_flight${normalize(flightNumber)}_airline${normalize(airlineId)}_origin${normalize(departureAirportId)}_dest${normalize(arrivalAirportId)}_user${normalize(queryUserId)}_status${normalize(status)}_date${normalize(travelDate)}_type${normalize(type)}_minWeight${normalize(minWeight)}_maxWeight${normalize(maxWeight)}_minPrice${normalize(minPricePerKg)}_maxPrice${normalize(maxPricePerKg)}_weightAvail${normalize(weightAvailable)}_verified${normalize(isVerified)}_airlineIata${normalize(airlineIataCode)}_depAirportIata${normalize(departureAirportIataCode)}_arrAirportIata${normalize(arrivalAirportIataCode)}_order${normalize(orderBy)}`;
     }
 
     // Method to clear cache when data is updated

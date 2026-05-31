@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,19 +10,23 @@ import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.inter
 import { FindQuoteQueryDto } from './dto/find-quote-query.dto';
 import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { VisibilityService } from 'src/common/service/visibility.service';
 
 @Injectable()
 export class QuoteService {
+  private readonly logger = new Logger(QuoteService.name);
   private quoteListCacheKeys: Set<string> = new Set();
-  constructor(@InjectRepository(QuoteEntity) private quoteRepository: Repository<QuoteEntity>,
+  constructor(
+    @InjectRepository(QuoteEntity) private quoteRepository: Repository<QuoteEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly visibilityService: VisibilityService,
   ) { }
 
   async onModuleInit() {
     await this.seedTravelQuotes();
   }
 
-  async getAllQuotes(query: FindQuoteQueryDto): Promise<PaginatedResponse<QuoteEntity>> {
+  async getAllQuotes(query: FindQuoteQueryDto, user?: any): Promise<PaginatedResponse<QuoteEntity>> {
     const cacheKey = this.generateQuoteListCacheKey(query);
     this.quoteListCacheKeys.add(cacheKey);
 
@@ -53,8 +57,12 @@ export class QuoteService {
       queryBuilder.andWhere('quote.fontSize LIKE :fontSize', { fontSize: `%${fontSize}%` });
     }
 
-    // Apply sorting
+    // Apply role-based visibility filter for is_deactivated
+    if (!this.visibilityService.canViewDeactivated(user)) {
+      queryBuilder.andWhere('quote.isDeactivated = :isDeactivated', { isDeactivated: false });
+    }
 
+    // Apply sorting
     const [sortField, sortDirection] = orderBy.split(':');
     const validSortFields = ['createdAt', 'fontFamily', 'fontSize'];
     const validSortDirections = ['asc', 'desc'];
@@ -115,7 +123,9 @@ export class QuoteService {
   }
 
   async getRandomQuotes(numberOfQuotes: number): Promise<QuoteEntity[]> {
-    return this.quoteRepository.find({ take: numberOfQuotes });
+    return this.quoteRepository.find({where: {
+      isDeactivated: false
+    }, take: numberOfQuotes });
   }
 
 
@@ -148,6 +158,37 @@ export class QuoteService {
     
     // Clear cache after deleting a quote
     await this.clearQuoteListCache();
+  }
+
+  /**
+   * Toggle the activation status of a quote (admin/operator only).
+   * If the quote is currently deactivated it will be activated, and vice versa.
+   * @param id - Quote ID
+   * @param user - The authenticated admin/operator user
+   * @returns The updated quote entity
+   */
+  async toggleActivation(id: number, user: any): Promise<QuoteEntity> {
+    const quote = await this.quoteRepository.findOne({ where: { id } });
+
+    if (!quote) {
+      throw new CustomNotFoundException(`Quote with ID ${id} not found`, ErrorCode.QUOTE_NOT_FOUND);
+    }
+
+    // Toggle the current state
+    quote.isDeactivated = !quote.isDeactivated;
+    quote.updatedBy = user.id;
+
+    const savedQuote = await this.quoteRepository.save(quote);
+
+    // Clear cache so the change takes effect immediately
+    await this.clearQuoteListCache();
+
+    const newState = quote.isDeactivated ? 'deactivated' : 'activated';
+    this.logger.log(
+      `Quote #${id} ${newState} by user #${user.id}`,
+    );
+
+    return savedQuote;
   }
 
   async seedTravelQuotes(): Promise<QuoteEntity[]> {

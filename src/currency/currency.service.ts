@@ -11,6 +11,7 @@ import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.inter
 import { CustomConflictException } from 'src/common/exception/custom-exceptions';
 import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { VisibilityService } from 'src/common/service/visibility.service';
 
 @Injectable()
 export class CurrencyService {
@@ -20,6 +21,7 @@ export class CurrencyService {
     @InjectRepository(CurrencyEntity)
     private currencyRepository: Repository<CurrencyEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly visibilityService: VisibilityService,
   ) {}
 
   /**
@@ -52,7 +54,7 @@ export class CurrencyService {
   /**
    * Get all currencies with pagination, filtering, and sorting
    */
-  async findAll(query: FindCurrenciesQueryDto): Promise<PaginatedResponse<CurrencyEntity>> {
+  async findAll(query: FindCurrenciesQueryDto, user?: any): Promise<PaginatedResponse<CurrencyEntity>> {
     const cacheKey = this.generateCurrencyListCacheKey(query);
     this.currencyListCacheKeys.add(cacheKey);
 
@@ -97,6 +99,11 @@ export class CurrencyService {
 
     if (isActive !== undefined) {
       queryBuilder.andWhere('currency.isActive = :isActive', { isActive });
+    }
+
+    // Apply role-based visibility filter for is_deactivated
+    if (!this.visibilityService.canViewDeactivated(user)) {
+      queryBuilder.andWhere('currency.isDeactivated = :isDeactivated', { isDeactivated: false });
     }
 
     // Apply sorting
@@ -196,6 +203,33 @@ export class CurrencyService {
     await this.clearCurrencyListCache();
     
     return { message: `Currency ${currency.code} has been successfully deleted` };
+  }
+
+  /**
+   * Toggle the activation status of a currency (admin/operator only).
+   * If the currency is currently active it will be deactivated, and vice versa.
+   * A deactivated currency is hidden from regular users but still visible to admins/operators.
+   * 
+   * @param id - Currency ID
+   * @param user - The authenticated admin/operator user
+   * @returns The updated currency entity
+   */
+  async toggleActivation(id: number, user: any): Promise<CurrencyEntity> {
+    const currency = await this.findOne(id);
+
+    // Toggle the current state
+    currency.isDeactivated = !currency.isDeactivated;
+    currency.updatedBy = user.id;
+
+    const savedCurrency = await this.currencyRepository.save(currency);
+
+    // Clear cache so the change takes effect immediately
+    await this.clearCurrencyListCache();
+
+    const newState = currency.isDeactivated ? 'deactivated' : 'activated';
+    console.log(`Currency #${id} (${currency.code}) ${newState} by user #${user.id}`);
+
+    return savedCurrency;
   }
 
   /**

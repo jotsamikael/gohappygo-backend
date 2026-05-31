@@ -17,13 +17,24 @@ export class AirportController {
   constructor(private readonly airportService: AirportService) {}
 
   @Post()
-  @ApiBearerAuth('JWT-auth') 
-  @ApiOperation({ summary: 'Create an airport' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Create an airport',
+    description: 'Admin or operator — create a new airport in the system.',
+  })
   @ApiBody({ type: CreateAirportDto })
-  @ApiResponse({ status: 201, description: 'Airport created successfully',type: AirportResponseDto })
+  @ApiResponse({ status: 201, description: 'Airport created successfully', type: AirportResponseDto })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createAirportDto: CreateAirportDto) {
-    return this.airportService.create(createAirportDto);
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin or operator access required' })
+  @ApiResponse({ status: 409, description: 'Airport already exists' })
+  create(
+    @CurrentUser() user: any,
+    @Body() createAirportDto: CreateAirportDto,
+  ) {
+    return this.airportService.create(createAirportDto, user);
   }
 
   /**Single endpoint to get all airports with filtering and pagination */
@@ -61,21 +72,69 @@ export class AirportController {
  
 
   @Patch(':id')
-  @ApiBearerAuth('JWT-auth') 
-  @ApiOperation({ summary: 'Update an airport' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Update an airport',
+    description: 'Admin or operator — update an existing airport.',
+  })
   @ApiBody({ type: UpdateAirportDto })
   @ApiResponse({ status: 200, description: 'Airport updated successfully', type: AirportResponseDto })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateAirportDto: UpdateAirportDto) {
-    return this.airportService.update(id, updateAirportDto);
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin or operator access required' })
+  @ApiResponse({ status: 404, description: 'Airport not found' })
+  @ApiResponse({ status: 409, description: 'Airport already exists' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() updateAirportDto: UpdateAirportDto,
+  ) {
+    return this.airportService.update(id, updateAirportDto, user);
   }
 
   @Delete(':id')
-  @ApiBearerAuth('JWT-auth') 
-  @ApiOperation({ summary: 'Delete an airport' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Delete an airport',
+    description: 'Admin only — permanently delete an airport.',
+  })
   @ApiResponse({ status: 200, description: 'Airport deleted successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
+  @ApiResponse({ status: 404, description: 'Airport not found' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.airportService.remove(id);
   }
+
+  /**
+   * Toggle activation status of an airport (admin/operator only).
+   * If the airport is currently active it will be deactivated, and vice versa.
+   * PATCH /airports/:id/toggle-activation
+   */
+  @Patch(':id/toggle-activation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Toggle activation status of an airport (Admin/Operator only)',
+    description: 'Toggles the `isDeactivated` flag on an airport. If the airport is currently active it will be deactivated (hidden from regular users), and if it is deactivated it will be re-activated (visible to regular users). Admins/operators can see all airports regardless of status.'
+  })
+  @ApiResponse({ status: 200, description: 'Airport activation status toggled successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin/Operator access only' })
+  @ApiResponse({ status: 404, description: 'Airport not found' })
+  toggleActivation(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.airportService.toggleActivation(id, user);
+  }
+
+
+
+  
 }

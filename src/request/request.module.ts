@@ -4,6 +4,7 @@ import { RequestController } from './request.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RequestEntity } from './request.entity';
 import { ReviewEntity } from 'src/review/review.entity';
+import { UserEntity } from 'src/user/user.entity';
 import { FileUploadModule } from 'src/file-upload/file-upload.module';
 import { RequestStatusHistoryModule } from 'src/request-status-history/request-status-history.module';
 import { DemandModule } from 'src/demand/demand.module';
@@ -20,10 +21,15 @@ import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.mod
 import { StripeModule } from 'src/stripe/stripe.module';
 import { MessageModule } from 'src/message/message.module';
 import { EmailModule } from 'src/email/email.module';
+import { DeliveryProofModule } from 'src/delivery-proof/delivery-proof.module';
+import { MulterModule } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RequestEntity, ReviewEntity]),
+    TypeOrmModule.forFeature([RequestEntity, ReviewEntity, UserEntity]),
+    DeliveryProofModule,
+    MulterModule.register({ storage: memoryStorage() }),
     FileUploadModule,
     RequestStatusHistoryModule,
     RequestStatusModule,
@@ -42,6 +48,6 @@ import { EmailModule } from 'src/email/email.module';
   ],
   controllers: [RequestController],
   providers: [RequestService, RequestMapper],
-  exports: [RequestService]
+  exports: [RequestService, DeliveryProofModule],
 })
 export class RequestModule {}

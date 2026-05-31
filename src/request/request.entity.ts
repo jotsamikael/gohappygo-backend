@@ -108,4 +108,21 @@ export class RequestEntity extends BaseEntity {
 
   @Column({ type: 'datetime', nullable: true })
   weightReleasedAt: Date | null;
+
+  /** Admin settlement after PROOF_DEADLINE_MISSED */
+  @Column({ type: 'datetime', nullable: true })
+  settledAt: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  settledByUserId: number | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['CANCEL_AND_REFUND', 'COMPLETE_AND_RELEASE_FUNDS'],
+    nullable: true,
+  })
+  settleAction: 'CANCEL_AND_REFUND' | 'COMPLETE_AND_RELEASE_FUNDS' | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  settleNote: string | null;
 }

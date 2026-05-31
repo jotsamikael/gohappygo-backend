@@ -114,6 +114,15 @@ export class RequestResponseDto {
     example: true 
   })
   canReview: boolean;
+
+  @ApiProperty({ description: 'Whether a meeting proof selfie has been uploaded', example: false })
+  hasMeetingProof: boolean;
+
+  @ApiProperty({ description: 'When meeting proof was uploaded', required: false, nullable: true })
+  meetingProofUploadedAt?: Date | null;
+
+  @ApiProperty({ description: 'User ID who uploaded meeting proof', required: false, nullable: true })
+  meetingProofUploadedByUserId?: number | null;
 }
 
 export class PaginatedRequestsResponseDto {

@@ -3,7 +3,6 @@
 /node_modules
 /build
 /firebase-service-account.json
-ecosystem.config.js
 firebase-service-account.json
 
 # Logs

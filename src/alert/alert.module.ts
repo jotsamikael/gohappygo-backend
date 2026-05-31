@@ -9,6 +9,7 @@ import { AlertEntity } from './entities/alert.entity';
 import { AlertEventsListener } from './alert-events.listener';
 import { NotificationModule } from 'src/notification/notification.module';
 import { EmailModule } from 'src/email/email.module';
+import { CommonModule } from 'src/common/common.module';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { TravelEntity } from 'src/travel/travel.entity';
 
@@ -20,6 +21,7 @@ import { TravelEntity } from 'src/travel/travel.entity';
     CacheModule.register(),
     NotificationModule,
     EmailModule,
+    CommonModule,
     TypeOrmModule.forFeature([AlertEntity, DemandEntity, TravelEntity]),
   ],
   exports: [AlertService],

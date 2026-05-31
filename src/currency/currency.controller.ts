@@ -46,14 +46,19 @@ export class CurrencyController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Get all currencies',
-    description: 'Retrieve all currencies with pagination, filtering, and sorting'
+    description: 'Retrieve all currencies with pagination, filtering, and sorting. Admins/operators see all records; regular users see only active (non-deactivated) records.'
   })
   @ApiResponse({ status: 200, description: 'Currencies fetched successfully', type: [CurrencyEntity] })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  findAll(@Query() query: FindCurrenciesQueryDto): Promise<PaginatedResponse<CurrencyEntity>>{
-    return this.currencyService.findAll(query);
+  findAll(
+    @Query() query: FindCurrenciesQueryDto,
+    @CurrentUser() user: any
+  ): Promise<PaginatedResponse<CurrencyEntity>>{
+    return this.currencyService.findAll(query, user);
   }
 
 
@@ -92,5 +97,28 @@ export class CurrencyController {
   @ApiResponse({ status: 404, description: 'Currency not found' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.currencyService.remove(id);
+  }
+
+  /**
+   * Toggle activation status of a currency (admin/operator only).
+   * If the currency is currently active it will be deactivated, and vice versa.
+   * PATCH /currency/:id/toggle-activation
+   */
+  @Patch(':id/toggle-activation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Toggle activation status of a currency (Admin/Operator only)',
+    description: 'Toggles the `isDeactivated` flag on a currency. If the currency is currently active it will be deactivated (hidden from regular users), and if it is deactivated it will be re-activated (visible to regular users). Admins/operators can see all currencies regardless of status.'
+  })
+  @ApiResponse({ status: 200, description: 'Currency activation status toggled successfully', type: CurrencyEntity })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin/Operator access only' })
+  @ApiResponse({ status: 404, description: 'Currency not found' })
+  toggleActivation(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ): Promise<CurrencyEntity> {
+    return this.currencyService.toggleActivation(id, user);
   }
 }

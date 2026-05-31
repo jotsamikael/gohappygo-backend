@@ -78,9 +78,18 @@ import { AlertModule } from './alert/alert.module';
 import { AlertEntity } from './alert/entities/alert.entity';
 import { RequestSchedulerModule } from './request/request-scheduler.module';
 import { PasswordResetEntity } from './password-reset/password-reset.entity';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      // Point this to the 'dist' folder of your Angular app
+      rootPath: join(__dirname, '..', 'admin/dist/skote'), 
+      // All routes NOT starting with /api will serve the Angular app
+      //exclude: ['/api*'], 
+      //exclude: ['/api/*path'],
+    }),
     CommonModule,
     EmailModule,
     // Configuration Module - Load first
@@ -106,6 +115,8 @@ import { PasswordResetEntity } from './password-reset/password-reset.entity';
         CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE: joi.string().valid('true', 'false').default('false'),
         AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE: joi.number().default(7),
         CANCELLATION_CONFIRMATION_DAYS: joi.number().default(7),
+        SELFIE_RETENTION_DAYS: joi.number().default(70),
+        JWT_ACCESS_EXPIRES: joi.string().default('15m'),
         ADMIN_EMAIL: joi.string().email().optional()
       }),
       load: [appConfig]

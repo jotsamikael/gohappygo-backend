@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CreateAirportDto } from './dto/create-airport.dto';
 import { UpdateAirportDto } from './dto/update-airport.dto';
 import { AirportEntity } from './entities/airport.entity';
@@ -10,12 +10,13 @@ import { FindAirportsQueryDto } from './dto/find-airports-query.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
+import { CustomConflictException, CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
 export class AirportService implements OnModuleInit {
 
+  private readonly logger = new Logger(AirportService.name);
   private airportListCacheKeys: Set<string> = new Set();
 
   async onModuleInit() {
@@ -25,7 +26,8 @@ export class AirportService implements OnModuleInit {
   constructor(
     @InjectRepository(AirportEntity)
     private readonly airportRepository: Repository<AirportEntity>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    
   ){}
 
 
@@ -169,16 +171,31 @@ export class AirportService implements OnModuleInit {
   }
 
 
-  //create airport
-  async create(createAirportDto: CreateAirportDto) {
-    const airport = this.airportRepository.create(createAirportDto)
-    const savedAirport = await this.airportRepository.save(airport)
-    await this.clearAirportListCache(); // Clear cache after creating a new airport
-    return savedAirport
+  async create(createAirportDto: CreateAirportDto, user: { id: number }): Promise<AirportEntity> {
+    const existing = await this.airportRepository.findOne({
+      where: { ident: createAirportDto.ident },
+    });
+    if (existing) {
+      throw new CustomConflictException(
+        `Airport with ident '${createAirportDto.ident}' already exists`,
+        ErrorCode.AIRPORT_ALREADY_EXISTS,
+      );
+    }
+
+    const airport = this.airportRepository.create({
+      ...createAirportDto,
+      createdBy: user.id,
+      updatedBy: user.id,
+    });
+    const savedAirport = await this.airportRepository.save(airport);
+    await this.clearAirportListCache();
+
+    this.logger.log(`Airport created: ${savedAirport.name} (${savedAirport.ident}) by user #${user.id}`);
+    return savedAirport;
   }
 
   findAll() {
-    return this.airportRepository.find()
+    return this.airportRepository.find();
   }
 
   async findOne(id: number): Promise<AirportEntity> {
@@ -191,12 +208,40 @@ export class AirportService implements OnModuleInit {
     return airport;
   }
 
-  update(id: number, updateAirportDto: UpdateAirportDto) {
-    return this.airportRepository.update(id, updateAirportDto)
+  async update(
+    id: number,
+    updateAirportDto: UpdateAirportDto,
+    user: { id: number },
+  ): Promise<AirportEntity> {
+    const airport = await this.findOne(id);
+
+    if (updateAirportDto.ident && updateAirportDto.ident !== airport.ident) {
+      const existing = await this.airportRepository.findOne({
+        where: { ident: updateAirportDto.ident },
+      });
+      if (existing) {
+        throw new CustomConflictException(
+          `Airport with ident '${updateAirportDto.ident}' already exists`,
+          ErrorCode.AIRPORT_ALREADY_EXISTS,
+        );
+      }
+    }
+
+    Object.assign(airport, updateAirportDto);
+    airport.updatedBy = user.id;
+
+    const savedAirport = await this.airportRepository.save(airport);
+    await this.clearAirportListCache();
+
+    this.logger.log(`Airport updated: ${savedAirport.name} (ID: ${id}) by user #${user.id}`);
+    return savedAirport;
   }
 
-  remove(id: number) {
-    return this.airportRepository.delete(id)
+  async remove(id: number): Promise<void> {
+    const airport = await this.findOne(id);
+    await this.airportRepository.delete(id);
+    await this.clearAirportListCache();
+    this.logger.log(`Airport deleted: ${airport.name} (ID: ${id})`);
   }
 
 
@@ -286,11 +331,38 @@ export class AirportService implements OnModuleInit {
     }
   }*/
 
+  /**
+   * Toggle the activation status of an airport (admin/operator only).
+   * If the airport is currently active it will be deactivated, and vice versa.
+   * A deactivated airport is hidden from regular users but still visible to admins/operators.
+   * 
+   * @param id - Airport ID
+   * @param user - The authenticated admin/operator user
+   * @returns The updated airport entity
+   */
+  async toggleActivation(id: number, user: any): Promise<AirportEntity> {
+    const airport = await this.findOne(id);
+
+    // Toggle the current state
+    airport.isDeactivated = !airport.isDeactivated;
+    airport.updatedBy = user.id;
+
+    const savedAirport = await this.airportRepository.save(airport);
+
+    // Clear cache so the change takes effect immediately
+    await this.clearAirportListCache();
+
+    const newState = airport.isDeactivated ? 'deactivated' : 'activated';
+    this.logger.log(`Airport #${id} (${airport.ident}) ${newState} by user #${user.id}`);
+
+    return savedAirport;
+  }
+
   async clearAirportListCache(): Promise<void> {
     for (const cacheKey of this.airportListCacheKeys) {
       await this.cacheManager.del(cacheKey);
     }
     this.airportListCacheKeys.clear();
-    console.log('🗑️ Cleared airport list cache');
+    this.logger.log('Cleared airport list cache');
   }
 }

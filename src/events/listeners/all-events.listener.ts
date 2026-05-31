@@ -41,7 +41,7 @@ export class AllEventsListener {
   
 
     // Send welcome email
-    await this.emailService.sendWelcomeEmail(user.email, user.firstName);
+    await this.emailService.sendWelcomeEmail(user.email, event.userFirstName);
   }
 
   // Verification Events
@@ -279,6 +279,31 @@ export class AllEventsListener {
       event.userFirstName,
       event,
       event.isForOwner
+    );
+  }
+
+  @OnEvent(UserEventType.MEETING_PROOF_UPLOADED)
+  async handleMeetingProofUploaded(event: { requestId: number; uploadedByUserId: number }): Promise<void> {
+    this.logger.log(
+      `Meeting proof uploaded for request ${event.requestId} by user ${event.uploadedByUserId}`,
+    );
+  }
+
+  @OnEvent(UserEventType.PROOF_DEADLINE_MISSED)
+  async handleProofDeadlineMissed(event: { requestId: number; requesterId: number }): Promise<void> {
+    this.logger.log(
+      `Proof deadline missed for request ${event.requestId} (requester ${event.requesterId})`,
+    );
+  }
+
+  @OnEvent(UserEventType.REQUEST_SETTLED_BY_ADMIN)
+  async handleRequestSettledByAdmin(event: {
+    requestId: number;
+    adminId: number;
+    action: string;
+  }): Promise<void> {
+    this.logger.log(
+      `Request ${event.requestId} settled by admin ${event.adminId}: ${event.action}`,
     );
   }
 
