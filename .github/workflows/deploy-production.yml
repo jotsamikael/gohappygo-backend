@@ -203,6 +203,9 @@ jobs:
           # Point the current symlink at this release (atomic switch)
           ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
 
+          # Nest reads .env.production from cwd — link shared secrets into current/
+          ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
+
           # (Re)load PM2 using the shared ecosystem file; cwd must be current/ in that file
           if pm2 describe "${PM2_APP_NAME}" >/dev/null 2>&1; then
             pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
@@ -220,6 +223,7 @@ jobs:
             if [ -n "${PREVIOUS_RELEASE}" ] && [ -d "${PREVIOUS_RELEASE}" ]; then
               echo "Rolling back to ${PREVIOUS_RELEASE}"
               ln -sfn "${PREVIOUS_RELEASE}" "${CURRENT_LINK}"
+              ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
               pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
               pm2 save
             fi

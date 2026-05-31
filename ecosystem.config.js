@@ -1,3 +1,5 @@
+// VPS template — copy to ~/htdocs/api.gohappygo.fr/shared/ecosystem.config.js
+// Deploy workflow symlinks shared/.env.production into current/ on each release.
 module.exports = {
   apps: [{
     name: 'gohappygo-api',
