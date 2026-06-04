@@ -203,6 +203,9 @@ export class AirportService implements OnModuleInit {
     return this.airportRepository.find();
   }
 
+  /**
+   * Public GET /airports/:id — hides deactivated airports from visitors and regular users.
+   */
   async findOne(id: number, user?: any): Promise<AirportEntity> {
     const airport = await this.findOneById(id);
 
@@ -213,12 +216,10 @@ export class AirportService implements OnModuleInit {
     return airport;
   }
 
-  /** Load by id for admin/operator mutations (toggle, update, delete) — ignores deactivation visibility. */
-  private async findOneForManagement(id: number): Promise<AirportEntity> {
-    return this.findOneById(id);
-  }
-
-  private async findOneById(id: number): Promise<AirportEntity> {
+  /**
+   * Resolve airport by id for linked data (requests, travels, emails) — includes deactivated.
+   */
+  async findOneById(id: number): Promise<AirportEntity> {
     const airport = await this.airportRepository.findOneBy({ id });
 
     if (!airport) {
@@ -229,13 +230,24 @@ export class AirportService implements OnModuleInit {
   }
 
   /**
-   * Find airport by IATA code with role-based visibility.
+   * Find airport by IATA for search/filter UIs — respects deactivation visibility.
    */
   async findByIataCode(iataCode: string, user?: any): Promise<AirportEntity | null> {
     const where = this.visibilityService.applyIsDeactivatedFilter(user, {
       iataCode: iataCode.toUpperCase(),
     });
     return this.airportRepository.findOne({ where });
+  }
+
+  /** Resolve airport by IATA for existing records — includes deactivated. */
+  async findByIataCodeForReference(iataCode: string): Promise<AirportEntity | null> {
+    return this.airportRepository.findOne({
+      where: { iataCode: iataCode.toUpperCase() },
+    });
+  }
+
+  private async findOneForManagement(id: number): Promise<AirportEntity> {
+    return this.findOneById(id);
   }
 
   async update(

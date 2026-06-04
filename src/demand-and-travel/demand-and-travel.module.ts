@@ -3,7 +3,6 @@ import { DemandAndTravelController } from './demand-and-travel.controller';
 import { DemandModule } from 'src/demand/demand.module';
 import { TravelModule } from 'src/travel/travel.module';
 import { AirportModule } from 'src/airport/airport.module';
-import { AirportEntity } from 'src/airport/entities/airport.entity';
 import { AirlineModule } from 'src/airline/airline.module';
 import { CurrencyModule } from 'src/currency/currency.module';
 import { DemandAndTravelService } from './demand-and-travel.service';
@@ -14,11 +13,10 @@ import { UserEntity } from 'src/user/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from 'src/common/common.module';
-import { AirlineEntity } from 'src/airline/entities/airline.entity';
 
 @Module({
   controllers: [DemandAndTravelController],
-  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, CommonModule, TypeOrmModule.forFeature([BookmarkEntity, UserEntity, AirportEntity, AirlineEntity]), JwtModule.register({}), ConfigModule],
+  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, CommonModule, TypeOrmModule.forFeature([BookmarkEntity, UserEntity]), JwtModule.register({}), ConfigModule],
   providers:[DemandAndTravelService, DemandAndTravelMapper],
   exports:[DemandAndTravelService]
 })

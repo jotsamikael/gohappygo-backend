@@ -153,8 +153,14 @@ export class AirlineService implements OnModuleInit {
   }
 
   /**
-   * Find airline by IATA code (supports 2 or 3 character codes)
-   * Uses cache to avoid repeated database queries
+   * Resolve airline by id for linked data — includes deactivated.
+   */
+  async findOneById(id: number): Promise<AirlineEntity | null> {
+    return this.airlineRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * Find airline by IATA for search/discovery — respects deactivation visibility.
    */
   async findByIataCode(iataCode: string, user?: any): Promise<AirlineEntity | null> {
     const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
@@ -184,8 +190,15 @@ export class AirlineService implements OnModuleInit {
     return airline;
   }
 
+  /** Resolve airline by IATA for existing records — includes deactivated. */
+  async findByIataCodeForReference(iataCode: string): Promise<AirlineEntity | null> {
+    return this.airlineRepository.findOne({
+      where: { iataCode: iataCode.toUpperCase() },
+    });
+  }
+
   /**
-   * Find airline by flight number (extracts IATA code from first 2 characters)
+   * Find airline by flight number for search/discovery — respects deactivation visibility.
    */
   async findByFlightNumber(flightNumber: string, user?: any): Promise<AirlineEntity | null> {
     if (!flightNumber || flightNumber.length < 2) {
@@ -198,6 +211,23 @@ export class AirlineService implements OnModuleInit {
     if (!airline && flightNumber.length >= 3) {
       const iataCode3 = flightNumber.substring(0, 3).toUpperCase();
       airline = await this.findByIataCode(iataCode3, user);
+    }
+
+    return airline;
+  }
+
+  /**
+   * Resolve airline from flight number for linked data (requests, etc.) — includes deactivated.
+   */
+  async findByFlightNumberForReference(flightNumber: string): Promise<AirlineEntity | null> {
+    if (!flightNumber || flightNumber.length < 2) {
+      return null;
+    }
+
+    let airline = await this.findByIataCodeForReference(flightNumber.substring(0, 2).toUpperCase());
+
+    if (!airline && flightNumber.length >= 3) {
+      airline = await this.findByIataCodeForReference(flightNumber.substring(0, 3).toUpperCase());
     }
 
     return airline;

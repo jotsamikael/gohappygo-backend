@@ -142,7 +142,14 @@ export class CurrencyService {
   }
 
   /**
-   * Get a single currency by ID
+   * Resolve currency by id for linked data (requests, auth, etc.) — includes deactivated.
+   */
+  async findOneById(id: number): Promise<CurrencyEntity> {
+    return this.findOne(id);
+  }
+
+  /**
+   * Get a single currency by ID (reference lookup; list endpoint applies visibility).
    */
   async findOne(id: number): Promise<CurrencyEntity> {
     const currency = await this.currencyRepository.findOne({

@@ -17,9 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 import { DemandAndTravelMapper } from './demand-and-travel.mapper';
 import { ConfigService } from '@nestjs/config';
 import { UserEntity, UserRole } from 'src/user/user.entity';
-import { AirportEntity } from 'src/airport/entities/airport.entity';
 import { AirportService } from 'src/airport/airport.service';
-import { AirlineEntity } from 'src/airline/entities/airline.entity';
 import { VisibilityService } from 'src/common/service/visibility.service';
 import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
 
@@ -34,8 +32,6 @@ export class DemandAndTravelService {
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectRepository(BookmarkEntity) private readonly bookmarkRepository: Repository<BookmarkEntity>,
         @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
-        @InjectRepository(AirportEntity) private readonly airportRepository: Repository<AirportEntity>,
-        @InjectRepository(AirlineEntity) private readonly airlineRepository: Repository<AirlineEntity>,
         private readonly jwtService: JwtService,
         private readonly demandAndTravelMapper: DemandAndTravelMapper,
         private readonly configService: ConfigService,
@@ -440,9 +436,6 @@ export class DemandAndTravelService {
         // Filter out cancelled items
         combinedItems = combinedItems.filter(item => item.status !== 'cancelled');
 
-        // Hide demands/travels tied to deactivated airports or airlines (non-privileged users)
-        combinedItems = await this.filterItemsWithDeactivatedLocations(combinedItems, user);
-
         // Filter out expired items for non-owners
         // Items where (travelDate + MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE) < current date
         // should only be visible to the owner
@@ -707,67 +700,6 @@ export class DemandAndTravelService {
         return `demand_travel_list_${userContext}_${visibility}_page${normalize(page)}_limit${normalize(limit)}_desc${normalize(description)}_flight${normalize(flightNumber)}_airline${normalize(airlineId)}_origin${normalize(departureAirportId)}_dest${normalize(arrivalAirportId)}_user${normalize(queryUserId)}_status${normalize(status)}_date${normalize(travelDate)}_type${normalize(type)}_minWeight${normalize(minWeight)}_maxWeight${normalize(maxWeight)}_minPrice${normalize(minPricePerKg)}_maxPrice${normalize(maxPricePerKg)}_weightAvail${normalize(weightAvailable)}_verified${normalize(isVerified)}_airlineIata${normalize(airlineIataCode)}_depAirportIata${normalize(departureAirportIataCode)}_arrAirportIata${normalize(arrivalAirportIataCode)}_order${normalize(orderBy)}`;
     }
 
-    /**
-     * Exclude list items linked to deactivated airports or airlines for non-privileged users.
-     */
-    private async filterItemsWithDeactivatedLocations(
-        items: DemandOrTravelResponseDto[],
-        user: any,
-    ): Promise<DemandOrTravelResponseDto[]> {
-        if (this.visibilityService.canViewDeactivated(user) || items.length === 0) {
-            return items;
-        }
-
-        const airportIds = new Set<number>();
-        const airlineIds = new Set<number>();
-        for (const item of items) {
-            if (item.departureAirportId) {
-                airportIds.add(item.departureAirportId);
-            }
-            if (item.arrivalAirportId) {
-                airportIds.add(item.arrivalAirportId);
-            }
-            if (item.airline?.airlineId) {
-                airlineIds.add(item.airline.airlineId);
-            }
-        }
-
-        const deactivatedAirportIds = airportIds.size > 0
-            ? new Set(
-                (
-                    await this.airportRepository.find({
-                        where: { id: In([...airportIds]), isDeactivated: true },
-                        select: ['id'],
-                    })
-                ).map((a) => a.id),
-            )
-            : new Set<number>();
-
-        const deactivatedAirlineIds = airlineIds.size > 0
-            ? new Set(
-                (
-                    await this.airlineRepository.find({
-                        where: { id: In([...airlineIds]), isDeactivated: true },
-                        select: ['id'],
-                    })
-                ).map((a) => a.id),
-            )
-            : new Set<number>();
-
-        return items.filter((item) => {
-            if (deactivatedAirportIds.has(item.departureAirportId)) {
-                return false;
-            }
-            if (deactivatedAirportIds.has(item.arrivalAirportId)) {
-                return false;
-            }
-            if (item.airline?.airlineId && deactivatedAirlineIds.has(item.airline.airlineId)) {
-                return false;
-            }
-            return true;
-        });
-    }
-
     // Method to clear cache when data is updated
     async clearDemandTravelListCache(): Promise<void> {
         await this.cacheInvalidation.invalidateNamespace(CacheNamespace.DEMAND_TRAVEL);
@@ -943,7 +875,7 @@ export class DemandAndTravelService {
             const batch = batches[batchIndex];
             
             const currencyPromises = batch.map(currencyId =>
-                this.currencyService.findOne(currencyId)
+                this.currencyService.findOneById(currencyId)
                     .then(currency => ({ currencyId, currency }))
                     .catch(error => {
                         console.warn(`⚠️  Error fetching currency ${currencyId}:`, error.message);

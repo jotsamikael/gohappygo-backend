@@ -2029,7 +2029,7 @@ export class RequestService {
     if (travel) {
       if (travel.flightNumber) {
         // Get airline from flight number
-        const airline = await this.airlineService.findByFlightNumber(travel.flightNumber);
+        const airline = await this.airlineService.findByFlightNumberForReference(travel.flightNumber);
 
         if (airline) {
           travel.airline = {
@@ -2045,7 +2045,7 @@ export class RequestService {
 
       // Get departure and arrival airports
       if (travel.departureAirportId) {
-        const departureAirport = await this.airportService.findOne(travel.departureAirportId);
+        const departureAirport = await this.airportService.findOneById(travel.departureAirportId);
         if (departureAirport) {
           travel.departureAirport = {
             name: departureAirport.name || '',
@@ -2061,7 +2061,7 @@ export class RequestService {
       }
 
       if (travel.arrivalAirportId) {
-        const arrivalAirport = await this.airportService.findOne(travel.arrivalAirportId);
+        const arrivalAirport = await this.airportService.findOneById(travel.arrivalAirportId);
         if (arrivalAirport) {
           travel.arrivalAirport = {
             name: arrivalAirport.name || '',

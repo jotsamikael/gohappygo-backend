@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Visibility rules apply to discovery endpoints (lists, search, GET by id for clients).
+ * Internal/reference lookups should use *ForReference / findOneById service methods instead.
+ */
 @Injectable()
 export class VisibilityService {
   private readonly privilegedRoles = ['ADMIN', 'OPERATOR'];
