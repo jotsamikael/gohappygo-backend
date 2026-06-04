@@ -57,13 +57,18 @@ export class DemandAndTravelController {
 
 
     @Get('airline-from-flight-number')
+    @UseGuards(OptionalJwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @ApiOperation({
         summary: 'Get airline from flight number',
-        description: 'Get airline from flight number'
+        description: 'Resolves airline from flight number. Deactivated airlines are hidden from visitors and regular users.'
     })
     @ApiResponse({ status: 200, description: 'Airline fetched successfully', type: DemandTravelAirlineResponseDto })
     @ApiResponse({ status: 400, description: 'Bad request' })
-    async getAirlineFromFlightNumber(@Query('flightNumber') flightNumber: string) {
-        return await this.demandAndTravelService.getAirlineFromFlightNumber(flightNumber);
+    async getAirlineFromFlightNumber(
+        @Query('flightNumber') flightNumber: string,
+        @CurrentUser() user: any,
+    ) {
+        return await this.demandAndTravelService.getAirlineFromFlightNumber(flightNumber, user);
     }
 }

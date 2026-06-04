@@ -18,23 +18,29 @@ import { DemandAndTravelMapper } from './demand-and-travel.mapper';
 import { ConfigService } from '@nestjs/config';
 import { UserEntity, UserRole } from 'src/user/user.entity';
 import { AirportEntity } from 'src/airport/entities/airport.entity';
+import { AirportService } from 'src/airport/airport.service';
+import { AirlineEntity } from 'src/airline/entities/airline.entity';
+import { VisibilityService } from 'src/common/service/visibility.service';
+import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
 
 @Injectable()
 export class DemandAndTravelService {
-    private demandTravelListCacheKeys: Set<string> = new Set();
-
     constructor(
         private demandService: DemandService, 
         private travelService: TravelService,
         private airlineService: AirlineService,
+        private airportService: AirportService,
         private currencyService: CurrencyService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         @InjectRepository(BookmarkEntity) private readonly bookmarkRepository: Repository<BookmarkEntity>,
         @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
         @InjectRepository(AirportEntity) private readonly airportRepository: Repository<AirportEntity>,
+        @InjectRepository(AirlineEntity) private readonly airlineRepository: Repository<AirlineEntity>,
         private readonly jwtService: JwtService,
         private readonly demandAndTravelMapper: DemandAndTravelMapper,
-        private readonly configService: ConfigService
+        private readonly configService: ConfigService,
+        private readonly visibilityService: VisibilityService,
+        private readonly cacheInvalidation: CacheInvalidationService,
     ) {}
 
     async getDemandsAndTravels(query: FindDemandsAndTravelsQueryDto, user: any): Promise<PaginatedDemandsAndTravelsResponseDto> {
@@ -61,9 +67,9 @@ export class DemandAndTravelService {
         console.log('🔍 Cleaned query:', JSON.stringify(cleanedQuery));
         
         // Include user ID in cache key to prevent cache collisions between authenticated and anonymous users
-        const cacheKey = this.generateDemandTravelListCacheKey(cleanedQuery, currentUserId);
+        const cacheKey = this.generateDemandTravelListCacheKey(cleanedQuery, currentUserId, user);
         console.log(`Generated cache key: ${cacheKey}`);
-        this.demandTravelListCacheKeys.add(cacheKey);
+        this.cacheInvalidation.track(CacheNamespace.DEMAND_TRAVEL, cacheKey);
       
         // Check cache first
         const cachedData = await this.cacheManager.get<PaginatedDemandsAndTravelsResponseDto>(cacheKey);
@@ -106,12 +112,12 @@ export class DemandAndTravelService {
         if (flightNumber) {
             // Extract IATA code (first 2-3 characters) for airline caching
             const iataCode2 = flightNumber.substring(0, 2).toUpperCase();
-            foundAirline = await this.airlineService.findByIataCode(iataCode2);
+            foundAirline = await this.airlineService.findByIataCode(iataCode2, user);
             
             // If 2-char not found, try 3-char
             if (!foundAirline && flightNumber.length >= 3) {
                 const iataCode3 = flightNumber.substring(0, 3).toUpperCase();
-                foundAirline = await this.airlineService.findByIataCode(iataCode3);
+                foundAirline = await this.airlineService.findByIataCode(iataCode3, user);
             }
         }
 
@@ -187,7 +193,7 @@ export class DemandAndTravelService {
         // This converts the IATA code to the numeric airline ID before the DB query
         if (airlineIataCode) {
             console.log('✅ Filtering by airlineIataCode:', airlineIataCode);
-            const airline = await this.airlineService.findByIataCode(airlineIataCode);
+            const airline = await this.airlineService.findByIataCode(airlineIataCode, user);
             if (airline) {
                 allDemandsQuery.airlineId = airline.id;
                 allTravelsQuery.airlineId = airline.id;
@@ -214,7 +220,7 @@ export class DemandAndTravelService {
         // This converts the IATA code to the numeric airport ID before the DB query
         if (departureAirportIataCode) {
             console.log('✅ Filtering by departureAirportIataCode:', departureAirportIataCode);
-            const airport = await this.airportRepository.findOne({ where: { iataCode: departureAirportIataCode.toUpperCase() } });
+            const airport = await this.airportService.findByIataCode(departureAirportIataCode, user);
             if (airport) {
                 allDemandsQuery.departureAirportId = airport.id;
                 allTravelsQuery.departureAirportId = airport.id;
@@ -239,7 +245,7 @@ export class DemandAndTravelService {
         // Resolve arrivalAirportIataCode to arrivalAirportId if provided
         if (arrivalAirportIataCode) {
             console.log('✅ Filtering by arrivalAirportIataCode:', arrivalAirportIataCode);
-            const airport = await this.airportRepository.findOne({ where: { iataCode: arrivalAirportIataCode.toUpperCase() } });
+            const airport = await this.airportService.findByIataCode(arrivalAirportIataCode, user);
             if (airport) {
                 allDemandsQuery.arrivalAirportId = airport.id;
                 allTravelsQuery.arrivalAirportId = airport.id;
@@ -342,7 +348,7 @@ export class DemandAndTravelService {
                     ...travelsResponse.items.map(t => t.flightNumber).filter(Boolean)
                 ];
                 if (allFlightNumbers.length > 0) {
-                    return this.prefetchAirlines(allFlightNumbers).then(prefetched => {
+                    return this.prefetchAirlines(allFlightNumbers, user).then(prefetched => {
                         const cache = new Map<string, any>(airlineCache);
                         prefetched.forEach((airline, fn) => cache.set(fn, airline));
                         return cache;
@@ -433,6 +439,9 @@ export class DemandAndTravelService {
 
         // Filter out cancelled items
         combinedItems = combinedItems.filter(item => item.status !== 'cancelled');
+
+        // Hide demands/travels tied to deactivated airports or airlines (non-privileged users)
+        combinedItems = await this.filterItemsWithDeactivatedLocations(combinedItems, user);
 
         // Filter out expired items for non-owners
         // Items where (travelDate + MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE) < current date
@@ -658,7 +667,7 @@ export class DemandAndTravelService {
     }
 
 
-    private generateDemandTravelListCacheKey(query: FindDemandsAndTravelsQueryDto | any, userId: number | null = null): string {
+    private generateDemandTravelListCacheKey(query: FindDemandsAndTravelsQueryDto | any, userId: number | null = null, user?: any): string {
         const {
             page = 1,
             limit = 10,
@@ -691,18 +700,77 @@ export class DemandAndTravelService {
             return String(value);
         };
 
-        // Include current user ID in cache key to prevent cache collisions
+        // Include current user ID and visibility in cache key to prevent cache collisions
         const userContext = userId ? `user${userId}` : 'anon';
+        const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
         
-        return `demand_travel_list_${userContext}_page${normalize(page)}_limit${normalize(limit)}_desc${normalize(description)}_flight${normalize(flightNumber)}_airline${normalize(airlineId)}_origin${normalize(departureAirportId)}_dest${normalize(arrivalAirportId)}_user${normalize(queryUserId)}_status${normalize(status)}_date${normalize(travelDate)}_type${normalize(type)}_minWeight${normalize(minWeight)}_maxWeight${normalize(maxWeight)}_minPrice${normalize(minPricePerKg)}_maxPrice${normalize(maxPricePerKg)}_weightAvail${normalize(weightAvailable)}_verified${normalize(isVerified)}_airlineIata${normalize(airlineIataCode)}_depAirportIata${normalize(departureAirportIataCode)}_arrAirportIata${normalize(arrivalAirportIataCode)}_order${normalize(orderBy)}`;
+        return `demand_travel_list_${userContext}_${visibility}_page${normalize(page)}_limit${normalize(limit)}_desc${normalize(description)}_flight${normalize(flightNumber)}_airline${normalize(airlineId)}_origin${normalize(departureAirportId)}_dest${normalize(arrivalAirportId)}_user${normalize(queryUserId)}_status${normalize(status)}_date${normalize(travelDate)}_type${normalize(type)}_minWeight${normalize(minWeight)}_maxWeight${normalize(maxWeight)}_minPrice${normalize(minPricePerKg)}_maxPrice${normalize(maxPricePerKg)}_weightAvail${normalize(weightAvailable)}_verified${normalize(isVerified)}_airlineIata${normalize(airlineIataCode)}_depAirportIata${normalize(departureAirportIataCode)}_arrAirportIata${normalize(arrivalAirportIataCode)}_order${normalize(orderBy)}`;
+    }
+
+    /**
+     * Exclude list items linked to deactivated airports or airlines for non-privileged users.
+     */
+    private async filterItemsWithDeactivatedLocations(
+        items: DemandOrTravelResponseDto[],
+        user: any,
+    ): Promise<DemandOrTravelResponseDto[]> {
+        if (this.visibilityService.canViewDeactivated(user) || items.length === 0) {
+            return items;
+        }
+
+        const airportIds = new Set<number>();
+        const airlineIds = new Set<number>();
+        for (const item of items) {
+            if (item.departureAirportId) {
+                airportIds.add(item.departureAirportId);
+            }
+            if (item.arrivalAirportId) {
+                airportIds.add(item.arrivalAirportId);
+            }
+            if (item.airline?.airlineId) {
+                airlineIds.add(item.airline.airlineId);
+            }
+        }
+
+        const deactivatedAirportIds = airportIds.size > 0
+            ? new Set(
+                (
+                    await this.airportRepository.find({
+                        where: { id: In([...airportIds]), isDeactivated: true },
+                        select: ['id'],
+                    })
+                ).map((a) => a.id),
+            )
+            : new Set<number>();
+
+        const deactivatedAirlineIds = airlineIds.size > 0
+            ? new Set(
+                (
+                    await this.airlineRepository.find({
+                        where: { id: In([...airlineIds]), isDeactivated: true },
+                        select: ['id'],
+                    })
+                ).map((a) => a.id),
+            )
+            : new Set<number>();
+
+        return items.filter((item) => {
+            if (deactivatedAirportIds.has(item.departureAirportId)) {
+                return false;
+            }
+            if (deactivatedAirportIds.has(item.arrivalAirportId)) {
+                return false;
+            }
+            if (item.airline?.airlineId && deactivatedAirlineIds.has(item.airline.airlineId)) {
+                return false;
+            }
+            return true;
+        });
     }
 
     // Method to clear cache when data is updated
     async clearDemandTravelListCache(): Promise<void> {
-        for (const cacheKey of this.demandTravelListCacheKeys) {
-            await this.cacheManager.del(cacheKey);
-        }
-        this.demandTravelListCacheKeys.clear();
+        await this.cacheInvalidation.invalidateNamespace(CacheNamespace.DEMAND_TRAVEL);
     }
 
     /**
@@ -763,7 +831,7 @@ export class DemandAndTravelService {
      * Pre-fetch airlines for multiple flight numbers to avoid connection pool exhaustion
      * This method deduplicates IATA codes and fetches them efficiently with improved error handling
      */
-    private async prefetchAirlines(flightNumbers: string[]): Promise<Map<string, any>> {
+    private async prefetchAirlines(flightNumbers: string[], user?: any): Promise<Map<string, any>> {
         const airlineCache = new Map<string, any>();
         
         // Extract unique IATA codes from flight numbers
@@ -798,7 +866,7 @@ export class DemandAndTravelService {
             const batch = batches[batchIndex];
             
             const airlinePromises = batch.map(iataCode => 
-                this.airlineService.findByIataCode(iataCode)
+                this.airlineService.findByIataCode(iataCode, user)
                     .then(airline => ({ iataCode, airline }))
                     .catch(error => {
                         // Only log connection errors
@@ -906,20 +974,12 @@ export class DemandAndTravelService {
      * Helper method to get airline from flight number
      * Extracts first 2-3 characters and matches with IATA code
      */
-    public async getAirlineFromFlightNumber(flightNumber: string): Promise<DemandTravelAirlineResponseDto | null> {
+    public async getAirlineFromFlightNumber(flightNumber: string, user?: any): Promise<DemandTravelAirlineResponseDto | null> {
         if (!flightNumber || flightNumber.length < 2) {
             return null;
         }
 
-        // Try 2-character IATA code first (most common)
-        let iataCode = flightNumber.substring(0, 2).toUpperCase();
-        let airline = await this.airlineService.findByIataCode(iataCode);
-
-        // If not found, try 3-character code
-        if (!airline && flightNumber.length >= 3) {
-            iataCode = flightNumber.substring(0, 3).toUpperCase();
-            airline = await this.airlineService.findByIataCode(iataCode);
-        }
+        const airline = await this.airlineService.findByFlightNumber(flightNumber, user);
 
         if (!airline) {
             return null;

@@ -12,12 +12,13 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { CustomConflictException, CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { VisibilityService } from 'src/common/service/visibility.service';
+import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
 
 @Injectable()
 export class AirportService implements OnModuleInit {
 
   private readonly logger = new Logger(AirportService.name);
-  private airportListCacheKeys: Set<string> = new Set();
 
   async onModuleInit() {
     //await this.seedAirportData();
@@ -27,13 +28,14 @@ export class AirportService implements OnModuleInit {
     @InjectRepository(AirportEntity)
     private readonly airportRepository: Repository<AirportEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    
+    private readonly visibilityService: VisibilityService,
+    private readonly cacheInvalidation: CacheInvalidationService,
   ){}
 
 
-   async getAllAirports(query: FindAirportsQueryDto): Promise<PaginatedResponse<AirportEntity>> {
-      const cacheKey = this.generateAirportListCacheKey(query);
-      this.airportListCacheKeys.add(cacheKey);
+   async getAllAirports(query: FindAirportsQueryDto, user?: any): Promise<PaginatedResponse<AirportEntity>> {
+      const cacheKey = this.generateAirportListCacheKey(query, user);
+      this.cacheInvalidation.track(CacheNamespace.AIRPORTS, cacheKey);
 
       // Check cache first
       const cachedData = await this.cacheManager.get<PaginatedResponse<AirportEntity>>(cacheKey);
@@ -53,6 +55,8 @@ export class AirportService implements OnModuleInit {
       // Filter to only include allowed airport types (exclude heliport, seaplane_base, closed, balloonport)
       const allowedTypes = ['medium_airport', 'large_airport'];
       queryBuilder.andWhere('airport.type IN (:...allowedTypes)', { allowedTypes });
+
+      this.visibilityService.applyIsDeactivatedToQueryBuilder(user, queryBuilder, 'airport');
 
       // Apply filters - Use LIKE instead of ILIKE for MySQL
       if (name) {
@@ -165,9 +169,10 @@ export class AirportService implements OnModuleInit {
    }
 
 
-  generateAirportListCacheKey(query: FindAirportsQueryDto) : string{
+  generateAirportListCacheKey(query: FindAirportsQueryDto, user?: any): string {
    const { page = 1, limit = 10, name, municipality, municipalityOrName, isoCountry, iataCode, icaoCode, continent, isoRegion, type, scheduledService, orderBy } = query;
-   return `airports:${page}:${limit}:${name}:${municipality}:${municipalityOrName}:${isoCountry}:${iataCode}:${icaoCode}:${continent}:${isoRegion}:${type}:${scheduledService}:${orderBy}`;
+   const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
+   return `airports:${visibility}:${page}:${limit}:${name}:${municipality}:${municipalityOrName}:${isoCountry}:${iataCode}:${icaoCode}:${continent}:${isoRegion}:${type}:${scheduledService}:${orderBy}`;
   }
 
 
@@ -198,14 +203,39 @@ export class AirportService implements OnModuleInit {
     return this.airportRepository.find();
   }
 
-  async findOne(id: number): Promise<AirportEntity> {
-    const airport = await this.airportRepository.findOneBy({ id });
-    
-    if (!airport) {
+  async findOne(id: number, user?: any): Promise<AirportEntity> {
+    const airport = await this.findOneById(id);
+
+    if (airport.isDeactivated && !this.visibilityService.canViewDeactivated(user)) {
       throw new CustomNotFoundException(`Airport with ID ${id} not found`, ErrorCode.AIRPORT_NOT_FOUND);
     }
     
     return airport;
+  }
+
+  /** Load by id for admin/operator mutations (toggle, update, delete) — ignores deactivation visibility. */
+  private async findOneForManagement(id: number): Promise<AirportEntity> {
+    return this.findOneById(id);
+  }
+
+  private async findOneById(id: number): Promise<AirportEntity> {
+    const airport = await this.airportRepository.findOneBy({ id });
+
+    if (!airport) {
+      throw new CustomNotFoundException(`Airport with ID ${id} not found`, ErrorCode.AIRPORT_NOT_FOUND);
+    }
+
+    return airport;
+  }
+
+  /**
+   * Find airport by IATA code with role-based visibility.
+   */
+  async findByIataCode(iataCode: string, user?: any): Promise<AirportEntity | null> {
+    const where = this.visibilityService.applyIsDeactivatedFilter(user, {
+      iataCode: iataCode.toUpperCase(),
+    });
+    return this.airportRepository.findOne({ where });
   }
 
   async update(
@@ -213,7 +243,7 @@ export class AirportService implements OnModuleInit {
     updateAirportDto: UpdateAirportDto,
     user: { id: number },
   ): Promise<AirportEntity> {
-    const airport = await this.findOne(id);
+    const airport = await this.findOneForManagement(id);
 
     if (updateAirportDto.ident && updateAirportDto.ident !== airport.ident) {
       const existing = await this.airportRepository.findOne({
@@ -238,7 +268,7 @@ export class AirportService implements OnModuleInit {
   }
 
   async remove(id: number): Promise<void> {
-    const airport = await this.findOne(id);
+    const airport = await this.findOneForManagement(id);
     await this.airportRepository.delete(id);
     await this.clearAirportListCache();
     this.logger.log(`Airport deleted: ${airport.name} (ID: ${id})`);
@@ -341,7 +371,7 @@ export class AirportService implements OnModuleInit {
    * @returns The updated airport entity
    */
   async toggleActivation(id: number, user: any): Promise<AirportEntity> {
-    const airport = await this.findOne(id);
+    const airport = await this.findOneForManagement(id);
 
     // Toggle the current state
     airport.isDeactivated = !airport.isDeactivated;
@@ -359,10 +389,8 @@ export class AirportService implements OnModuleInit {
   }
 
   async clearAirportListCache(): Promise<void> {
-    for (const cacheKey of this.airportListCacheKeys) {
-      await this.cacheManager.del(cacheKey);
-    }
-    this.airportListCacheKeys.clear();
-    this.logger.log('Cleared airport list cache');
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.AIRPORTS);
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.DEMAND_TRAVEL);
+    this.logger.log('Cleared airport and demand-travel caches');
   }
 }

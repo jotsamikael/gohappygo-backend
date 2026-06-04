@@ -13,18 +13,21 @@ import { ErrorCode } from 'src/common/exception/error-codes';
 import { UpdateAirlineDto } from './dto/update-airline.dto';
 import { CreateAirlineDto } from './dto/create-airline.dto';
 import { CloudinaryService } from 'src/file-upload/cloudinary/cloudinary.service';
+import { VisibilityService } from 'src/common/service/visibility.service';
+import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
 
 @Injectable()
 export class AirlineService implements OnModuleInit {
 
   private readonly logger = new Logger(AirlineService.name);
-  private airlineListCacheKeys: Set<string> = new Set();
 
   constructor(
     @InjectRepository(AirlineEntity)
     private airlineRepository: Repository<AirlineEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly visibilityService: VisibilityService,
+    private readonly cacheInvalidation: CacheInvalidationService,
   ) {}
 
 
@@ -37,9 +40,9 @@ export class AirlineService implements OnModuleInit {
   /**
    * Get all airlines with pagination, filtering, and sorting
    */
-  async getAllAirlines(query: FindAirlinesQueryDto): Promise<PaginatedResponse<AirlineEntity>> {
-    const cacheKey = this.generateAirlineListCacheKey(query);
-    this.airlineListCacheKeys.add(cacheKey);
+  async getAllAirlines(query: FindAirlinesQueryDto, user?: any): Promise<PaginatedResponse<AirlineEntity>> {
+    const cacheKey = this.generateAirlineListCacheKey(query, user);
+    this.cacheInvalidation.track(CacheNamespace.AIRLINES, cacheKey);
 
     // Check cache first
     const cachedData = await this.cacheManager.get<PaginatedResponse<AirlineEntity>>(cacheKey);
@@ -90,6 +93,8 @@ export class AirlineService implements OnModuleInit {
       queryBuilder.andWhere('LOWER(airline.callsign) LIKE LOWER(:callsign)', { callsign: `%${callsign}%` });
     }
 
+    this.visibilityService.applyIsDeactivatedToQueryBuilder(user, queryBuilder, 'airline');
+
     // Debug: Log the final SQL query
     console.log(' Final SQL Query:', queryBuilder.getSql());
 
@@ -121,6 +126,8 @@ export class AirlineService implements OnModuleInit {
       countQueryBuilder.andWhere('LOWER(airline.callsign) LIKE LOWER(:callsign)', { callsign: `%${callsign}%` });
     }
 
+    this.visibilityService.applyIsDeactivatedToQueryBuilder(user, countQueryBuilder, 'airline');
+
     const totalItems = await countQueryBuilder.getCount();
     console.log('🔍 Total items found:', totalItems);
 
@@ -149,19 +156,21 @@ export class AirlineService implements OnModuleInit {
    * Find airline by IATA code (supports 2 or 3 character codes)
    * Uses cache to avoid repeated database queries
    */
-  async findByIataCode(iataCode: string): Promise<AirlineEntity | null> {
-    const cacheKey = `airline_iata_${iataCode.toUpperCase()}`;
-    
+  async findByIataCode(iataCode: string, user?: any): Promise<AirlineEntity | null> {
+    const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
+    const cacheKey = `airline_iata_${iataCode.toUpperCase()}_${visibility}`;
+    this.cacheInvalidation.track(CacheNamespace.AIRLINE_IATA, cacheKey);
+
     // Check cache first
     const cachedAirline = await this.cacheManager.get<AirlineEntity>(cacheKey);
     if (cachedAirline) {
       return cachedAirline;
     }
     
-    // If not in cache, query database
-    const airline = await this.airlineRepository.findOne({
-      where: { iataCode: iataCode.toUpperCase() }
+    const where = this.visibilityService.applyIsDeactivatedFilter(user, {
+      iataCode: iataCode.toUpperCase(),
     });
+    const airline = await this.airlineRepository.findOne({ where });
     
     // Cache the result (including null results to avoid repeated failed lookups)
     // Cache for 1 hour (3600000 ms)
@@ -178,41 +187,47 @@ export class AirlineService implements OnModuleInit {
   /**
    * Find airline by flight number (extracts IATA code from first 2 characters)
    */
-  async findByFlightNumber(flightNumber: string): Promise<AirlineEntity | null> {
+  async findByFlightNumber(flightNumber: string, user?: any): Promise<AirlineEntity | null> {
     if (!flightNumber || flightNumber.length < 2) {
       return null;
     }
     
     const iataCode = flightNumber.substring(0, 2).toUpperCase();
-    return this.findByIataCode(iataCode);
+    let airline = await this.findByIataCode(iataCode, user);
+
+    if (!airline && flightNumber.length >= 3) {
+      const iataCode3 = flightNumber.substring(0, 3).toUpperCase();
+      airline = await this.findByIataCode(iataCode3, user);
+    }
+
+    return airline;
   }
 
   /**
    * Search airlines by name or code (for dropdown/autocomplete)
    */
-  async searchAirlines(query: string): Promise<AirlineEntity[]> {
-    return this.airlineRepository
+  async searchAirlines(query: string, user?: any): Promise<AirlineEntity[]> {
+    const qb = this.airlineRepository
       .createQueryBuilder('airline')
       .where('airline.name ILIKE :query OR airline.iataCode ILIKE :query OR airline.icaoCode ILIKE :query', {
         query: `%${query}%`
-      })
-      .orderBy('airline.name', 'ASC')
-      .limit(20) // Limit for autocomplete
-      .getMany();
+      });
+    this.visibilityService.applyIsDeactivatedToQueryBuilder(user, qb, 'airline');
+    return qb.orderBy('airline.name', 'ASC').limit(20).getMany();
   }
 
   /**
    * Get airline logo URL by flight number
    */
-  async getAirlineLogoByFlightNumber(flightNumber: string): Promise<string | null> {
-    const airline = await this.findByFlightNumber(flightNumber);
+  async getAirlineLogoByFlightNumber(flightNumber: string, user?: any): Promise<string | null> {
+    const airline = await this.findByFlightNumber(flightNumber, user);
     return airline?.logoUrl || null;
   }
 
   /**
    * Generate cache key for airline list queries
    */
-  private generateAirlineListCacheKey(query: FindAirlinesQueryDto): string {
+  private generateAirlineListCacheKey(query: FindAirlinesQueryDto, user?: any): string {
     const {
       page = 1,
       limit = 10,
@@ -223,18 +238,18 @@ export class AirlineService implements OnModuleInit {
       orderBy = 'name:asc'
     } = query;
 
-    return `airlines_list_page${page}_limit${limit}_name${name || 'all'}_iata${iataCode || 'all'}_icao${icaoCode || 'all'}_callsign${callsign || 'all'}_order${orderBy}`;
+    const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
+    return `airlines_list_${visibility}_page${page}_limit${limit}_name${name || 'all'}_iata${iataCode || 'all'}_icao${icaoCode || 'all'}_callsign${callsign || 'all'}_order${orderBy}`;
   }
 
   /**
    * Clear airline list cache
    */
   async clearAirlineListCache(): Promise<void> {
-    // Clear all airline list cache keys
-    for (const cacheKey of this.airlineListCacheKeys) {
-      await this.cacheManager.del(cacheKey);
-    }
-    this.airlineListCacheKeys.clear();
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.AIRLINES);
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.AIRLINE_IATA);
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.DEMAND_TRAVEL);
+    this.logger.log('Cleared airline and demand-travel caches');
   }
 
   /**
@@ -259,8 +274,14 @@ export class AirlineService implements OnModuleInit {
 
     const savedAirline = await this.airlineRepository.save(airline);
 
-    // Clear cache so the change takes effect immediately
     await this.clearAirlineListCache();
+    if (savedAirline.iataCode) {
+      const code = savedAirline.iataCode.toUpperCase();
+      await this.cacheInvalidation.deleteKeys([
+        `airline_iata_${code}_active`,
+        `airline_iata_${code}_all`,
+      ]);
+    }
 
     const newState = airline.isDeactivated ? 'deactivated' : 'activated';
     this.logger.log(`Airline #${id} (${airline.name}) ${newState} by user #${user.id}`);

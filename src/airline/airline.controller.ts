@@ -13,6 +13,7 @@ import { PaginatedAirlinesResponseDto } from './dto/airline-response.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
 import { AirlineEntity } from './entities/airline.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt-auth.guard';
 import { CloudinaryService } from 'src/file-upload/cloudinary/cloudinary.service';
 import { extname } from 'path';
 
@@ -28,9 +29,11 @@ export class AirlineController {
    * Single endpoint to get all airlines with filtering and pagination
    */
   @Get('')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get all airlines',
-    description: 'Retrieve all airlines with pagination, filtering, and sorting. Admin and operators can access all airlines.'
+    description: 'Retrieve airlines with pagination and filters. Visitors and regular users only see active airlines; admins and operators see all.'
   })
   @ApiResponse({
     status: 200,
@@ -42,8 +45,9 @@ export class AirlineController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin or operator access required' })
   async getAllAirlines(
     @Query() query: FindAirlinesQueryDto,
+    @CurrentUser() user: any,
   ): Promise<PaginatedResponse<AirlineEntity>> {
-    return this.airlineService.getAllAirlines(query);
+    return this.airlineService.getAllAirlines(query, user);
   }
 
   /**

@@ -9,10 +9,17 @@ export class VisibilityService {
    * Admins and operators have full visibility.
    */
   canViewDeactivated(user: any): boolean {
-    if (!user || !user.role) {
+    if (!user) {
       return false;
     }
-    return this.privilegedRoles.includes(user.role.code);
+    const roleCode =
+      typeof user.role === 'string'
+        ? user.role
+        : user.role?.code ?? user.roleCode;
+    if (!roleCode) {
+      return false;
+    }
+    return this.privilegedRoles.includes(roleCode);
   }
 
   /**
@@ -34,5 +41,18 @@ export class VisibilityService {
       ...where,
       isDeactivated: false,
     };
+  }
+
+  /**
+   * Restrict a TypeORM query builder to active records for non-privileged users.
+   */
+  applyIsDeactivatedToQueryBuilder(
+    user: any,
+    queryBuilder: { andWhere: (clause: string, params?: Record<string, unknown>) => unknown },
+    alias: string,
+  ): void {
+    if (!this.canViewDeactivated(user)) {
+      queryBuilder.andWhere(`${alias}.isDeactivated = :isDeactivated`, { isDeactivated: false });
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -12,16 +12,18 @@ import { CustomConflictException } from 'src/common/exception/custom-exceptions'
 import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 import { VisibilityService } from 'src/common/service/visibility.service';
+import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
 
 @Injectable()
 export class CurrencyService {
-  private currencyListCacheKeys: Set<string> = new Set();
+  private readonly logger = new Logger(CurrencyService.name);
 
   constructor(
     @InjectRepository(CurrencyEntity)
     private currencyRepository: Repository<CurrencyEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly visibilityService: VisibilityService,
+    private readonly cacheInvalidation: CacheInvalidationService,
   ) {}
 
   /**
@@ -55,8 +57,8 @@ export class CurrencyService {
    * Get all currencies with pagination, filtering, and sorting
    */
   async findAll(query: FindCurrenciesQueryDto, user?: any): Promise<PaginatedResponse<CurrencyEntity>> {
-    const cacheKey = this.generateCurrencyListCacheKey(query);
-    this.currencyListCacheKeys.add(cacheKey);
+    const cacheKey = this.generateCurrencyListCacheKey(query, user);
+    this.cacheInvalidation.track(CacheNamespace.CURRENCIES, cacheKey);
 
     // Check cache first
     const cachedData = await this.cacheManager.get<PaginatedResponse<CurrencyEntity>>(cacheKey);
@@ -245,7 +247,7 @@ export class CurrencyService {
   /**
    * Generate cache key for currency list queries
    */
-  private generateCurrencyListCacheKey(query: FindCurrenciesQueryDto): string {
+  private generateCurrencyListCacheKey(query: FindCurrenciesQueryDto, user?: any): string {
     const {
       page = 1,
       limit = 10,
@@ -256,17 +258,17 @@ export class CurrencyService {
       orderBy = 'code:asc',
     } = query;
 
-    return `currencies_list_page${page}_limit${limit}_code${code || 'all'}_name${name || 'all'}_country${country || 'all'}_active${isActive !== undefined ? isActive : 'all'}_order${orderBy}`;
+    const visibility = this.visibilityService.canViewDeactivated(user) ? 'all' : 'active';
+    return `currencies_list_${visibility}_page${page}_limit${limit}_code${code || 'all'}_name${name || 'all'}_country${country || 'all'}_active${isActive !== undefined ? isActive : 'all'}_order${orderBy}`;
   }
 
   /**
-   * Clear currency list cache
+   * Clear currency list cache and related demand-travel responses.
    */
   async clearCurrencyListCache(): Promise<void> {
-    for (const cacheKey of this.currencyListCacheKeys) {
-      await this.cacheManager.del(cacheKey);
-    }
-    this.currencyListCacheKeys.clear();
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.CURRENCIES);
+    await this.cacheInvalidation.invalidateNamespace(CacheNamespace.DEMAND_TRAVEL);
+    this.logger.log('Cleared currency and demand-travel caches');
   }
 
   /**

@@ -10,6 +10,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles-guard';
 import { UserRole } from 'src/user/user.entity';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt-auth.guard';
 
 @ApiTags('airports')
 @Controller('airports')
@@ -39,10 +40,13 @@ export class AirportController {
 
   /**Single endpoint to get all airports with filtering and pagination */
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all airports with flexible filtering', 
     description: `
     Retrieve airports with various filter options:
-    - No filters: Returns all airports (admin and operators only)
+    - Visitors and regular users: only active airports (not deactivated)
+    - Admins and operators: all airports including deactivated
     - name: Returns airports with specific name
     - city: Returns airports in specific city
     - country: Returns airports in specific country
@@ -55,18 +59,24 @@ export class AirportController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin access required for certain operations' })
   findAll(
     @Query() query: FindAirportsQueryDto,
+    @CurrentUser() user: any,
   ) {
-    return this.airportService.getAllAirports(query);
+    return this.airportService.getAllAirports(query, user);
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get an airport by ID', 
-    description: 'Retrieve a single airport by its unique identifier'
+    description: 'Retrieve a single airport by its unique identifier. Deactivated airports are hidden from visitors and regular users.'
    })
   @ApiResponse({ status: 200, description: 'Airport fetched successfully', type: AirportResponseDto })
   @ApiResponse({ status: 404, description: 'Airport not found' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.airportService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.airportService.findOne(id, user);
   }
 
  

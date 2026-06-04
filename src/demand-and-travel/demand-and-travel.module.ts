@@ -13,10 +13,12 @@ import { BookmarkEntity } from 'src/bookmark/entities/bookmark.entity';
 import { UserEntity } from 'src/user/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
+import { CommonModule } from 'src/common/common.module';
+import { AirlineEntity } from 'src/airline/entities/airline.entity';
 
 @Module({
   controllers: [DemandAndTravelController],
-  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, TypeOrmModule.forFeature([BookmarkEntity, UserEntity, AirportEntity]), JwtModule.register({}), ConfigModule],
+  imports:[DemandModule, TravelModule, AirportModule, AirlineModule, CurrencyModule, CommonModule, TypeOrmModule.forFeature([BookmarkEntity, UserEntity, AirportEntity, AirlineEntity]), JwtModule.register({}), ConfigModule],
   providers:[DemandAndTravelService, DemandAndTravelMapper],
   exports:[DemandAndTravelService]
 })
