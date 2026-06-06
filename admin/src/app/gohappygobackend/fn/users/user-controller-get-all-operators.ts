@@ -8,7 +8,7 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { PaginatedUserResponseDto } from '../../models/paginated-user-response-dto';
+import { UserListItemResponseDto } from '../../models/user-list-item-response-dto';
 
 export interface UserControllerGetAllOperators$Params {
 
@@ -33,24 +33,19 @@ export interface UserControllerGetAllOperators$Params {
   phone?: string;
 
 /**
- * Is user's phone verified
- */
-  isPhoneVerified?: boolean;
-
-/**
  * Is user's account verified
  */
   isVerified?: boolean;
 
 /**
- * Filter by role ID
+ * Filter by Stripe verification status derived from stripeAccountStatus
  */
-  roleId?: number;
+  isStripeVerified?: boolean;
 
 /**
- * Filter users by verification status
+ * Filter by role code
  */
-  isAwaitingVerification?: boolean;
+  roleCode?: string;
 
 /**
  * Filter by delivery date (ISO 8601)
@@ -63,17 +58,16 @@ export interface UserControllerGetAllOperators$Params {
   orderBy?: 'createdAt:asc' | 'createdAt:desc' | 'deliveryDate:asc' | 'deliveryDate:desc' | 'pricePerKg:asc' | 'pricePerKg:desc';
 }
 
-export function userControllerGetAllOperators(http: HttpClient, rootUrl: string, params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PaginatedUserResponseDto>>> {
+export function userControllerGetAllOperators(http: HttpClient, rootUrl: string, params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserListItemResponseDto>>> {
   const rb = new RequestBuilder(rootUrl, userControllerGetAllOperators.PATH, 'get');
   if (params) {
     rb.query('page', params.page, {});
     rb.query('limit', params.limit, {});
     rb.query('email', params.email, {});
     rb.query('phone', params.phone, {});
-    rb.query('isPhoneVerified', params.isPhoneVerified, {});
     rb.query('isVerified', params.isVerified, {});
-    rb.query('roleId', params.roleId, {});
-    rb.query('isAwaitingVerification', params.isAwaitingVerification, {});
+    rb.query('isStripeVerified', params.isStripeVerified, {});
+    rb.query('roleCode', params.roleCode, {});
     rb.query('createdDate', params.createdDate, {});
     rb.query('orderBy', params.orderBy, {});
   }
@@ -83,7 +77,7 @@ export function userControllerGetAllOperators(http: HttpClient, rootUrl: string,
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<PaginatedUserResponseDto>>;
+      return r as StrictHttpResponse<Array<UserListItemResponseDto>>;
     })
   );
 }

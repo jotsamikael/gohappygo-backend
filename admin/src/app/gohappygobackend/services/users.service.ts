@@ -11,7 +11,6 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
-import { PaginatedUserResponseDto } from '../models/paginated-user-response-dto';
 import { userControllerChangePassword } from '../fn/users/user-controller-change-password';
 import { UserControllerChangePassword$Params } from '../fn/users/user-controller-change-password';
 import { userControllerCreateStaff } from '../fn/users/user-controller-create-staff';
@@ -28,6 +27,7 @@ import { userControllerUpdateProfile } from '../fn/users/user-controller-update-
 import { UserControllerUpdateProfile$Params } from '../fn/users/user-controller-update-profile';
 import { userControllerUpdateStaff } from '../fn/users/user-controller-update-staff';
 import { UserControllerUpdateStaff$Params } from '../fn/users/user-controller-update-staff';
+import { UserListItemResponseDto } from '../models/user-list-item-response-dto';
 import { UserResponseDto } from '../models/user-response-dto';
 
 
@@ -53,7 +53,7 @@ export class UsersService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  userControllerGetAllOperators$Response(params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<PaginatedUserResponseDto>>> {
+  userControllerGetAllOperators$Response(params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserListItemResponseDto>>> {
     return userControllerGetAllOperators(this.http, this.rootUrl, params, context);
   }
 
@@ -67,9 +67,9 @@ export class UsersService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  userControllerGetAllOperators(params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<Array<PaginatedUserResponseDto>> {
+  userControllerGetAllOperators(params?: UserControllerGetAllOperators$Params, context?: HttpContext): Observable<Array<UserListItemResponseDto>> {
     return this.userControllerGetAllOperators$Response(params, context).pipe(
-      map((r: StrictHttpResponse<Array<PaginatedUserResponseDto>>): Array<PaginatedUserResponseDto> => r.body)
+      map((r: StrictHttpResponse<Array<UserListItemResponseDto>>): Array<UserListItemResponseDto> => r.body)
     );
   }
 

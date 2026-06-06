@@ -11,10 +11,16 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { airlineControllerCreate } from '../fn/airlines/airline-controller-create';
+import { AirlineControllerCreate$Params } from '../fn/airlines/airline-controller-create';
 import { airlineControllerGetAllAirlines } from '../fn/airlines/airline-controller-get-all-airlines';
 import { AirlineControllerGetAllAirlines$Params } from '../fn/airlines/airline-controller-get-all-airlines';
+import { airlineControllerRemove } from '../fn/airlines/airline-controller-remove';
+import { AirlineControllerRemove$Params } from '../fn/airlines/airline-controller-remove';
 import { airlineControllerToggleActivation } from '../fn/airlines/airline-controller-toggle-activation';
 import { AirlineControllerToggleActivation$Params } from '../fn/airlines/airline-controller-toggle-activation';
+import { airlineControllerUpdate } from '../fn/airlines/airline-controller-update';
+import { AirlineControllerUpdate$Params } from '../fn/airlines/airline-controller-update';
 import { AirlineEntity } from '../models/airline-entity';
 import { PaginatedAirlinesResponseDto } from '../models/paginated-airlines-response-dto';
 
@@ -34,7 +40,7 @@ export class AirlinesService extends BaseService {
   /**
    * Get all airlines.
    *
-   * Retrieve all airlines with pagination, filtering, and sorting. Admin and operators can access all airlines.
+   * Retrieve airlines with pagination and filters. Visitors and regular users only see active airlines; admins and operators see all.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `airlineControllerGetAllAirlines()` instead.
@@ -48,7 +54,7 @@ export class AirlinesService extends BaseService {
   /**
    * Get all airlines.
    *
-   * Retrieve all airlines with pagination, filtering, and sorting. Admin and operators can access all airlines.
+   * Retrieve airlines with pagination and filters. Visitors and regular users only see active airlines; admins and operators see all.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `airlineControllerGetAllAirlines$Response()` instead.
@@ -58,6 +64,39 @@ export class AirlinesService extends BaseService {
   airlineControllerGetAllAirlines(params?: AirlineControllerGetAllAirlines$Params, context?: HttpContext): Observable<PaginatedAirlinesResponseDto> {
     return this.airlineControllerGetAllAirlines$Response(params, context).pipe(
       map((r: StrictHttpResponse<PaginatedAirlinesResponseDto>): PaginatedAirlinesResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `airlineControllerCreate()` */
+  static readonly AirlineControllerCreatePath = '/api/airline';
+
+  /**
+   * Create a new airline.
+   *
+   * Admin or operator - Create a new airline in the system. Supports optional logo upload.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `airlineControllerCreate()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  airlineControllerCreate$Response(params: AirlineControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    return airlineControllerCreate(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Create a new airline.
+   *
+   * Admin or operator - Create a new airline in the system. Supports optional logo upload.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `airlineControllerCreate$Response()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  airlineControllerCreate(params: AirlineControllerCreate$Params, context?: HttpContext): Observable<void> {
+    return this.airlineControllerCreate$Response(params, context).pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
     );
   }
 
@@ -91,6 +130,72 @@ export class AirlinesService extends BaseService {
   airlineControllerToggleActivation(params: AirlineControllerToggleActivation$Params, context?: HttpContext): Observable<AirlineEntity> {
     return this.airlineControllerToggleActivation$Response(params, context).pipe(
       map((r: StrictHttpResponse<AirlineEntity>): AirlineEntity => r.body)
+    );
+  }
+
+  /** Path part for operation `airlineControllerRemove()` */
+  static readonly AirlineControllerRemovePath = '/api/airline/{id}';
+
+  /**
+   * Delete an airline.
+   *
+   * Admin only - Soft delete a currency
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `airlineControllerRemove()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  airlineControllerRemove$Response(params: AirlineControllerRemove$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    return airlineControllerRemove(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Delete an airline.
+   *
+   * Admin only - Soft delete a currency
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `airlineControllerRemove$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  airlineControllerRemove(params: AirlineControllerRemove$Params, context?: HttpContext): Observable<void> {
+    return this.airlineControllerRemove$Response(params, context).pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
+    );
+  }
+
+  /** Path part for operation `airlineControllerUpdate()` */
+  static readonly AirlineControllerUpdatePath = '/api/airline/{id}';
+
+  /**
+   * Update an airline.
+   *
+   * Admin or operator - Update an existing airline. Supports optional logo replacement.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `airlineControllerUpdate()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  airlineControllerUpdate$Response(params: AirlineControllerUpdate$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    return airlineControllerUpdate(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Update an airline.
+   *
+   * Admin or operator - Update an existing airline. Supports optional logo replacement.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `airlineControllerUpdate$Response()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  airlineControllerUpdate(params: AirlineControllerUpdate$Params, context?: HttpContext): Observable<void> {
+    return this.airlineControllerUpdate$Response(params, context).pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
     );
   }
 

@@ -13,6 +13,8 @@ import { Cache } from 'cache-manager';
 import { FindUsersQueryDto } from 'src/auth/dto/FindUsersQuery.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserListItemResponseDto } from './dto/user-list-item-response.dto';
+import { UserMapper } from './user.mapper';
 import { UpdateProfileDto } from './dto/request/update-profile.dto';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { FilePurpose } from 'src/uploaded-file/uploaded-file-purpose.enum';
@@ -30,7 +32,8 @@ export class UserService implements OnModuleInit {
     private roleService: RoleService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private fileUploadService: FileUploadService,
-    private commonService: CommonService
+    private commonService: CommonService,
+    private userMapper: UserMapper,
   ) { }
 
   async onModuleInit() {
@@ -39,72 +42,49 @@ export class UserService implements OnModuleInit {
   }
 
 
-  async getAllUsers(query: FindUsersQueryDto): Promise<PaginatedResponse<UserResponseDto>> {
-    const { page = 1, limit = 10, isAwaitingVerification, ...otherFilters } = query;
+  async getAllUsers(query: FindUsersQueryDto): Promise<PaginatedResponse<UserListItemResponseDto>> {
+    const { page = 1, limit = 10, ...filters } = query;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.role', 'role');
 
-    // Apply existing filters
-    if (otherFilters.email) {
-      queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', { email: `%${otherFilters.email}%` });
+    if (filters.email) {
+      queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', { email: `%${filters.email}%` });
     }
 
-    if (otherFilters.phone) {
-      queryBuilder.andWhere('LOWER(user.phone) LIKE LOWER(:phone)', { phone: `%${otherFilters.phone}%` });
+    if (filters.phone) {
+      queryBuilder.andWhere('LOWER(user.phone) LIKE LOWER(:phone)', { phone: `%${filters.phone}%` });
     }
 
-    if (otherFilters.roleId) {
-      queryBuilder.andWhere('user.roleId = :roleId', { roleId: otherFilters.roleId });
+    if (filters.roleCode) {
+      queryBuilder.andWhere('UPPER(role.code) = UPPER(:roleCode)', {
+        roleCode: filters.roleCode,
+      });
     }
 
-    // Always apply these filters
-    if (otherFilters.isPhoneVerified !== undefined) {
-      queryBuilder.andWhere('user.isPhoneVerified = :isPhoneVerified', { isPhoneVerified: otherFilters.isPhoneVerified });
+    if (filters.isVerified !== undefined) {
+      queryBuilder.andWhere('user.isVerified = :isVerified', { isVerified: filters.isVerified });
     }
 
-    if (otherFilters.isVerified !== undefined) {
-      queryBuilder.andWhere('user.isVerified = :isVerified', { isVerified: otherFilters.isVerified });
-    }
-
-    if (otherFilters.createdDate) {
-      const dateString = new Date(otherFilters.createdDate).toISOString().split('T')[0];
-      queryBuilder.andWhere('DATE(user.created_at) = :dateString', { dateString });
-    }
-
-    // Add awaiting verification filter (this will work alongside the above filters)
-    if (isAwaitingVerification !== undefined) {
-      console.log('🔍 isAwaitingVerification value:', isAwaitingVerification, 'Type:', typeof isAwaitingVerification);
-      
-      if (isAwaitingVerification === true) {
-        console.log('✅ Adding awaiting verification filter true');
-        // Users who have uploaded verification files but are not verified
-        queryBuilder
-          .andWhere('user.isVerified = :awaitingVerified', { awaitingVerified: false })
-          .andWhere('user.isPhoneVerified = :awaitingPhoneVerified', { awaitingPhoneVerified: true })
-          .andWhere('EXISTS (SELECT 1 FROM uploaded_file_entity f WHERE f.userId = user.id AND f.purpose IN (:...verificationPurposes))', {
-            verificationPurposes: ['SELFIE', 'ID_FRONT', 'ID_BACK']
-          });
+    if (filters.isStripeVerified !== undefined) {
+      if (filters.isStripeVerified) {
+        queryBuilder.andWhere('user.stripeAccountStatus IN (:...stripeVerifiedStatuses)', {
+          stripeVerifiedStatuses: ['active', 'restricted'],
+        });
       } else {
-        console.log('❌ Adding awaiting verification filter false');
-        // Users who are either verified OR have no verification documents
         queryBuilder.andWhere(
-          '(user.isVerified = :awaitingVerified OR NOT EXISTS (SELECT 1 FROM uploaded_file_entity f WHERE f.userId = user.id AND f.purpose IN (:...verificationPurposes)))',
-          { 
-            awaitingVerified: true,
-            verificationPurposes: ['SELFIE', 'ID_FRONT', 'ID_BACK']
-          }
+          '(user.stripeAccountStatus IN (:...stripeUnverifiedStatuses) OR user.stripeAccountStatus IS NULL)',
+          { stripeUnverifiedStatuses: ['uninitiated', 'pending'] },
         );
       }
-    } else {
-      console.log('🚫 No isAwaitingVerification filter applied');
     }
 
-    // Debug: Log the final SQL query
-    console.log(' Final SQL Query:', queryBuilder.getSql());
-    console.log('🔍 Query Parameters:', queryBuilder.getParameters());
+    if (filters.createdDate) {
+      const dateString = new Date(filters.createdDate).toISOString().split('T')[0];
+      queryBuilder.andWhere('DATE(user.created_at) = :dateString', { dateString });
+    }
 
     // Apply sorting
     let sortField = 'createdAt';
@@ -142,7 +122,12 @@ export class UserService implements OnModuleInit {
 
     // Map to response DTOs with isAwaitingVerification field
     const userResponses = await Promise.all(
-      users.map(user => this.mapToUserResponseDto(user))
+      users.map(async (user) =>
+        this.userMapper.toUserListItemDto(
+          user,
+          await this.checkIfUserIsAwaitingVerification(user),
+        ),
+      ),
     );
 
     // Calculate pagination metadata
@@ -609,14 +594,14 @@ async updateUserProfile(
       limit = 10,
       email,
       phone,
-      roleId,
-      isPhoneVerified,
+      roleCode,
       isVerified,
+      isStripeVerified,
       createdDate,
       orderBy = 'createdAt:desc'
     } = query;
 
-    return `users_list_page${page}_limit${limit}_email${email || 'all'}_phone${phone || 'all'}_roleId${roleId || 'all'}_roleId${isPhoneVerified || 'all'}_roleId${isVerified || 'all'}_created_at${createdDate || 'all'}_order${orderBy}`;
+    return `users_list_page${page}_limit${limit}_email${email || 'all'}_phone${phone || 'all'}_role${roleCode || 'all'}_verified${isVerified ?? 'all'}_stripeVerified${isStripeVerified ?? 'all'}_created_at${createdDate || 'all'}_order${orderBy}`;
   }
 
 

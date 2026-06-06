@@ -87,7 +87,6 @@ export { PaginatedSupportRequestsResponseDto } from './models/paginated-support-
 export { PaginatedThreadResponseDto } from './models/paginated-thread-response-dto';
 export { PaginatedTransactionResponseDto } from './models/paginated-transaction-response-dto';
 export { PaginatedTravelResponseDto } from './models/paginated-travel-response-dto';
-export { PaginatedUserResponseDto } from './models/paginated-user-response-dto';
 export { PayoutResponseDto } from './models/payout-response-dto';
 export { PlatformPricingResponseDto } from './models/platform-pricing-response-dto';
 export { ProfileStatsResponseDto } from './models/profile-stats-response-dto';
@@ -156,6 +155,8 @@ export { UpdateUserRoleDto } from './models/update-user-role-dto';
 export { UploadedFileResponseDto } from './models/uploaded-file-response-dto';
 export { UploadMeetingProofResponseDto } from './models/upload-meeting-proof-response-dto';
 export { UploadVerificationResponseDto } from './models/upload-verification-response-dto';
+export { UserListItemResponseDto } from './models/user-list-item-response-dto';
+export { UserListRoleResponseDto } from './models/user-list-role-response-dto';
 export { UserNameResponseDto } from './models/user-name-response-dto';
 export { UserProfileResponseDto } from './models/user-profile-response-dto';
 export { UserResponseDto } from './models/user-response-dto';

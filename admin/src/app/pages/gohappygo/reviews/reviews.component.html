@@ -201,8 +201,8 @@
         <div class="review-details-card mb-4" *ngIf="selectedReview">
           <div class="row">
             <div class="col-md-6">
-              <p><strong>Reviewer:</strong> {{ getUserName(selectedReview.reviewer) }}</p>
-              <p><strong>Reviewee:</strong> {{ getUserName(selectedReview.reviewee) }}</p>
+              <p><strong>Reviewer:</strong> {{ selectedReview.reviewer.fullName }}</p>
+              <p><strong>Reviewee:</strong> {{ selectedReview.reviewee.fullName }}</p>
             </div>
             <div class="col-md-6">
               <p><strong>Rating:</strong> {{ getRatingStars(selectedReview.rating) }}</p>
@@ -218,26 +218,20 @@
         <!-- Moderate Form -->
         <form [formGroup]="moderateForm">
           <div class="mb-3">
-            <label for="comment" class="form-label">Moderated Comment <span class="text-danger">*</span></label>
+            <label for="comment" class="form-label">Replacement Comment</label>
             <textarea 
-              class="form-control" 
+              class="form-control moderated-comment-readonly" 
               id="comment" 
               formControlName="comment" 
-              rows="6"
-              placeholder="Enter the moderated comment..."
-              [class.is-invalid]="mf.comment.invalid && mf.comment.touched">
+              rows="4"
+              readonly>
             </textarea>
-            <div *ngIf="mf.comment.invalid && mf.comment.touched" class="invalid-feedback">
-              <div *ngIf="mf.comment.errors?.required">Comment is required</div>
-              <div *ngIf="mf.comment.errors?.minlength">Comment must be at least 10 characters</div>
-              <div *ngIf="mf.comment.errors?.maxlength">Comment cannot exceed 2500 characters</div>
-            </div>
-            <small class="text-muted">{{ mf.comment.value?.length || 0 }}/2500 characters</small>
+            <small class="text-muted">The original comment will be replaced with this message.</small>
           </div>
 
-          <div class="alert alert-info">
+          <div class="alert alert-warning">
             <i class="bx bx-info-circle me-2"></i>
-            <strong>Note:</strong> Only the comment can be moderated. The rating cannot be changed by moderators.
+            <strong>Note:</strong> Confirming moderation will permanently replace the original comment with the message above. The rating cannot be changed.
           </div>
         </form>
       </div>

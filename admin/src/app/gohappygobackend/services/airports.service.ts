@@ -42,7 +42,8 @@ export class AirportsService extends BaseService {
    * Get all airports with flexible filtering.
    *
    * Retrieve airports with various filter options:
-   *     - No filters: Returns all airports (admin and operators only)
+   *     - Visitors and regular users: only active airports (not deactivated)
+   *     - Admins and operators: all airports including deactivated
    *     - name: Returns airports with specific name
    *     - city: Returns airports in specific city
    *     - country: Returns airports in specific country
@@ -61,7 +62,8 @@ export class AirportsService extends BaseService {
    * Get all airports with flexible filtering.
    *
    * Retrieve airports with various filter options:
-   *     - No filters: Returns all airports (admin and operators only)
+   *     - Visitors and regular users: only active airports (not deactivated)
+   *     - Admins and operators: all airports including deactivated
    *     - name: Returns airports with specific name
    *     - city: Returns airports in specific city
    *     - country: Returns airports in specific country
@@ -84,7 +86,7 @@ export class AirportsService extends BaseService {
   /**
    * Create an airport.
    *
-   *
+   * Admin or operator — create a new airport in the system.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `airportControllerCreate()` instead.
@@ -98,7 +100,7 @@ export class AirportsService extends BaseService {
   /**
    * Create an airport.
    *
-   *
+   * Admin or operator — create a new airport in the system.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `airportControllerCreate$Response()` instead.
@@ -117,7 +119,7 @@ export class AirportsService extends BaseService {
   /**
    * Get an airport by ID.
    *
-   * Retrieve a single airport by its unique identifier
+   * Retrieve a single airport by its unique identifier. Deactivated airports are hidden from visitors and regular users.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `airportControllerFindOne()` instead.
@@ -131,7 +133,7 @@ export class AirportsService extends BaseService {
   /**
    * Get an airport by ID.
    *
-   * Retrieve a single airport by its unique identifier
+   * Retrieve a single airport by its unique identifier. Deactivated airports are hidden from visitors and regular users.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `airportControllerFindOne$Response()` instead.
@@ -150,7 +152,7 @@ export class AirportsService extends BaseService {
   /**
    * Delete an airport.
    *
-   *
+   * Admin only — permanently delete an airport.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `airportControllerRemove()` instead.
@@ -164,7 +166,7 @@ export class AirportsService extends BaseService {
   /**
    * Delete an airport.
    *
-   *
+   * Admin only — permanently delete an airport.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `airportControllerRemove$Response()` instead.
@@ -183,7 +185,7 @@ export class AirportsService extends BaseService {
   /**
    * Update an airport.
    *
-   *
+   * Admin or operator — update an existing airport.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `airportControllerUpdate()` instead.
@@ -197,7 +199,7 @@ export class AirportsService extends BaseService {
   /**
    * Update an airport.
    *
-   *
+   * Admin or operator — update an existing airport.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `airportControllerUpdate$Response()` instead.

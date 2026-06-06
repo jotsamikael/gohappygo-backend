@@ -52,16 +52,6 @@
             }
           },
           {
-            "name": "isPhoneVerified",
-            "required": false,
-            "in": "query",
-            "description": "Is user's phone verified",
-            "schema": {
-              "example": true,
-              "type": "boolean"
-            }
-          },
-          {
             "name": "isVerified",
             "required": false,
             "in": "query",
@@ -72,23 +62,23 @@
             }
           },
           {
-            "name": "roleId",
+            "name": "isStripeVerified",
             "required": false,
             "in": "query",
-            "description": "Filter by role ID",
-            "schema": {
-              "example": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "isAwaitingVerification",
-            "required": false,
-            "in": "query",
-            "description": "Filter users by verification status",
+            "description": "Filter by Stripe verification status derived from stripeAccountStatus",
             "schema": {
               "example": true,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "roleCode",
+            "required": false,
+            "in": "query",
+            "description": "Filter by role code",
+            "schema": {
+              "example": "USER",
+              "type": "string"
             }
           },
           {
@@ -128,7 +118,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PaginatedUserResponseDto"
+                    "$ref": "#/components/schemas/UserListItemResponseDto"
                   }
                 }
               }
@@ -703,7 +693,7 @@
     },
     "/api/airline": {
       "get": {
-        "description": "Retrieve all airlines with pagination, filtering, and sorting. Admin and operators can access all airlines.",
+        "description": "Retrieve airlines with pagination and filters. Visitors and regular users only see active airlines; admins and operators see all.",
         "operationId": "AirlineController_getAllAirlines",
         "parameters": [
           {
@@ -809,7 +799,104 @@
             "description": "Forbidden - Admin or operator access required"
           }
         },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
         "summary": "Get all airlines",
+        "tags": [
+          "airlines"
+        ]
+      },
+      "post": {
+        "description": "Admin or operator - Create a new airline in the system. Supports optional logo upload.",
+        "operationId": "AirlineController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "icaoCode",
+                  "name"
+                ],
+                "properties": {
+                  "icaoCode": {
+                    "type": "string",
+                    "description": "ICAO code (3-4 letters)",
+                    "example": "AFR"
+                  },
+                  "iataCode": {
+                    "type": "string",
+                    "description": "IATA code (2 letters)",
+                    "example": "AF"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Airline name",
+                    "example": "Air France"
+                  },
+                  "prefix": {
+                    "type": "string",
+                    "description": "Airline prefix",
+                    "example": "AFR"
+                  },
+                  "fleetSize": {
+                    "type": "number",
+                    "description": "Fleet size",
+                    "example": 250
+                  },
+                  "destinationsCount": {
+                    "type": "number",
+                    "description": "Number of destinations",
+                    "example": 200
+                  },
+                  "callsign": {
+                    "type": "string",
+                    "description": "Callsign",
+                    "example": "AIRFRANS"
+                  },
+                  "wikipediaUrl": {
+                    "type": "string",
+                    "description": "Wikipedia URL",
+                    "example": "https://en.wikipedia.org/wiki/Air_France"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Airline logo image file"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Airline created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin or operator access required"
+          },
+          "409": {
+            "description": "Airline code already exists"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create a new airline",
         "tags": [
           "airlines"
         ]
@@ -854,6 +941,145 @@
           }
         ],
         "summary": "Toggle activation status of an airline (Admin/Operator only)",
+        "tags": [
+          "airlines"
+        ]
+      }
+    },
+    "/api/airline/{id}": {
+      "patch": {
+        "description": "Admin or operator - Update an existing airline. Supports optional logo replacement.",
+        "operationId": "AirlineController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "icaoCode": {
+                    "type": "string",
+                    "description": "ICAO code (3-4 letters)",
+                    "example": "AFR"
+                  },
+                  "iataCode": {
+                    "type": "string",
+                    "description": "IATA code (2 letters)",
+                    "example": "AF"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Airline name",
+                    "example": "Air France"
+                  },
+                  "prefix": {
+                    "type": "string",
+                    "description": "Airline prefix",
+                    "example": "AFR"
+                  },
+                  "fleetSize": {
+                    "type": "number",
+                    "description": "Fleet size",
+                    "example": 250
+                  },
+                  "destinationsCount": {
+                    "type": "number",
+                    "description": "Number of destinations",
+                    "example": 200
+                  },
+                  "callsign": {
+                    "type": "string",
+                    "description": "Callsign",
+                    "example": "AIRFRANS"
+                  },
+                  "wikipediaUrl": {
+                    "type": "string",
+                    "description": "Wikipedia URL",
+                    "example": "https://en.wikipedia.org/wiki/Air_France"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Airline logo image file (replaces existing logo)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Airline updated successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin or operator access required"
+          },
+          "404": {
+            "description": "Airline not found"
+          },
+          "409": {
+            "description": "Airline already exists"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update an airline",
+        "tags": [
+          "airlines"
+        ]
+      },
+      "delete": {
+        "description": "Admin only - Soft delete a currency",
+        "operationId": "AirlineController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Airline deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          },
+          "404": {
+            "description": "Airline not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete an airline",
         "tags": [
           "airlines"
         ]
@@ -4298,6 +4524,7 @@
     },
     "/api/airports": {
       "post": {
+        "description": "Admin or operator — create a new airport in the system.",
         "operationId": "AirportController_create",
         "parameters": [],
         "requestBody": {
@@ -4323,6 +4550,15 @@
           },
           "400": {
             "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin or operator access required"
+          },
+          "409": {
+            "description": "Airport already exists"
           }
         },
         "security": [
@@ -4336,7 +4572,7 @@
         ]
       },
       "get": {
-        "description": "\n    Retrieve airports with various filter options:\n    - No filters: Returns all airports (admin and operators only)\n    - name: Returns airports with specific name\n    - city: Returns airports in specific city\n    - country: Returns airports in specific country\n    - code: Returns airports with specific code\n    ",
+        "description": "\n    Retrieve airports with various filter options:\n    - Visitors and regular users: only active airports (not deactivated)\n    - Admins and operators: all airports including deactivated\n    - name: Returns airports with specific name\n    - city: Returns airports in specific city\n    - country: Returns airports in specific country\n    - code: Returns airports with specific code\n    ",
         "operationId": "AirportController_findAll",
         "parameters": [
           {
@@ -4552,6 +4788,11 @@
             "description": "Forbidden - Admin access required for certain operations"
           }
         },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
         "summary": "Get all airports with flexible filtering",
         "tags": [
           "airports"
@@ -4560,7 +4801,7 @@
     },
     "/api/airports/{id}": {
       "get": {
-        "description": "Retrieve a single airport by its unique identifier",
+        "description": "Retrieve a single airport by its unique identifier. Deactivated airports are hidden from visitors and regular users.",
         "operationId": "AirportController_findOne",
         "parameters": [
           {
@@ -4587,12 +4828,18 @@
             "description": "Airport not found"
           }
         },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
         "summary": "Get an airport by ID",
         "tags": [
           "airports"
         ]
       },
       "patch": {
+        "description": "Admin or operator — update an existing airport.",
         "operationId": "AirportController_update",
         "parameters": [
           {
@@ -4627,6 +4874,18 @@
           },
           "400": {
             "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin or operator access required"
+          },
+          "404": {
+            "description": "Airport not found"
+          },
+          "409": {
+            "description": "Airport already exists"
           }
         },
         "security": [
@@ -4640,6 +4899,7 @@
         ]
       },
       "delete": {
+        "description": "Admin only — permanently delete an airport.",
         "operationId": "AirportController_remove",
         "parameters": [
           {
@@ -4657,6 +4917,15 @@
           },
           "400": {
             "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          },
+          "404": {
+            "description": "Airport not found"
           }
         },
         "security": [
@@ -5636,7 +5905,7 @@
     },
     "/api/demand-and-travel/airline-from-flight-number": {
       "get": {
-        "description": "Get airline from flight number",
+        "description": "Resolves airline from flight number. Deactivated airlines are hidden from visitors and regular users.",
         "operationId": "DemandAndTravelController_getAirlineFromFlightNumber",
         "parameters": [
           {
@@ -5663,6 +5932,11 @@
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
         "summary": "Get airline from flight number",
         "tags": [
           "demandsAndTravels"
@@ -7236,6 +7510,156 @@
       }
     },
     "schemas": {
+      "UserListRoleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 2
+          },
+          "code": {
+            "type": "string",
+            "example": "USER"
+          }
+        },
+        "required": [
+          "id",
+          "code"
+        ]
+      },
+      "UserListItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 1
+          },
+          "email": {
+            "type": "string",
+            "example": "john.doe@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+1234567890"
+          },
+          "fullName": {
+            "type": "string",
+            "example": "John D."
+          },
+          "profilePictureUrl": {
+            "type": "string",
+            "example": "https://example.com/profile.jpg"
+          },
+          "bio": {
+            "type": "string",
+            "example": "Frequent traveler who loves helping others",
+            "nullable": true
+          },
+          "isDeactivated": {
+            "type": "boolean",
+            "example": false
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserListRoleResponseDto"
+          },
+          "isStripeVerified": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when stripeAccountStatus is active or restricted; false when uninitiated or pending"
+          },
+          "isVerified": {
+            "type": "boolean",
+            "example": false
+          },
+          "isAwaitingVerification": {
+            "type": "boolean",
+            "example": false
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2024-01-01T00:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2024-01-01T00:00:00.000Z"
+          },
+          "rating": {
+            "type": "object",
+            "example": 4.75,
+            "nullable": true
+          },
+          "numberOfReviews": {
+            "type": "number",
+            "example": 15
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "phone",
+          "fullName",
+          "profilePictureUrl",
+          "bio",
+          "isDeactivated",
+          "role",
+          "isStripeVerified",
+          "isVerified",
+          "isAwaitingVerification",
+          "createdAt",
+          "updatedAt",
+          "rating",
+          "numberOfReviews"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name",
+            "example": "John",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name",
+            "example": "Doe",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "email": {
+            "type": "string",
+            "description": "Email",
+            "example": "john.doe@example.com",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Phone number",
+            "example": "+1234567890",
+            "minLength": 1,
+            "maxLength": 15
+          },
+          "roleId": {
+            "type": "number",
+            "description": "Role id",
+            "example": 1,
+            "minLength": 1,
+            "maxLength": 10
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "email",
+          "phoneNumber",
+          "roleId"
+        ]
+      },
       "UserRoleResponseDto": {
         "type": "object",
         "properties": {
@@ -7351,87 +7775,6 @@
           "updatedAt",
           "rating",
           "numberOfReviews"
-        ]
-      },
-      "PaginatedUserResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserResponseDto"
-            }
-          },
-          "total": {
-            "type": "number",
-            "example": 100
-          },
-          "page": {
-            "type": "number",
-            "example": 1
-          },
-          "limit": {
-            "type": "number",
-            "example": 10
-          },
-          "totalPages": {
-            "type": "number",
-            "example": 10
-          }
-        },
-        "required": [
-          "data",
-          "total",
-          "page",
-          "limit",
-          "totalPages"
-        ]
-      },
-      "CreateUserDto": {
-        "type": "object",
-        "properties": {
-          "firstName": {
-            "type": "string",
-            "description": "First name",
-            "example": "John",
-            "minLength": 2,
-            "maxLength": 40
-          },
-          "lastName": {
-            "type": "string",
-            "description": "Last name",
-            "example": "Doe",
-            "minLength": 2,
-            "maxLength": 40
-          },
-          "email": {
-            "type": "string",
-            "description": "Email",
-            "example": "john.doe@example.com",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "phoneNumber": {
-            "type": "string",
-            "description": "Phone number",
-            "example": "+1234567890",
-            "minLength": 1,
-            "maxLength": 15
-          },
-          "roleId": {
-            "type": "number",
-            "description": "Role id",
-            "example": 1,
-            "minLength": 1,
-            "maxLength": 10
-          }
-        },
-        "required": [
-          "firstName",
-          "lastName",
-          "email",
-          "phoneNumber",
-          "roleId"
         ]
       },
       "UpdateUserDto": {
@@ -11925,8 +12268,93 @@
       "CreateAirportDto": {
         "type": "object",
         "properties": {
-
-        }
+          "ident": {
+            "type": "string",
+            "description": "Unique airport identifier (e.g. ICAO/GPS code)",
+            "example": "KJFK",
+            "maxLength": 20
+          },
+          "type": {
+            "type": "string",
+            "description": "Airport type",
+            "example": "large_airport",
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "description": "Airport name",
+            "example": "John F Kennedy International Airport",
+            "maxLength": 255
+          },
+          "latitudeDeg": {
+            "type": "number",
+            "description": "Latitude in decimal degrees",
+            "example": 40.6413
+          },
+          "longitudeDeg": {
+            "type": "number",
+            "description": "Longitude in decimal degrees",
+            "example": -73.7781
+          },
+          "continent": {
+            "type": "string",
+            "description": "Continent code",
+            "example": "NA",
+            "maxLength": 10
+          },
+          "isoCountry": {
+            "type": "string",
+            "description": "ISO country code",
+            "example": "US",
+            "maxLength": 10
+          },
+          "isoRegion": {
+            "type": "string",
+            "description": "ISO region code",
+            "example": "US-NY",
+            "maxLength": 20
+          },
+          "municipality": {
+            "type": "string",
+            "description": "City or municipality served by the airport",
+            "example": "New York",
+            "maxLength": 255
+          },
+          "icaoCode": {
+            "type": "string",
+            "description": "ICAO code",
+            "example": "KJFK",
+            "maxLength": 10
+          },
+          "iataCode": {
+            "type": "string",
+            "description": "IATA code",
+            "example": "JFK",
+            "maxLength": 10
+          },
+          "gpsCode": {
+            "type": "string",
+            "description": "GPS code",
+            "example": "KJFK",
+            "maxLength": 10
+          },
+          "localCode": {
+            "type": "string",
+            "description": "Local code",
+            "example": "JFK",
+            "maxLength": 10
+          },
+          "homeLink": {
+            "type": "string",
+            "description": "Official airport website URL",
+            "example": "https://www.jfkairport.com"
+          }
+        },
+        "required": [
+          "ident",
+          "type",
+          "name"
+        ]
       },
       "AirportResponseDto": {
         "type": "object",
@@ -11982,11 +12410,6 @@
             "example": "New York",
             "nullable": true
           },
-          "scheduledService": {
-            "type": "string",
-            "example": "yes",
-            "nullable": true
-          },
           "icaoCode": {
             "type": "string",
             "example": "KJFK",
@@ -12006,29 +12429,6 @@
             "type": "string",
             "example": "JFK",
             "nullable": true
-          },
-          "homeLink": {
-            "type": "string",
-            "example": "https://www.panynj.gov/airports/jfk.html",
-            "nullable": true
-          },
-          "wikipediaLink": {
-            "type": "string",
-            "example": "https://en.wikipedia.org/wiki/John_F._Kennedy_International_Airport",
-            "nullable": true
-          },
-          "keywords": {
-            "type": "string",
-            "example": "JFK, Kennedy, New York airport",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
           }
         },
         "required": [
@@ -12043,22 +12443,96 @@
           "isoCountry",
           "isoRegion",
           "municipality",
-          "scheduledService",
           "icaoCode",
           "iataCode",
           "gpsCode",
-          "localCode",
-          "homeLink",
-          "wikipediaLink",
-          "keywords",
-          "createdAt",
-          "updatedAt"
+          "localCode"
         ]
       },
       "UpdateAirportDto": {
         "type": "object",
         "properties": {
-
+          "ident": {
+            "type": "string",
+            "description": "Unique airport identifier (e.g. ICAO/GPS code)",
+            "example": "KJFK",
+            "maxLength": 20
+          },
+          "type": {
+            "type": "string",
+            "description": "Airport type",
+            "example": "large_airport",
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "description": "Airport name",
+            "example": "John F Kennedy International Airport",
+            "maxLength": 255
+          },
+          "latitudeDeg": {
+            "type": "number",
+            "description": "Latitude in decimal degrees",
+            "example": 40.6413
+          },
+          "longitudeDeg": {
+            "type": "number",
+            "description": "Longitude in decimal degrees",
+            "example": -73.7781
+          },
+          "continent": {
+            "type": "string",
+            "description": "Continent code",
+            "example": "NA",
+            "maxLength": 10
+          },
+          "isoCountry": {
+            "type": "string",
+            "description": "ISO country code",
+            "example": "US",
+            "maxLength": 10
+          },
+          "isoRegion": {
+            "type": "string",
+            "description": "ISO region code",
+            "example": "US-NY",
+            "maxLength": 20
+          },
+          "municipality": {
+            "type": "string",
+            "description": "City or municipality served by the airport",
+            "example": "New York",
+            "maxLength": 255
+          },
+          "icaoCode": {
+            "type": "string",
+            "description": "ICAO code",
+            "example": "KJFK",
+            "maxLength": 10
+          },
+          "iataCode": {
+            "type": "string",
+            "description": "IATA code",
+            "example": "JFK",
+            "maxLength": 10
+          },
+          "gpsCode": {
+            "type": "string",
+            "description": "GPS code",
+            "example": "KJFK",
+            "maxLength": 10
+          },
+          "localCode": {
+            "type": "string",
+            "description": "Local code",
+            "example": "JFK",
+            "maxLength": 10
+          },
+          "homeLink": {
+            "type": "string",
+            "description": "Official airport website URL",
+            "example": "https://www.jfkairport.com"
+          }
         }
       },
       "CreateQuoteDto": {

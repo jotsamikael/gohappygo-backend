@@ -7,6 +7,8 @@ import { RoleModule } from 'src/role/role.module';
 import { FileUploadModule } from 'src/file-upload/file-upload.module';
 import { CommonModule } from 'src/common/common.module';
 
+import { UserMapper } from './user.mapper';
+
 @Module({
   imports:[
     TypeOrmModule.forFeature([UserEntity]),
@@ -14,7 +16,7 @@ import { CommonModule } from 'src/common/common.module';
     FileUploadModule,
     CommonModule
   ],
-  providers:[UserService, IsUniqueConstraint],
+  providers:[UserService, UserMapper, IsUniqueConstraint],
   exports:[UserService]
 })
 export class UserModule {}

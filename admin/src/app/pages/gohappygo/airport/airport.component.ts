@@ -62,7 +62,7 @@ export class AirportComponent implements OnInit, AfterViewInit {
   breadCrumbItems: Array<{}>;
   
   // Table properties
-  displayedColumns: string[] = ['ident', 'name', 'type', 'municipality', 'isoCountry', 'iataCode', 'icaoCode', 'scheduledService', 'actions'];
+  displayedColumns: string[] = ['ident', 'name', 'type', 'municipality', 'isoCountry', 'iataCode', 'icaoCode', 'scheduledService','status', 'actions'];
   dataSource: MatTableDataSource<Airport> = new MatTableDataSource<Airport>([]);
  
   // Pagination properties

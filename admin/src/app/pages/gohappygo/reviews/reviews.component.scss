@@ -104,6 +104,13 @@
   }
 }
 
+.moderated-comment-readonly {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+  resize: none;
+}
+
 // Responsive adjustments
 @media (max-width: 768px) {
   .comment-text {

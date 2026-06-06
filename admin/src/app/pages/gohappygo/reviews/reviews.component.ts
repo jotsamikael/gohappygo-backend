@@ -47,6 +47,9 @@ export interface ReviewFilters {
   styleUrls: ['./reviews.component.scss']
 })
 export class ReviewsComponent implements OnInit, AfterViewInit {
+  readonly MODERATED_COMMENT_TEXT =
+    "*** This comment has been removed because it did not comply with our platform's community guidelines ***";
+
   breadCrumbItems: Array<{}>;
   
   // Table properties
@@ -198,7 +201,7 @@ export class ReviewsComponent implements OnInit, AfterViewInit {
   openModerateModal(review: Review): void {
     this.selectedReview = review;
     this.moderateForm.patchValue({
-      comment: review.comment
+      comment: this.MODERATED_COMMENT_TEXT
     });
     this.showModerateModal = true;
   }
@@ -223,7 +226,7 @@ export class ReviewsComponent implements OnInit, AfterViewInit {
 
     this.isModeratingLoading = true;
     const moderateData = {
-      comment: this.moderateForm.value.comment
+      comment: this.MODERATED_COMMENT_TEXT
     };
 
     this.reviewService.reviewControllerModerateReview({

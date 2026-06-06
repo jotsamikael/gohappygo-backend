@@ -25,6 +25,7 @@ import { UpdateUserDto } from './dto/request/updateUser.dto';
 import { UpdatePhoneDto } from './dto/request/UpdatePhone.dto';
 import { ApiTags, ApiBody, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes } from '@nestjs/swagger';
 import { PaginatedUserResponseDto, UserResponseDto } from './dto/user-response.dto';
+import { UserListItemResponseDto } from './dto/user-list-item-response.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { FindUsersQueryDto } from 'src/auth/dto/FindUsersQuery.dto';
 import { ToggleActivationDto } from './dto/toggle-activation.dto';
@@ -52,7 +53,8 @@ export class UserController {
   @ApiResponse({
     status: 200,
     description: 'Users fetched successfully',
-    type: [PaginatedUserResponseDto] // Array of users
+    type: UserListItemResponseDto,
+    isArray: true,
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

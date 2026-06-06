@@ -4,8 +4,8 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'https://api.gohappygo.fr/api',
-  baseUrl: 'https://api.gohappygo.fr',
+  apiUrl: 'http://localhost:3000/api',
+  baseUrl: 'http://localhost:3000',
 };
 
 

@@ -25,20 +25,6 @@ export class FindUsersQueryDto extends PaginationQueryDto {
   phone?: string;
 
   @ApiProperty({
-    description: 'Is user\'s phone verified',
-    example: true,
-    required: false
-  })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
-  @IsBoolean()
-  isPhoneVerified?: boolean;
-
-  @ApiProperty({
     description: 'Is user\'s account verified',
     example: true,
     required: false
@@ -53,28 +39,28 @@ export class FindUsersQueryDto extends PaginationQueryDto {
   isVerified?: boolean;
 
   @ApiProperty({
-    description: 'Filter by role ID',
-    example: 1,
-    required: false
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  roleId?: number;
-
-  @ApiProperty({
-    description: 'Filter users by verification status',
+    description: 'Filter by Stripe verification status derived from stripeAccountStatus',
+    example: true,
     required: false,
-    example: true
   })
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
-    return undefined;
+    return value;
   })
   @IsBoolean()
-  isAwaitingVerification?: boolean;
+  isStripeVerified?: boolean;
+
+  @ApiProperty({
+    description: 'Filter by role code',
+    example: 'USER',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: 'Role code search can\'t be more than 100 characters' })
+  roleCode?: string;
 
   @ApiProperty({
     description: 'Filter by delivery date (ISO 8601)',

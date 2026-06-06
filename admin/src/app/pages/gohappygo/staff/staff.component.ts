@@ -5,8 +5,8 @@ import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSort, Sort } from '@angular/material/sort';
 import { ToastrService } from 'ngx-toastr';
-import { finalize, debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { PhoneTableDisplayPipe } from 'src/app/core/pipes/phone-table-display.pipe';
+import { finalize, debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
+import { CountrySearchOption, toPhoneSearchQuery } from 'src/app/core/utils/phone-display.util';
 import { GlobalFormBuilder } from 'src/app/core/globalFormBuilder';
 import { CommonService } from 'src/app/core/services/common.service';
 import { NotificationService } from 'src/app/core/services/notification.service';
@@ -28,9 +28,8 @@ export interface StaffFilters {
   limit?: number;
   email?: string;
   phone?: string;
-  isPhoneVerified?: boolean;
   isVerified?: boolean;
-  roleId?: number;
+  roleCode?: string;
   orderBy?: 'createdAt:desc' | 'createdAt:asc' | 'deliveryDate:asc' | 'deliveryDate:desc' | 'pricePerKg:asc' | 'pricePerKg:desc';
 }
 
@@ -116,7 +115,7 @@ export class StaffComponent implements OnInit {
   
   breadCrumbItems: Array<{}>;
   // Table properties
-  displayedColumns: string[] = ['fullName', 'email','phone', 'role', 'status','isVerified', 'isPhoneVerified', 'actions'];
+  displayedColumns: string[] = ['fullName', 'email','phone', 'role', 'status','isVerified', 'actions'];
   dataSource: MatTableDataSource<UserResponseDto> = new MatTableDataSource<UserResponseDto>([]);
  
    // Pagination properties
@@ -132,18 +131,19 @@ export class StaffComponent implements OnInit {
   filters: StaffFilters = {
     page: 1,
     limit: 10,
-    roleId:3,
+    roleCode: 'OPERATOR',
     orderBy: 'createdAt:desc' as const
   };
   
   // Search controls
   emailSearchControl = new FormControl('');
   phoneSearchControl = new FormControl('');
+  phoneCountryControl = new FormControl<string | null>(null);
+  selectedPhoneDialCode: string | undefined;
   
   // Filter controls
   isVerifiedFilter = new FormControl<boolean | null>(null);
-  isPhoneVerifiedFilter = new FormControl<boolean | null>(null);
-  roleFilter = new FormControl<number | null>(null);
+  roleFilter = new FormControl<string | null>(null);
 
     /** ISO 3166-1 alpha-2 codes — shown at top of mat-tel-input country list. */
     readonly phonePreferredCountries: string[] = ['cm', 'fr', 'us', 'gb'];
@@ -296,10 +296,11 @@ export class StaffComponent implements OnInit {
    * Apply filters
    */
   applyFilters(): void {
-    this.filters.isVerified = this.isVerifiedFilter.value || undefined;
-    this.filters.isPhoneVerified = this.isPhoneVerifiedFilter.value || undefined;
-    this.filters.roleId = this.roleFilter.value || undefined;
-    this.filters.page = 1; // Reset to first page
+    this.filters.email = this.emailSearchControl.value || undefined;
+    this.filters.phone = this.buildPhoneSearchFilter();
+    this.filters.isVerified = this.isVerifiedFilter.value ?? undefined;
+    this.filters.roleCode = this.roleFilter.value || undefined;
+    this.filters.page = 1;
     this.loadStaff();
   }
 
@@ -309,13 +310,14 @@ export class StaffComponent implements OnInit {
   clearFilters(): void {
     this.emailSearchControl.setValue('');
     this.phoneSearchControl.setValue('');
+    this.phoneCountryControl.setValue(null);
+    this.selectedPhoneDialCode = undefined;
     this.isVerifiedFilter.setValue(null);
-    this.isPhoneVerifiedFilter.setValue(null);
     this.roleFilter.setValue(null);
     
     this.filters = {
       page: 1,
-      roleId:3,
+      roleCode: 'OPERATOR',
       limit: this.pageSize,
       orderBy: 'createdAt:desc'
     };
@@ -356,13 +358,25 @@ export class StaffComponent implements OnInit {
       // Phone search debouncing
       this.phoneSearchControl.valueChanges.pipe(
         debounceTime(500),
+        map(() => this.buildPhoneSearchFilter()),
         distinctUntilChanged()
       ).subscribe(value => {
-        this.filters.phone = value || undefined;
-        this.filters.page = 1; // Reset to first page
+        this.filters.phone = value;
+        this.filters.page = 1;
         this.loadStaff();
       });
     }
+
+  onPhoneCountryChange(country: CountrySearchOption | null): void {
+    this.selectedPhoneDialCode = country?.dialCode;
+    this.filters.phone = this.buildPhoneSearchFilter();
+    this.filters.page = 1;
+    this.loadStaff();
+  }
+
+  private buildPhoneSearchFilter(): string | undefined {
+    return toPhoneSearchQuery(this.phoneSearchControl.value, this.selectedPhoneDialCode);
+  }
 
      /**
    * Open create modal

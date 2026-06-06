@@ -73,6 +73,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTreeModule } from '@angular/material/tree';
 import { NgxIntlTelInputModule } from 'ngx-intl-tel-input-gg';
 import { PhoneTableDisplayPipe } from 'src/app/core/pipes/phone-table-display.pipe';
+import { PhoneTableCellComponent } from 'src/app/core/components/phone-table-cell/phone-table-cell.component';
+import { PhoneSearchFieldComponent } from 'src/app/core/components/phone-search-field/phone-search-field.component';
 
 import { AccordionModule } from 'ngx-bootstrap/accordion';
 import { MatTableExporterModule } from 'mat-table-exporter';
@@ -181,7 +183,9 @@ import { OverviewComponent } from './gohappygo/overview/overview.component';
     LightboxModule,
     PickerModule,
     NgxIntlTelInputModule,
-    PhoneTableDisplayPipe
+    PhoneTableDisplayPipe,
+    PhoneTableCellComponent,
+    PhoneSearchFieldComponent
   ],
 })
 export class PagesModule { }

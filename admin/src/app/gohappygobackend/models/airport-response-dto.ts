@@ -4,24 +4,18 @@
 
 export interface AirportResponseDto {
   continent: string | null;
-  createdAt: string;
   elevationFt: number | null;
   gpsCode: string | null;
-  homeLink: string | null;
   iataCode: string | null;
   icaoCode: string | null;
   id: number;
   ident: string;
   isoCountry: string | null;
   isoRegion: string | null;
-  keywords: string | null;
   latitudeDeg: number | null;
   localCode: string | null;
   longitudeDeg: number | null;
   municipality: string | null;
   name: string;
-  scheduledService: string | null;
   type: string;
-  updatedAt: string;
-  wikipediaLink: string | null;
 }

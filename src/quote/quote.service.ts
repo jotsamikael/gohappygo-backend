@@ -123,9 +123,12 @@ export class QuoteService {
   }
 
   async getRandomQuotes(numberOfQuotes: number): Promise<QuoteEntity[]> {
-    return this.quoteRepository.find({where: {
-      isDeactivated: false
-    }, take: numberOfQuotes });
+    return this.quoteRepository
+      .createQueryBuilder('quote')
+      .where('quote.isDeactivated = :isDeactivated', { isDeactivated: false })
+      .orderBy('RAND()')
+      .take(numberOfQuotes)
+      .getMany();
   }
 
 

@@ -99,7 +99,7 @@ export class DemandsAndTravelsService extends BaseService {
   /**
    * Get airline from flight number.
    *
-   * Get airline from flight number
+   * Resolves airline from flight number. Deactivated airlines are hidden from visitors and regular users.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `demandAndTravelControllerGetAirlineFromFlightNumber()` instead.
@@ -113,7 +113,7 @@ export class DemandsAndTravelsService extends BaseService {
   /**
    * Get airline from flight number.
    *
-   * Get airline from flight number
+   * Resolves airline from flight number. Deactivated airlines are hidden from visitors and regular users.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `demandAndTravelControllerGetAirlineFromFlightNumber$Response()` instead.

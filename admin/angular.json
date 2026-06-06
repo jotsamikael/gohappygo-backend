@@ -30,7 +30,12 @@
             "inlineStyleLanguage": "scss",
             "assets": [
               "src/favicon.ico",
-              "src/assets"
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "node_modules/intl-tel-input/build/img",
+                "output": "assets/intl-tel-input/img"
+              }
             ],
             "styles": [
               "node_modules/intl-tel-input/build/css/intlTelInput.css",
