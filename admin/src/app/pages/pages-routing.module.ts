@@ -7,6 +7,7 @@ import { DefaultComponent } from './dashboards/default/default.component';
 import { ProfileComponent } from './common/profile/profile.component';
 import { StaffComponent } from './gohappygo/staff/staff.component';
 import { UserComponent } from './gohappygo/user/user.component';
+import { UserDetailsComponent } from './gohappygo/user/user-details/user-details.component';
 import { AirlinesComponent } from './gohappygo/airlines/airlines.component';
 import { MatchComponent } from './gohappygo/match/match.component';
 import { ListingComponent } from './gohappygo/listing/listing.component';
@@ -30,6 +31,7 @@ const routes: Routes = [
  { path: 'overview', component:OverviewComponent },
  { path: 'staff', component: StaffComponent },
  { path: 'users', component: UserComponent },
+ { path: 'users/:id', component: UserDetailsComponent },
  { path: 'airlines', component: AirlinesComponent },
  { path: 'airports', component: AirportComponent },
  { path: 'quotes-management', component: QuotesComponent },

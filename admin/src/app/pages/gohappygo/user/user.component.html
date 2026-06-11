@@ -137,7 +137,7 @@
                 <ng-container matColumnDef="rating">
                   <th mat-header-cell *matHeaderCellDef> Rating </th>
                   <td mat-cell *matCellDef="let row">
-                    <span>{{ formatRating(row.rating) }}</span>
+                    <span>{{ row.rating }}</span>
                     <small class="text-muted ms-1">({{ row.numberOfReviews }})</small>
                   </td>
                 </ng-container>
@@ -159,20 +159,6 @@
                         <span>View Details</span>
                       </button>
 
-                      <button mat-menu-item class="menu-item">
-                        <i class="mdi mdi-18px mdi-lock-reset"></i>
-                        <span>Reset Password</span>
-                      </button>
-
-                      <button
-                        *ngIf="row.isAwaitingVerification"
-                        mat-menu-item
-                        (click)="onReviewKYC(row)"
-                        class="menu-item">
-                        <i class="mdi mdi-18px mdi-passport"></i>
-                        <span>Review KYC</span>
-                      </button>
-
                       <button *ngIf="!row.isDeactivated" mat-menu-item (click)="onDeactivateUser(row)" class="menu-item">
                         <i class="mdi mdi-18px mdi-account-cancel"></i>
                         <span>Deactivate</span>
@@ -181,13 +167,6 @@
                       <button *ngIf="row.isDeactivated" mat-menu-item (click)="onActivateUser(row)" class="menu-item">
                         <i class="mdi mdi-18px mdi-account-check"></i>
                         <span>Activate</span>
-                      </button>
-
-                      <mat-divider></mat-divider>
-
-                      <button mat-menu-item (click)="onDeleteUser(row)" class="menu-item delete-action">
-                        <i class="mdi mdi-18px mdi-trash-can"></i>
-                        <span>Delete User</span>
                       </button>
                     </mat-menu>
                   </td>
@@ -225,124 +204,3 @@
     </div>
   </div>
 </div>
-
-<ng-template #viewVerificationFilesModal>
-  <div class="verification-modal">
-    <mat-progress-bar mode="indeterminate" *ngIf="isDeletingFiles"></mat-progress-bar>
-    <h2 mat-dialog-title class="d-flex align-items-center">
-      <mat-icon class="me-2">verified_user</mat-icon>
-      View Verification Files - {{ selectedUser?.fullName }}
-    </h2>
-
-    <mat-dialog-content class="mat-typography">
-      <div class="user-info mb-4">
-        <div class="row">
-          <div class="col-md-6">
-            <p><strong>Email:</strong> {{ selectedUser?.email }}</p>
-            <p class="d-flex align-items-center gap-2">
-              <strong>Phone:</strong>
-              <app-phone-table-cell [phone]="selectedUser?.phone"></app-phone-table-cell>
-            </p>
-          </div>
-          <div class="col-md-6">
-            <p><strong>Email Verified:</strong>
-              <span [class]="selectedUser?.isEmailVerified ? 'text-success' : 'text-danger'">
-                {{ selectedUser?.isEmailVerified ? 'Yes' : 'No' }}
-              </span>
-            </p>
-            <p><strong>Phone Verified:</strong>
-              <span [class]="selectedUser?.isPhoneVerified ? 'text-success' : 'text-danger'">
-                {{ selectedUser?.isPhoneVerified ? 'Yes' : 'No' }}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="verification-files">
-        <h4>Verification Documents ({{ verificationFiles?.length || 0 }}/3)</h4>
-
-        <div class="row">
-          <div class="col-md-4" *ngFor="let file of verificationFiles">
-            <div class="file-card">
-              <div class="file-header">
-                <mat-icon>{{ getFileIcon(file.purpose) }}</mat-icon>
-                <span class="file-purpose">{{ getFilePurposeLabel(file.purpose) }}</span>
-              </div>
-
-              <div class="file-preview">
-                <img
-                  [src]="file.url"
-                  [alt]="file.originalName"
-                  class="img-fluid"
-                  (click)="openImageModal(file.url, file.purpose)">
-              </div>
-
-              <div class="file-info">
-                <small class="text-muted">{{ file.originalName }}</small>
-                <small class="text-muted">{{ formatFileSize(file.size) }}</small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="alert alert-info mt-3" *ngIf="!verificationFiles || verificationFiles.length === 0">
-          <mat-icon>info</mat-icon>
-          No verification files found for this user.
-        </div>
-      </div>
-    </mat-dialog-content>
-
-    <mat-dialog-actions align="end" class="p-3">
-      <button
-        type="button"
-        mat-stroked-button
-        mat-dialog-close
-        [disabled]="isSubmitting || isDeletingFiles">
-        Cancel
-      </button>
-
-      <button
-        type="button"
-        mat-raised-button
-        color="warn"
-        (click)="onRejectClick()"
-        [disabled]="isSubmitting || isDeletingFiles || !canBeApproved">
-
-        <mat-icon *ngIf="!isDeletingFiles">close</mat-icon>
-        {{ isDeletingFiles ? 'Processing...' : 'Reject' }}
-      </button>
-
-      <button
-        type="button"
-        mat-raised-button
-        color="primary"
-        (click)="onApproveClick()"
-        [disabled]="isSubmitting || isDeletingFiles || !canBeApproved">
-
-        <mat-icon *ngIf="!isSubmitting">check</mat-icon>
-        {{ isSubmitting ? 'Processing...' : 'Approve' }}
-      </button>
-    </mat-dialog-actions>
-  </div>
-</ng-template>
-
-<ng-template #imageModal>
-  <h2 mat-dialog-title>
-    <mat-icon class="me-2">image</mat-icon>
-    {{ selectedPurpose }}
-  </h2>
-
-  <mat-dialog-content>
-    <div class="text-center">
-      <img
-        [src]="selectedFile"
-        [alt]="selectedPurpose"
-        class="img-fluid">
-    </div>
-  </mat-dialog-content>
-
-  <mat-dialog-actions align="end">
-    <button type="button" mat-button mat-dialog-close>Close</button>
-  </mat-dialog-actions>
-</ng-template>

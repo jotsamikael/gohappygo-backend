@@ -84,6 +84,7 @@ import { HelpSupportInquiryComponent } from './common/help-support-inquiry/help-
 import { CKEditorModule } from '@ckeditor/ckeditor5-angular';
 import { StaffComponent } from './gohappygo/staff/staff.component';
 import { UserComponent } from './gohappygo/user/user.component';
+import { UserDetailsComponent } from './gohappygo/user/user-details/user-details.component';
 import { TransactionComponent } from './gohappygo/transaction/transaction.component';
 import { AirlinesComponent } from './gohappygo/airlines/airlines.component';
 import { ProfileComponent } from './gohappygo/profile/profile.component';
@@ -101,7 +102,7 @@ import { SupportComponent } from './gohappygo/support/support.component';
 import { OverviewComponent } from './gohappygo/overview/overview.component';
 
 @NgModule({
-  declarations: [StaffComponent, UserComponent, MatchComponent, ListingComponent, ListingDetailModalComponent, AirportMapModalComponent, CalendarComponent, ChatComponent, HelpSupportInquiryComponent,
+  declarations: [StaffComponent, UserComponent, UserDetailsComponent, MatchComponent, ListingComponent, ListingDetailModalComponent, AirportMapModalComponent, CalendarComponent, ChatComponent, HelpSupportInquiryComponent,
      TransactionComponent, AirlinesComponent, ProfileComponent, AirportComponent, QuotesComponent, CurrencyComponent, ReviewsComponent, PlateformPricingComponent, SupportComponent, OverviewComponent],
   imports: [
      // Required by ngx-bootstrap dropdown

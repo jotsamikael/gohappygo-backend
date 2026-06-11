@@ -52,6 +52,8 @@
     "flatpickr": "^4.6.13",
     "google-libphonenumber": "^3.2.44",
     "intl-tel-input": "^17.0.21",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "masonry-layout": "^4.2.2",
     "mat-table-exporter": "^15.0.0",

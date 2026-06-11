@@ -1,0 +1,76 @@
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e9ecef;
+  color: #556ee6;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #74788d;
+    font-weight: 600;
+  }
+
+  .value {
+    color: #343a40;
+    word-break: break-word;
+  }
+}
+
+.stat-tile,
+.summary-tile {
+  border: 1px solid #eff2f7;
+  border-radius: 0.5rem;
+  padding: 0.9rem 1rem;
+  height: 100%;
+}
+
+.stat-label,
+.summary-label {
+  display: block;
+  font-size: 0.78rem;
+  color: #74788d;
+  margin-bottom: 0.35rem;
+}
+
+.value-text,
+.summary-value {
+  font-weight: 600;
+  color: #343a40;
+}
+
+.summary-value {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.activity-tabs {
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 0 1rem 1rem;
+  box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.03);
+}

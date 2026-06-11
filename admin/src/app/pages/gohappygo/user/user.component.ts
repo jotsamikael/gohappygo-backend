@@ -1,15 +1,16 @@
-import { AfterViewInit, Component, OnInit, ViewChild, TemplateRef } from '@angular/core';
+import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSort, Sort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs';
 import { CountrySearchOption, toPhoneSearchQuery } from 'src/app/core/utils/phone-display.util';
 import { NotificationService } from 'src/app/core/services/notification.service';
 import { UserListItemResponseDto } from 'src/app/gohappygobackend/models';
-import { AuthService, UsersService } from 'src/app/gohappygobackend/services';
+import { UsersService } from 'src/app/gohappygobackend/services';
 import Swal from 'sweetalert2';
+import { UserDetailsState } from './user-details/user-details.model';
 
 export interface UserListFilters {
   page?: number;
@@ -20,17 +21,6 @@ export interface UserListFilters {
   isVerified?: boolean;
   roleCode?: string;
   orderBy?: 'createdAt:desc' | 'createdAt:asc' | 'deliveryDate:asc' | 'deliveryDate:desc' | 'pricePerKg:asc' | 'pricePerKg:desc';
-}
-
-interface VerificationUserSummary {
-  id: number;
-  email: string;
-  fullName: string;
-  phone: string;
-  isPhoneVerified: boolean;
-  isEmailVerified: boolean;
-  isVerified: boolean;
-  createdAt: string;
 }
 
 @Component({
@@ -47,7 +37,6 @@ export class UserComponent implements OnInit, AfterViewInit {
   currentPage = 1;
   pageSize = 10;
   pageSizeOptions = [5, 10, 25, 50];
-
   isLoading = false;
 
   filters: UserListFilters = {
@@ -61,33 +50,18 @@ export class UserComponent implements OnInit, AfterViewInit {
   phoneSearchControl = new FormControl('');
   phoneCountryControl = new FormControl<string | null>(null);
   selectedPhoneDialCode: string | undefined;
-
   isVerifiedFilter = new FormControl<boolean | null>(null);
   isStripeVerifiedFilter = new FormControl<boolean | null>(null);
 
   Math = Math;
 
-  selectedUser: VerificationUserSummary | null = null;
-  canBeApproved = false;
-  selectedFile = '';
-  selectedPurpose = '';
-  isSubmitting = false;
-  isDeletingFiles = false;
-
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
-  @ViewChild('viewVerificationFilesModal') viewVerificationFilesModal: TemplateRef<any>;
-  @ViewChild('imageModal') imageModal: TemplateRef<any>;
-
-  private currentDialogRef: MatDialogRef<any> | null = null;
-
-  verificationFiles: any[] = [];
 
   constructor(
     private userService: UsersService,
-    private authService: AuthService,
     private notificationService: NotificationService,
-    private dialog: MatDialog,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -105,12 +79,10 @@ export class UserComponent implements OnInit, AfterViewInit {
   loadUsers(): void {
     this.isLoading = true;
 
-    const requestFilters: UserListFilters = {
+    this.userService.userControllerGetAllOperators({
       ...this.filters,
       roleCode: 'USER',
-    };
-
-    this.userService.userControllerGetAllOperators(requestFilters).subscribe({
+    }).subscribe({
       next: (response: any) => {
         if (response?.items) {
           this.dataSource.data = response.items;
@@ -121,7 +93,6 @@ export class UserComponent implements OnInit, AfterViewInit {
           this.dataSource.data = [];
           this.totalItems = 0;
         }
-
         this.isLoading = false;
       },
       error: (error) => {
@@ -176,21 +147,57 @@ export class UserComponent implements OnInit, AfterViewInit {
     this.loadUsers();
   }
 
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
   formatRating(rating: number | null | undefined): string {
     if (rating == null || typeof rating !== 'number') {
       return '—';
     }
     return rating.toFixed(2);
+  }
+
+  onViewUser(user: UserListItemResponseDto): void {
+    const state: UserDetailsState = {
+      isDeactivated: user.isDeactivated,
+      rating: typeof user.rating === 'number' ? user.rating : null,
+      numberOfReviews: user.numberOfReviews,
+    };
+
+    this.router.navigate(['/backend/users', user.id], { state });
+  }
+
+  onDeactivateUser(user: UserListItemResponseDto): void {
+    Swal.fire({
+      title: 'Deactivate User?',
+      text: `Are you sure you want to deactivate ${user.fullName}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f46a6a',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, deactivate!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.toggleUserActivation(user, true);
+      }
+    });
+  }
+
+  onActivateUser(user: UserListItemResponseDto): void {
+    Swal.fire({
+      title: 'Activate User?',
+      text: `Are you sure you want to activate ${user.fullName}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#34c38f',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, activate!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.toggleUserActivation(user, false);
+      }
+    });
   }
 
   private setupSearchDebouncing(): void {
@@ -240,86 +247,6 @@ export class UserComponent implements OnInit, AfterViewInit {
     return toPhoneSearchQuery(this.phoneSearchControl.value, this.selectedPhoneDialCode);
   }
 
-  onDeactivateUser(user: UserListItemResponseDto): void {
-    Swal.fire({
-      title: 'Deactivate User?',
-      text: `Are you sure you want to deactivate ${user.fullName}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#f46a6a',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, deactivate!',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.toggleUserActivation(user, true);
-      }
-    });
-  }
-
-  onActivateUser(user: UserListItemResponseDto): void {
-    Swal.fire({
-      title: 'Activate User?',
-      text: `Are you sure you want to activate ${user.fullName}?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#34c38f',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, activate!',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.toggleUserActivation(user, false);
-      }
-    });
-  }
-
-  onDeleteUser(user: UserListItemResponseDto): void {
-    Swal.fire({
-      title: 'Delete User?',
-      text: `Are you sure you want to permanently delete ${user.fullName}? This action cannot be undone!`,
-      icon: 'error',
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, delete permanently!',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-      customClass: {
-        confirmButton: 'btn btn-danger',
-        cancelButton: 'btn btn-secondary ms-2'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.deleteUser(user);
-      }
-    });
-  }
-
-  onViewUser(user: UserListItemResponseDto): void {
-    Swal.fire({
-      title: user.fullName,
-      html: `
-        <div class="text-start">
-          <p><strong>Email:</strong> ${user.email}</p>
-          <p><strong>Phone:</strong> ${user.phone}</p>
-          <p><strong>Role:</strong> ${user.role?.code || 'N/A'}</p>
-          <p><strong>Verified:</strong> ${user.isVerified ? 'Yes' : 'No'}</p>
-          <p><strong>Stripe Verified:</strong> ${user.isStripeVerified ? 'Yes' : 'No'}</p>
-          <p><strong>Awaiting Verification:</strong> ${user.isAwaitingVerification ? 'Yes' : 'No'}</p>
-          <p><strong>Rating:</strong> ${this.formatRating(typeof user.rating === 'number' ? user.rating : null)} (${user.numberOfReviews} reviews)</p>
-          <p><strong>Status:</strong> ${user.isDeactivated ? 'Deactivated' : 'Active'}</p>
-          <p><strong>Created:</strong> ${this.formatDate(user.createdAt)}</p>
-        </div>
-      `,
-      icon: 'info',
-      confirmButtonColor: '#556ee6',
-      confirmButtonText: 'Close'
-    });
-  }
-
   private toggleUserActivation(user: UserListItemResponseDto, isDeactivated: boolean): void {
     this.userService.userControllerToggleStaffActivation({
       id: user.id,
@@ -344,246 +271,6 @@ export class UserComponent implements OnInit, AfterViewInit {
           confirmButtonColor: '#f46a6a'
         });
       }
-    });
-  }
-
-  private deleteUser(user: UserListItemResponseDto): void {
-    this.isLoading = true;
-
-    Swal.fire({
-      title: 'Deleting...',
-      text: 'Please wait while we delete the user.',
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-
-    this.userService.userControllerDeleteStaff({ id: user.id }).subscribe({
-      next: () => {
-        Swal.fire({
-          title: 'Deleted!',
-          text: `${user.fullName} has been deleted permanently.`,
-          icon: 'success',
-          confirmButtonColor: '#34c38f'
-        });
-        this.loadUsers();
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error deleting user:', error);
-        Swal.fire({
-          title: 'Error!',
-          text: 'Failed to delete user. Please try again.',
-          icon: 'error',
-          confirmButtonColor: '#f46a6a'
-        });
-        this.isLoading = false;
-      }
-    });
-  }
-
-  async onReviewKYC(user: UserListItemResponseDto): Promise<void> {
-    try {
-      this.isSubmitting = true;
-
-      this.authService.authControllerGetUserVerificationFiles({ userId: user.id }).subscribe({
-        next: (response: any) => {
-          this.selectedUser = response.user;
-          this.verificationFiles = response.verificationFiles;
-          this.canBeApproved = response.canBeApproved ?? false;
-
-          const dialogRef = this.dialog.open(this.viewVerificationFilesModal, {
-            disableClose: true
-          });
-
-          dialogRef.afterClosed().subscribe(() => {
-            this.selectedUser = null;
-            this.verificationFiles = [];
-            this.canBeApproved = false;
-          });
-
-          this.isSubmitting = false;
-        },
-        error: (error) => {
-          console.error('Error loading verification files:', error);
-          this.notificationService.error('Failed to load verification files');
-          this.isSubmitting = false;
-        }
-      });
-    } catch (error) {
-      console.error('Error loading verification files:', error);
-      this.notificationService.error('Failed to load verification files');
-      this.isSubmitting = false;
-    }
-  }
-
-  async approveVerification(approved: boolean): Promise<void> {
-    if (!this.selectedUser) return;
-
-    try {
-      this.isSubmitting = true;
-
-      if (approved) {
-        const result = await Swal.fire({
-          title: 'Approve User Verification?',
-          text: `Are you sure you want to approve the verification for ${this.selectedUser.fullName}? This action is irreversible.`,
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonColor: '#28a745',
-          cancelButtonColor: '#6c757d',
-          confirmButtonText: 'Yes, approve!',
-          cancelButtonText: 'Cancel',
-          reverseButtons: true,
-          customClass: {
-            confirmButton: 'btn btn-success',
-            cancelButton: 'btn btn-secondary ms-2'
-          }
-        });
-
-        if (result.isConfirmed) {
-          await this.submitVerificationDecision(approved);
-        }
-      } else {
-        const result = await Swal.fire({
-          title: 'Reject User Verification?',
-          text: `Are you sure you want to reject the verification for ${this.selectedUser.fullName}?`,
-          icon: 'warning',
-          input: 'textarea',
-          inputLabel: 'Reason for rejection *',
-          inputPlaceholder: 'Enter the reason for rejection...',
-          inputAttributes: {
-            'aria-label': 'Reason for rejection',
-            'aria-describedby': 'swal2-description',
-            'required': 'true'
-          },
-          showCancelButton: true,
-          confirmButtonColor: '#dc3545',
-          cancelButtonColor: '#6c757d',
-          confirmButtonText: 'Yes, reject!',
-          cancelButtonText: 'Cancel',
-          reverseButtons: true,
-          inputValidator: (value) => {
-            if (!value || value.trim().length === 0) {
-              return 'You need to provide a reason for rejection!';
-            }
-            if (value.length > 500) {
-              return 'Reason cannot exceed 500 characters';
-            }
-            return null;
-          },
-          customClass: {
-            confirmButton: 'btn btn-danger',
-            cancelButton: 'btn btn-secondary ms-2'
-          }
-        });
-
-        if (result.isConfirmed && result.value) {
-          await this.submitVerificationDecision(approved, result.value.trim());
-        }
-      }
-    } catch (error) {
-      console.error('Error updating verification status:', error);
-      this.notificationService.error('Failed to update verification status');
-    } finally {
-      this.isSubmitting = false;
-    }
-  }
-
-  private async submitVerificationDecision(approved: boolean, reason?: string): Promise<void> {
-    try {
-      const requestBody = {
-        approved,
-        reason: reason || undefined
-      };
-
-      if (!approved) {
-        this.isDeletingFiles = true;
-
-        Swal.fire({
-          title: 'Processing Rejection...',
-          text: 'Deleting verification files and sending notification...',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          showConfirmButton: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-      }
-
-      await this.authService.authControllerVerifyUserAccount({
-        id: this.selectedUser!.id,
-        body: requestBody
-      }).toPromise();
-
-      if (!approved) {
-        Swal.close();
-      }
-
-      await Swal.fire({
-        title: `${approved ? 'Approved' : 'Rejected'}!`,
-        text: `User verification has been ${approved ? 'approved' : 'rejected'} successfully.${!approved ? ' Verification files have been deleted.' : ''}`,
-        icon: 'success',
-        confirmButtonColor: approved ? '#28a745' : '#dc3545',
-        confirmButtonText: 'OK'
-      });
-
-      this.dialog.closeAll();
-      this.loadUsers();
-    } catch (error) {
-      if (!approved) {
-        Swal.close();
-      }
-
-      console.error('Error submitting verification decision:', error);
-      throw error;
-    } finally {
-      this.isDeletingFiles = false;
-    }
-  }
-
-  onApproveClick(): void {
-    this.approveVerification(true);
-  }
-
-  onRejectClick(): void {
-    this.approveVerification(false);
-  }
-
-  getFileIcon(purpose: string): string {
-    switch (purpose) {
-      case 'SELFIE': return 'face';
-      case 'ID_FRONT': return 'credit_card';
-      case 'ID_BACK': return 'credit_card';
-      default: return 'description';
-    }
-  }
-
-  getFilePurposeLabel(purpose: string): string {
-    switch (purpose) {
-      case 'SELFIE': return 'Selfie';
-      case 'ID_FRONT': return 'ID Front';
-      case 'ID_BACK': return 'ID Back';
-      default: return purpose;
-    }
-  }
-
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  openImageModal(imageUrl: string, purpose: string): void {
-    this.selectedFile = imageUrl;
-    this.selectedPurpose = purpose;
-    const dialogRef = this.dialog.open(this.imageModal, {});
-    dialogRef.afterClosed().subscribe(() => {
-      this.selectedFile = '';
-      this.selectedPurpose = '';
     });
   }
 }
