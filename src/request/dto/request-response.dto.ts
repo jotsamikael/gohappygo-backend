@@ -118,6 +118,12 @@ export class RequestResponseDto {
   @ApiProperty({ description: 'Whether a meeting proof selfie has been uploaded', example: false })
   hasMeetingProof: boolean;
 
+  @ApiProperty({
+    description: 'Whether a delivery proof photo has been uploaded for this request',
+    example: false,
+  })
+  isPhotoTaken: boolean;
+
   @ApiProperty({ description: 'When meeting proof was uploaded', required: false, nullable: true })
   meetingProofUploadedAt?: Date | null;
 

@@ -2169,6 +2169,7 @@ export class RequestService {
       lastMessageDateTime: lastMessageDateTime ?? null,
       canReview,
       hasMeetingProof: !!request.deliveryProof,
+      isPhotoTaken: !!request.deliveryProof,
       meetingProofUploadedAt: request.deliveryProof?.uploadedAt ?? null,
       meetingProofUploadedByUserId: request.deliveryProof?.uploadedByUserId ?? null,
     };
