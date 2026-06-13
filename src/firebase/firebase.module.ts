@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FirebaseService } from './firebase.service';
 import { FirebaseConfig } from './firebase.config';
 import { FirebaseAuthService } from './firebase-auth.service';
+import { FirebaseMessagingService } from './firebase-messaging.service';
 import { UserEntity } from '../user/user.entity';
 
 @Global()
@@ -12,7 +13,7 @@ import { UserEntity } from '../user/user.entity';
     ConfigModule,
     TypeOrmModule.forFeature([UserEntity])
   ],
-  providers: [FirebaseConfig, FirebaseService, FirebaseAuthService],
-  exports: [FirebaseService, FirebaseAuthService],
+  providers: [FirebaseConfig, FirebaseService, FirebaseAuthService, FirebaseMessagingService],
+  exports: [FirebaseService, FirebaseAuthService, FirebaseMessagingService],
 })
 export class FirebaseModule {}

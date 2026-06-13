@@ -1,11 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, HttpCode, HttpStatus, Put } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { FindNotificationsQueryDto } from './dto/find-notifications-query.dto';
 import { NotificationResponseDto, NotificationCountResponseDto, PaginatedNotificationsResponseDto } from './dto/notification-response.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { DeviceTokenService } from './device-token.service';
+import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
+import { UnregisterDeviceTokenDto } from './dto/unregister-device-token.dto';
+import { RegisterDeviceTokenResponseDto } from './dto/register-device-token-response.dto';
 
 
 @ApiTags('Notifications')
@@ -13,7 +17,10 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class NotificationController {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly deviceTokenService: DeviceTokenService,
+  ) {}
 
   @Get()
   @ApiOperation({ 
@@ -131,5 +138,40 @@ export class NotificationController {
     @CurrentUser() user: any
   ): Promise<{ affected: number }> {
     return this.notificationService.clearReadNotifications(user.id);
+  }
+
+  @Put('device-token')
+  @ApiOperation({
+    summary: 'Register FCM device token',
+    description: 'Register or refresh the current device FCM token for push notifications',
+  })
+  @ApiBody({ type: RegisterDeviceTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Device token registered successfully',
+    type: RegisterDeviceTokenResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async registerDeviceToken(
+    @CurrentUser() user: any,
+    @Body() dto: RegisterDeviceTokenDto,
+  ): Promise<RegisterDeviceTokenResponseDto> {
+    return this.deviceTokenService.register(user.id, dto);
+  }
+
+  @Delete('device-token')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Unregister FCM device token',
+    description: 'Remove the device FCM token on logout',
+  })
+  @ApiBody({ type: UnregisterDeviceTokenDto })
+  @ApiResponse({ status: 204, description: 'Device token unregistered successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async unregisterDeviceToken(
+    @CurrentUser() user: any,
+    @Body() dto: UnregisterDeviceTokenDto,
+  ): Promise<void> {
+    return this.deviceTokenService.unregister(user.id, dto.fcmToken);
   }
 }

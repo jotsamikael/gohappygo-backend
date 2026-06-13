@@ -66,6 +66,7 @@ import { BookmarkEntity } from './bookmark/entities/bookmark.entity';
 import { CommonModule } from './common/common.module';
 import { NotificationModule } from './notification/notification.module';
 import { NotificationEntity } from './notification/entities/notification.entity';
+import { UserDeviceTokenEntity } from './notification/entities/user-device-token.entity';
 import { SupportModule } from './support/support.module';
 import { SupportRequestEntity } from './support/entities/support-request.entity';
 import { SupportLogEntity } from './support/entities/support-log.entity';
@@ -172,6 +173,7 @@ import { join } from 'path';
           File,
           BookmarkEntity,
           NotificationEntity,
+          UserDeviceTokenEntity,
           SupportRequestEntity,
           SupportLogEntity,
           PlatformPricingEntity,

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, LessThanOrEqual, MoreThanOrEqual, Between } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -10,9 +10,13 @@ import { NotificationResponseDto, NotificationCountResponseDto, PaginatedNotific
 import { NotificationMapper } from './notification.mapper';
 import { CustomNotFoundException, CustomForbiddenException, CustomBadRequestException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { DeviceTokenService } from './device-token.service';
+import { FcmPushPayloadBuilder } from './fcm-push-payload.builder';
+import { FirebaseMessagingService } from 'src/firebase/firebase-messaging.service';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
   private notificationCacheKeys: Set<string> = new Set();
 
   constructor(
@@ -20,6 +24,9 @@ export class NotificationService {
     private notificationRepository: Repository<NotificationEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private notificationMapper: NotificationMapper,
+    private deviceTokenService: DeviceTokenService,
+    private fcmPushPayloadBuilder: FcmPushPayloadBuilder,
+    private firebaseMessagingService: FirebaseMessagingService,
   ) {}
 
   /**
@@ -31,8 +38,33 @@ export class NotificationService {
     
     // Clear cache for the target user
     await this.clearUserNotificationCache(createNotificationDto.targetUserId);
+
+    this.sendPushForNotification(savedNotification).catch((error) => {
+      this.logger.error(
+        `Failed to send FCM push for notification ${savedNotification.id}: ${error.message}`,
+        error.stack,
+      );
+    });
     
     return savedNotification;
+  }
+
+  private async sendPushForNotification(notification: NotificationEntity): Promise<void> {
+    const tokens = await this.deviceTokenService.getTokensForUser(notification.targetUserId);
+    if (tokens.length === 0) {
+      return;
+    }
+
+    const message = this.fcmPushPayloadBuilder.buildMessage(notification);
+    const result = await this.firebaseMessagingService.sendToTokens(tokens, message);
+
+    if (result.invalidTokens.length > 0) {
+      await this.deviceTokenService.deleteTokens(result.invalidTokens);
+    }
+
+    this.logger.log(
+      `FCM push for notification ${notification.id}: ${result.successCount} succeeded, ${result.failureCount} failed`,
+    );
   }
 
   /**

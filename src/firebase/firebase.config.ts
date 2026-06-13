@@ -39,4 +39,8 @@ export class FirebaseConfig {
   getDatabase(): admin.database.Database {
     return this.firebaseApp.database();
   }
+
+  getMessaging(): admin.messaging.Messaging {
+    return this.firebaseApp.messaging();
+  }
 }
