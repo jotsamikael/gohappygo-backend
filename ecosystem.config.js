@@ -5,7 +5,7 @@ module.exports = {
     name: 'gohappygo-api',
     script: 'dist/src/main.js',
     cwd: '/home/mikael/htdocs/api.gohappygo.fr/current',
-    env_file: '/home/mikael/htdocs/api.gohappygo.fr/shared/.env.production',
+    exec_mode: 'fork',
     instances: 1,
     autorestart: true,
     watch: false,

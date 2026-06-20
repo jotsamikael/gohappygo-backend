@@ -9,7 +9,11 @@ export class FirebaseService implements OnModuleInit {
   constructor(private firebaseConfig: FirebaseConfig) {}
 
   onModuleInit() {
-    this.database = this.firebaseConfig.getDatabase();
+    try {
+      this.database = this.firebaseConfig.getDatabase();
+    } catch (error) {
+      console.warn('Firebase Realtime Database unavailable at startup:', error);
+    }
   }
 
   // Get database reference

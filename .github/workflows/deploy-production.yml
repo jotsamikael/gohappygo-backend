@@ -204,56 +204,106 @@ jobs:
           cd "${RELEASE_DIR}"
           npm ci --omit=dev
 
-          # Point the current symlink at this release (atomic switch)
-          ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
+          resolve_nest_entry() {
+            local release_dir="$1"
+            local candidate
+            for candidate in dist/src/main.js dist/main.js; do
+              if [ -f "${release_dir}/${candidate}" ]; then
+                echo "${candidate}"
+                return 0
+              fi
+            done
+            return 1
+          }
 
-          # Nest reads .env.production from cwd — link shared secrets into current/
-          ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
+          write_ecosystem_file() {
+            local release_dir="$1"
+            local entry="$2"
+            cat > "${ECOSYSTEM_FILE}" <<EOF
+module.exports = {
+  apps: [{
+    name: '${PM2_APP_NAME}',
+    script: '${entry}',
+    cwd: '${APP_DIR}/current',
+    exec_mode: 'fork',
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000,
+    },
+  }],
+};
+EOF
+          }
 
-          # Resolve Nest entry point (CI build outputs dist/src/main.js)
-          NEST_ENTRY=""
-          for candidate in dist/src/main.js dist/main.js; do
-            if [ -f "${RELEASE_DIR}/${candidate}" ]; then
-              NEST_ENTRY="${candidate}"
-              break
+          activate_release() {
+            local release_dir="$1"
+            local entry="$2"
+            ln -sfn "${release_dir}" "${CURRENT_LINK}"
+            ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
+            write_ecosystem_file "${release_dir}" "${entry}"
+            if pm2 describe "${PM2_APP_NAME}" >/dev/null 2>&1; then
+              pm2 delete "${PM2_APP_NAME}" 2>/dev/null || true
             fi
-          done
-          if [ -z "${NEST_ENTRY}" ]; then
+            pm2 start "${ECOSYSTEM_FILE}" --update-env
+            pm2 save
+          }
+
+          NEST_ENTRY="$(resolve_nest_entry "${RELEASE_DIR}")" || {
             echo "ERROR: Nest entry point not found under ${RELEASE_DIR}/dist"
             find "${RELEASE_DIR}/dist" -name 'main.js' 2>/dev/null || true
             exit 1
-          fi
+          }
           echo "Using Nest entry point: ${NEST_ENTRY}"
 
-          # Regenerate PM2 ecosystem so script path and cwd stay in sync with each release
-          cat > "${ECOSYSTEM_FILE}" <<EOF
-          module.exports = {
-            apps: [{
-              name: '${PM2_APP_NAME}',
-              script: '${NEST_ENTRY}',
-              cwd: '${CURRENT_LINK}',
-              env_file: '${SHARED_DIR}/.env.production',
-              instances: 1,
-              autorestart: true,
-              watch: false,
-              max_memory_restart: '1G',
-              env: {
-                NODE_ENV: 'production',
-                PORT: 3000,
-              },
-            }],
-          };
-          EOF
-
-          # (Re)load PM2 using the shared ecosystem file; cwd must be current/ in that file
+          # Stop PM2 so the smoke test can bind to port 3000
           if pm2 describe "${PM2_APP_NAME}" >/dev/null 2>&1; then
-            pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
-          else
-            pm2 start "${ECOSYSTEM_FILE}" --update-env
+            pm2 stop "${PM2_APP_NAME}" 2>/dev/null || true
           fi
-          pm2 save
 
-          # Poll until NestJS is listening (local boot often takes 6–10s+ on VPS)
+          # Boot smoke test in the release folder before switching the live symlink
+          ln -sfn "${SHARED_DIR}/.env.production" "${RELEASE_DIR}/.env.production"
+          echo "=== Boot smoke test (direct node, before PM2) ==="
+          SMOKE_LOG="/tmp/gohappygo-boot-smoke-${RELEASE_ID}.log"
+          cd "${RELEASE_DIR}"
+          NODE_ENV=production node "${NEST_ENTRY}" > "${SMOKE_LOG}" 2>&1 &
+          SMOKE_PID=$!
+          smoke_ok=false
+          smoke_elapsed=0
+          while [ "${smoke_elapsed}" -lt "${HEALTH_CHECK_MAX_WAIT_SEC}" ]; do
+            if curl -sf "${HEALTH_CHECK_URL}" -o /dev/null; then
+              smoke_ok=true
+              echo "Boot smoke test passed after ${smoke_elapsed}s."
+              break
+            fi
+            if ! kill -0 "${SMOKE_PID}" 2>/dev/null; then
+              echo "Boot smoke test: node process exited before API became ready."
+              break
+            fi
+            sleep "${HEALTH_CHECK_INTERVAL_SEC}"
+            smoke_elapsed=$((smoke_elapsed + HEALTH_CHECK_INTERVAL_SEC))
+          done
+          kill "${SMOKE_PID}" 2>/dev/null || true
+          wait "${SMOKE_PID}" 2>/dev/null || true
+          sleep 2
+
+          if [ "${smoke_ok}" = false ]; then
+            echo "Boot smoke test failed. Last 80 lines:"
+            tail -80 "${SMOKE_LOG}" 2>/dev/null || true
+            if [ -n "${PREVIOUS_RELEASE}" ] && [ -d "${PREVIOUS_RELEASE}" ]; then
+              echo "Restoring previous release after failed smoke test: ${PREVIOUS_RELEASE}"
+              PREVIOUS_ENTRY="$(resolve_nest_entry "${PREVIOUS_RELEASE}")" || PREVIOUS_ENTRY="dist/main.js"
+              activate_release "${PREVIOUS_RELEASE}" "${PREVIOUS_ENTRY}"
+            fi
+            exit 1
+          fi
+
+          activate_release "${RELEASE_DIR}" "${NEST_ENTRY}"
+
+          # Poll until NestJS is listening under PM2
           health_ok=false
           elapsed=0
           while [ "${elapsed}" -lt "${HEALTH_CHECK_MAX_WAIT_SEC}" ]; do
@@ -281,10 +331,8 @@ jobs:
             # Roll back to the previous release if one existed
             if [ -n "${PREVIOUS_RELEASE}" ] && [ -d "${PREVIOUS_RELEASE}" ]; then
               echo "Rolling back to ${PREVIOUS_RELEASE}"
-              ln -sfn "${PREVIOUS_RELEASE}" "${CURRENT_LINK}"
-              ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
-              pm2 startOrReload "${ECOSYSTEM_FILE}" --update-env
-              pm2 save
+              PREVIOUS_ENTRY="$(resolve_nest_entry "${PREVIOUS_RELEASE}")" || PREVIOUS_ENTRY="dist/main.js"
+              activate_release "${PREVIOUS_RELEASE}" "${PREVIOUS_ENTRY}"
             fi
             exit 1
           fi
