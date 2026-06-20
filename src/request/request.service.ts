@@ -49,7 +49,6 @@ export class RequestService {
     @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
     private requestStatusHistoryService: RequestStatusHistoryService,
     private requestStatusService: RequestStatusService,
-    @Inject(forwardRef(() => TravelService))
     private travelService: TravelService,
     private demandService: DemandService,
     private transactionService: TransactionService,
@@ -1219,66 +1218,6 @@ export class RequestService {
     await this.clearRequestListCache();
 
     return request;
-  }
-
-  /**
-   * Cancels a request when its parent travel/demand listing is cancelled.
-   * Skips terminal requests. Refunds paid transactions (partial) and releases reserved travel weight.
-   */
-  async cancelRequestForListingCancellation(
-    requestId: number,
-    listingOwnerUserId: number,
-  ): Promise<boolean> {
-    const terminalStatuses = ['COMPLETED', 'CANCELLED', 'REJECTED'];
-    const request = await this.getRequestById(requestId);
-    if (!request || terminalStatuses.includes(request.currentStatus?.status ?? '')) {
-      return false;
-    }
-
-    const transaction = await this.transactionService.findTransactionByRequestId(requestId);
-    if (transaction?.status === 'pending') {
-      await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
-    } else {
-      try {
-        await this.refundRequestTransaction(requestId);
-      } catch (error: any) {
-        this.logger.error(
-          `Failed to refund request ${requestId} during listing cancellation: ${error?.message ?? error}`,
-        );
-      }
-    }
-
-    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
-    if (!cancelledStatus) {
-      throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
-    }
-
-    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
-      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
-        where: { id: requestId },
-        relations: ['currentStatus'],
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!lockedRequest || terminalStatuses.includes(lockedRequest.currentStatus?.status ?? '')) {
-        return;
-      }
-
-      lockedRequest.currentStatusId = cancelledStatus.id;
-      lockedRequest.currentStatus = cancelledStatus;
-      await transactionalEntityManager.save(RequestEntity, lockedRequest);
-      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
-      await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
-    });
-
-    const requester = await this.userService.findOne({ id: request.requesterId });
-    if (requester) {
-      request.currentStatusId = cancelledStatus.id;
-      request.currentStatus = cancelledStatus;
-      this.userEventService.emitRequestCancelled(requester, request, false, listingOwnerUserId);
-    }
-
-    await this.clearRequestListCacheForUsers([request.requesterId, listingOwnerUserId]);
-    return true;
   }
 
   /**

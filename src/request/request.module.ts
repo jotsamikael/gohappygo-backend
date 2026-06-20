@@ -33,7 +33,7 @@ import { memoryStorage } from 'multer';
     FileUploadModule,
     RequestStatusHistoryModule,
     RequestStatusModule,
-    forwardRef(() => TravelModule),
+    TravelModule,
     DemandModule,
     TransactionModule,
     CacheModule.register(),

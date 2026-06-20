@@ -30,7 +30,7 @@ import { TransactionService } from 'src/transaction/transaction.service';
 import { StripeService } from 'src/stripe/stripe.service';
 import { UserService } from 'src/user/user.service';
 import { RequestStatusHistoryEntity } from 'src/request-status-history/RequestStatusHistory.entity';
-import { RequestService } from 'src/request/request.service';
+import { RequestListingCancellationService } from 'src/request-listing-cancellation/request-listing-cancellation.service';
 @Injectable()
 export class TravelService {
  
@@ -55,8 +55,7 @@ export class TravelService {
     @Inject(forwardRef(() => StripeService))
     private readonly stripeService: StripeService,
     private readonly userService: UserService,
-    @Inject(forwardRef(() => RequestService))
-    private readonly requestService: RequestService,
+    private readonly requestListingCancellationService: RequestListingCancellationService,
   ) { }
 
   private generateTravelsListCacheKey(query: FindTravelsQueryDto): string {
@@ -456,7 +455,7 @@ export class TravelService {
     // 4. Cancel all active requests (refund paid, release weight, notify requesters)
     if (travel.requests && travel.requests.length > 0) {
       for (const request of travel.requests) {
-        await this.requestService.cancelRequestForListingCancellation(request.id, travel.userId);
+        await this.requestListingCancellationService.cancelRequestForListingCancellation(request.id, travel.userId);
       }
     }
 
