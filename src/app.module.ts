@@ -86,7 +86,7 @@ import { join } from 'path';
   imports: [
     ServeStaticModule.forRoot({
       // Point this to the 'dist' folder of your Angular app
-      rootPath: join(__dirname, '..', 'admin/dist/skote'), 
+      rootPath: join(__dirname, '..', '..', 'admin/dist/skote'),
       // All routes NOT starting with /api will serve the Angular app
       //exclude: ['/api*'], 
       //exclude: ['/api/*path'],
