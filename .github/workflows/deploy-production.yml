@@ -219,24 +219,24 @@ jobs:
           write_ecosystem_file() {
             local release_dir="$1"
             local entry="$2"
-            cat > "${ECOSYSTEM_FILE}" <<EOF
-module.exports = {
-  apps: [{
-    name: '${PM2_APP_NAME}',
-    script: '${entry}',
-    cwd: '${APP_DIR}/current',
-    exec_mode: 'fork',
-    instances: 1,
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 3000,
-    },
-  }],
-};
-EOF
+            printf '%s\n' \
+              'module.exports = {' \
+              '  apps: [{' \
+              "    name: '${PM2_APP_NAME}'," \
+              "    script: '${entry}'," \
+              "    cwd: '${APP_DIR}/current'," \
+              "    exec_mode: 'fork'," \
+              '    instances: 1,' \
+              '    autorestart: true,' \
+              '    watch: false,' \
+              "    max_memory_restart: '1G'," \
+              '    env: {' \
+              "      NODE_ENV: 'production'," \
+              '      PORT: 3000,' \
+              '    },' \
+              '  }],' \
+              '};' \
+              > "${ECOSYSTEM_FILE}"
           }
 
           activate_release() {
