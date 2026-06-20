@@ -7,6 +7,9 @@ export class UserResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  publicId: string;
+
   @ApiProperty({ example: 'john.doe@example.com' })
   email: string;
 
@@ -97,6 +100,9 @@ export class RefreshTokenResponseDto {
 export class UploadedFileResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
+
+  @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  publicId: string;
 
   @ApiProperty({ example: 'selfie.jpg' })
   originalName: string;

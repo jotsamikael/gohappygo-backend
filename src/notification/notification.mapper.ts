@@ -11,6 +11,7 @@ export class NotificationMapper {
   toResponseDto(notification: NotificationEntity): NotificationResponseDto {
     const actor = notification.actor ? plainToInstance(NotificationActorDto, {
       id: notification.actor.id,
+      publicId: notification.actor?.publicId ?? '',
       fullName: this.commonService.userFullName(notification.actor),
       profilePictureUrl: notification.actor.profilePictureUrl || null,
     }, {
@@ -20,6 +21,7 @@ export class NotificationMapper {
 
     const mapped = plainToInstance(NotificationResponseDto, {
       id: notification.id,
+      publicId: notification.publicId,
       notificationType: notification.notificationType,
       targetUserId: notification.targetUserId,
       actorUserId: notification.actorUserId,

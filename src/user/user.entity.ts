@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { EmailVerificationEntity } from 'src/email-verification/email-verification.entity';
 import { MessageEntity } from 'src/message/message.entity';
@@ -30,7 +31,8 @@ export enum UserRole {
  *Stores identity, contact info, and role, and is linked to all activity such as announcements, travels, reviews, and transactions.
  */
 @Entity()
-export class UserEntity extends BaseEntity {
+export class UserEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.USER;
   @Column({ unique: true })
   email: string;
 

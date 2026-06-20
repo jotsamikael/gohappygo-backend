@@ -7,6 +7,10 @@ export class DemandDetailAirportDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'medium_airport' })
     @Expose()
     type: string;
@@ -49,6 +53,10 @@ export class DemandDetailUserDto {
     @ApiProperty({ example: 38 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({ example: 'Patrick O.' })
     @Expose()
@@ -101,6 +109,10 @@ export class DemandDetailAirlineDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'al_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'Sweden - Swedish Maritime Administration' })
     @Expose()
     name: string;
@@ -132,6 +144,10 @@ export class DemandDetailImageDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'https://res.cloudinary.com/...' })
     @Expose()
     fileUrl: string;
@@ -159,6 +175,10 @@ export class DemandDetailReviewerDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'Joe O.' })
     @Expose()
     fullName: string;
@@ -176,6 +196,10 @@ export class DemandDetailReviewDto {
     })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'rv_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({
         description: 'Review created at',
@@ -240,6 +264,10 @@ export class DemandDetailCurrencyDto {
     @ApiProperty({ example: 1 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'cu_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
     
     @ApiProperty({ example: 'USD' })
     @Expose()
@@ -255,6 +283,10 @@ export class DemandDetailResponseDto{
         @ApiProperty({ example: 11 })
         @Expose()
         id: number;
+
+        @ApiProperty({ example: 'dm_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+        @Expose()
+        publicId: string;
             
         @ApiProperty({ example: 'I wm travelling to France' })
         @Expose()

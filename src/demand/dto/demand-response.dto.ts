@@ -8,6 +8,10 @@ export class DemandListAirportDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: "KONT" })
   @Expose()
   ident: string;
@@ -46,6 +50,10 @@ export class DemandListUserDto {
   @ApiProperty({ example: 29 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: "2025-09-13T19:44:29.010Z" })
   @Expose()
@@ -98,6 +106,10 @@ export class DemandListImageDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: "WhatsApp-Image-2024-07-18-at-10.51.20-PM-1.webp" })
   @Expose()
   originalName: string;
@@ -109,10 +121,6 @@ export class DemandListImageDto {
   @ApiProperty({ example: 352528 })
   @Expose()
   size: number;
-
-  @ApiProperty({ example: "gohappygo/eafxnlj9nsez14m4n51p" })
-  @Expose()
-  publicId: string;
 
   @ApiProperty({ example: "image/webp" })
   @Expose()
@@ -140,6 +148,10 @@ export class DemandListAirlineDto {
   @ApiProperty({ example: 782 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'al_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: false })
   @Expose()
@@ -182,6 +194,10 @@ export class DemandResponseDto {
   @ApiProperty({ example: 19 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'dm_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: "2025-11-29T07:05:04.655Z" })
   @Expose()

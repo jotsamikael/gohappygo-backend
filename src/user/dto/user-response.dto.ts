@@ -7,6 +7,10 @@ export class UserResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: 'john.doe@example.com' })
   @Expose()
   email: string;

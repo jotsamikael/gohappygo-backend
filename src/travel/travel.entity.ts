@@ -1,5 +1,6 @@
 import { AirportEntity } from "src/airport/entities/airport.entity";
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { RequestEntity } from "src/request/request.entity";
 import { UserEntity } from "src/user/user.entity";
 import { UploadedFileEntity } from "src/uploaded-file/uploaded-file.entity";
@@ -14,7 +15,8 @@ import { AirlineEntity } from 'src/airline/entities/airline.entity';
 */
 
 @Entity()
-export class TravelEntity extends BaseEntity {
+export class TravelEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.TRAVEL;
   @Column()
   userId: number;
 

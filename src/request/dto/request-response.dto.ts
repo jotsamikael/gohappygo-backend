@@ -7,6 +7,10 @@ export class UserResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Full name formatted as "Firstname L."', example: 'John D.' })
   @Expose()
   fullName: string;
@@ -51,6 +55,9 @@ export class CurrencyResponseDto {
 export class RequestResponseDto {
   @ApiProperty({ description: 'Request ID', example: 1 })
   id: number;
+
+  @ApiProperty({ example: 'rq_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  publicId: string;
 
   @ApiProperty({ description: 'Creation date', example: '2025-01-01T10:00:00Z' })
   createdAt: Date;

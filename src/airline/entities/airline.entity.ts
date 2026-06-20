@@ -1,9 +1,11 @@
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { FlightEntity } from "src/flight/entities/flight.entity";
 import { Column, Entity, OneToMany } from "typeorm";
 
 @Entity()
-export class AirlineEntity extends BaseEntity {
+export class AirlineEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.AIRLINE;
   @Column({ unique: true })
   icaoCode: string;
 

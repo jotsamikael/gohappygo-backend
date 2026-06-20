@@ -36,6 +36,7 @@ export class ReviewMapper {
         // Build the complete mapped data - include all fields
         const mappedData: any = {
             id: review.id,
+            publicId: review.publicId,
             createdAt: review.createdAt,
             updatedAt: review.updatedAt,
             reviewerId: review.reviewerId,
@@ -63,6 +64,7 @@ export class ReviewMapper {
     mapUserToDto(user: any): ReviewUserDto {
         return plainToInstance(ReviewUserDto, {
             id: user.id,
+            publicId: user?.publicId ?? '',
             createdAt: user.createdAt,
             fullName: this.commonService.userFullName(user),
             email: user.email,
@@ -76,6 +78,7 @@ export class ReviewMapper {
     private mapRequestToDto(request: RequestEntity): ReviewRequestDto {
         return plainToInstance(ReviewRequestDto, {
             id: request.id,
+            publicId: request.publicId,
             createdAt: request.createdAt,
             updatedAt: request.updatedAt,
             demandId: request.demandId,
@@ -101,6 +104,7 @@ export class ReviewMapper {
     private mapTravelToDto(travel: TravelEntity): ReviewTravelDto {
         return plainToInstance(ReviewTravelDto, {
             id: travel.id,
+            publicId: travel.publicId,
             createdAt: travel.createdAt,
             updatedAt: travel.updatedAt,
             deletedAt: travel.deletedAt || null,

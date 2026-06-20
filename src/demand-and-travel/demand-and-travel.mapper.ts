@@ -78,6 +78,7 @@ export class DemandAndTravelMapper {
     
     const mapped = plainToInstance(CurrencySimpleResponseDto, {
       id: currency.id,
+      publicId: currency?.publicId ?? '',
       code: currency.code,
       symbol: currency.symbol
     }, {
@@ -106,6 +107,7 @@ export class DemandAndTravelMapper {
 
     return plainToInstance(UserNameResponseDto, {
       id: user.id,
+      publicId: user?.publicId ?? '',
       name: displayName,
       fullName: displayName,
       selfieImage: user.profilePictureUrl,
@@ -128,6 +130,7 @@ export class DemandAndTravelMapper {
     return images.map(image => 
       plainToInstance(ImageResponseDto, {
         id: image.id,
+        publicId: image?.publicId ?? '',
         fileUrl: image.fileUrl,
         originalName: image.originalName,
         purpose: image.purpose?.toString() || image.purpose
@@ -152,6 +155,7 @@ export class DemandAndTravelMapper {
     // Otherwise, treat as entity and map nested objects
     const mapped = {
       id: demand.id,
+      publicId: demand.publicId,
       type: 'demand' as const,
       title: demand.description,
       description: demand.description,
@@ -221,6 +225,7 @@ export class DemandAndTravelMapper {
     // Otherwise, treat as entity and map nested objects
     const mapped = {
       id: travel.id,
+      publicId: travel.publicId,
       type: 'travel' as const,
       title: travel.description,
       description: travel.description,

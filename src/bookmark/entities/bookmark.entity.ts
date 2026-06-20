@@ -1,4 +1,5 @@
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { TravelEntity } from 'src/travel/travel.entity';
 import { UserEntity } from 'src/user/user.entity';
@@ -15,7 +16,8 @@ export enum BookmarkType {
  */
 @Entity()
 @Index(['userId', 'bookmarkType', 'travelId', 'demandId'], { unique: true }) // Prevent duplicate bookmarks
-export class BookmarkEntity extends BaseEntity {
+export class BookmarkEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.BOOKMARK;
   @Column({ nullable: false })
   userId: number;
   

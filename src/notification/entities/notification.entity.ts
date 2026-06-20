@@ -1,5 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, BeforeInsert } from 'typeorm';
 import { UserEntity } from 'src/user/user.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
+import { generatePublicId } from 'src/common/public-id/public-id.util';
 
 export enum NotificationType {
   // Request notifications
@@ -56,6 +58,9 @@ export class NotificationEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 40, unique: true, nullable: true })
+  publicId: string;
+
   @Column({ type: 'enum', enum: NotificationType })
   notificationType: NotificationType;
 
@@ -98,4 +103,11 @@ export class NotificationEntity {
 
   @Column({ nullable: true })
   deletedAt: Date; // Soft delete
+
+  @BeforeInsert()
+  assignPublicId(): void {
+    if (!this.publicId) {
+      this.publicId = generatePublicId(PublicIdPrefix.NOTIFICATION);
+    }
+  }
 }

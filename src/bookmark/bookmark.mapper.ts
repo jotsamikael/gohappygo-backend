@@ -27,6 +27,7 @@ export class BookmarkMapper {
       UserResponseDto,
       {
         id: user.id,
+        publicId: user?.publicId ?? '',
         isDeactivated: user.isDeactivated,
         email: user.email,
         phone: user.phone,
@@ -52,6 +53,7 @@ export class BookmarkMapper {
     // Prepare the bookmark data with demand image if bookmarkType is DEMAND
     const bookmarkData: any = {
       ...bookmark,
+      publicId: bookmark.publicId,
       demandImage: null,
     };
 

@@ -18,7 +18,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "backfill:public-ids": "ts-node -r tsconfig-paths/register scripts/backfill-public-ids.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -58,7 +59,8 @@
     "streamifier": "^0.1.1",
     "stripe": "^17.3.1",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.25"
+    "typeorm": "^0.3.25",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

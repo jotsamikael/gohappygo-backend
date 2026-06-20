@@ -12,6 +12,9 @@ export class UserListItemResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  publicId: string;
+
   @ApiProperty({ example: 'john.doe@example.com' })
   email: string;
 

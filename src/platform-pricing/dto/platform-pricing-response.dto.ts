@@ -6,6 +6,10 @@ export class PlatformPricingResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'pp_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Lower bound of the price range in EUR' })
   @Expose()
   lowerBound: number;

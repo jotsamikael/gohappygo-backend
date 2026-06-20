@@ -1,14 +1,18 @@
 import { UserEntity } from "src/user/user.entity";
 import { TravelEntity } from "src/travel/travel.entity";
 import { DemandEntity } from "src/demand/demand.entity";
-import { RequestEntity } from "src/request/request.entity";
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { FilePurpose } from "./uploaded-file-purpose.enum";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
+import { generatePublicId } from "src/common/public-id/public-id.util";
 
 @Entity()
-export class UploadedFileEntity{
+export class UploadedFileEntity {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'varchar', length: 40, unique: true, nullable: true })
+  publicId: string;
 
   @Column()
   originalName: string;
@@ -17,16 +21,16 @@ export class UploadedFileEntity{
   fileUrl: string;
 
   @Column()
-  size: number
+  size: number;
 
-  @Column()
-  publicId: string;
+  @Column({ name: 'cloudinaryPublicId' })
+  cloudinaryPublicId: string;
 
   @Column()
   mimeType: string;
 
   @Column()
-  purpose: FilePurpose
+  purpose: FilePurpose;
 
   @CreateDateColumn()
   uploadedAt: Date;
@@ -34,19 +38,22 @@ export class UploadedFileEntity{
   @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
   user: UserEntity;
 
-  // Foreign key columns for travel, demand, and request
   @Column({ nullable: true })
   travelId: number;
 
   @Column({ nullable: true })
   demandId: number;
 
-
-  // Relationships
   @ManyToOne(() => TravelEntity, { nullable: true, onDelete: 'CASCADE' })
   travel: TravelEntity;
 
   @ManyToOne(() => DemandEntity, { nullable: true, onDelete: 'CASCADE' })
   demand: DemandEntity;
 
+  @BeforeInsert()
+  assignPublicId(): void {
+    if (!this.publicId) {
+      this.publicId = generatePublicId(PublicIdPrefix.UPLOADED_FILE);
+    }
+  }
 }

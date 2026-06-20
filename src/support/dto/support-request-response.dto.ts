@@ -8,6 +8,10 @@ export class SupportRequestResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'sp_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Requester email' })
   @Expose()
   email: string;

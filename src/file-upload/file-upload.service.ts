@@ -59,7 +59,7 @@ export class FileUploadService {
             mimeType: file.mimetype,
             size: file.size,
             purpose: purpose,
-            publicId: cloudinaryResponse?.public_id,
+            cloudinaryPublicId: cloudinaryResponse?.public_id,
             fileUrl: cloudinaryResponse?.secure_url,
             user: user,
             travel: travel,
@@ -105,7 +105,7 @@ export class FileUploadService {
         }
 
         //delete from cloudinary
-        await this.cloudinaryService.deleteFile(fileToBeDeleted.publicId);
+        await this.cloudinaryService.deleteFile(fileToBeDeleted.cloudinaryPublicId);
 
         //delete from db
         await this.uploadedFileRepository.remove(fileToBeDeleted)

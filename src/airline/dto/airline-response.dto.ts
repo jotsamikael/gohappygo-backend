@@ -6,6 +6,10 @@ export class AirlineResponseDto {
     @ApiProperty({ example: 1 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'al_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
   
     @ApiProperty({ example: 'Air France' })
     @Expose()

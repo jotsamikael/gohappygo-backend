@@ -204,12 +204,12 @@ export class RequestController {
     summary: 'Cancel or reject a request',
     description: 'Cancel or reject a request based on the connected user:\n' +
       '- If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.\n' +
-      '- If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.\n' +
+      '- If the travel/demand owner calls this endpoint: Rejects the request while it is still NEGOTIATING (no refund). Cannot reject accepted or in-progress requests — cancel the travel/demand listing instead.\n' +
       'Only non-completed requests can be cancelled/rejected. Both parties will receive email notifications.'
   })
   @ApiParam({ name: 'id', description: 'Request ID to cancel or reject' })
   @ApiResponse({ status: 200, description: 'Request cancelled or rejected successfully', type: RequestResponseDto })
-  @ApiResponse({ status: 400, description: 'Bad request - request is already completed, cancelled, or rejected' })
+  @ApiResponse({ status: 400, description: 'Bad request - request is already completed, cancelled, rejected, or cannot be rejected after acceptance' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - only the requester or travel/demand owner can cancel/reject the request' })
   @ApiResponse({ status: 404, description: 'Request not found' })

@@ -5,6 +5,9 @@ export class FlightResponseDto {
     @ApiProperty({ example: 1 })
     id: number;
 
+    @ApiProperty({ example: 'fl_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    publicId: string;
+
     @ApiProperty({ example: 'Paris' })
     departureCity: string;
 

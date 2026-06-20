@@ -1,4 +1,5 @@
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { RequestEntity } from 'src/request/request.entity';
 import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
 
@@ -7,7 +8,8 @@ import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
  * Stored in Cloudinary (authenticated); only cloudinaryPublicId is persisted.
  */
 @Entity()
-export class DeliveyProofEntity extends BaseEntity {
+export class DeliveyProofEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.DELIVERY_PROOF;
   @Column({ type: 'varchar', length: 512, unique: true })
   cloudinaryPublicId: string;
 

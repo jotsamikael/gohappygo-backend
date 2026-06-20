@@ -30,6 +30,7 @@ import { TransactionService } from 'src/transaction/transaction.service';
 import { StripeService } from 'src/stripe/stripe.service';
 import { UserService } from 'src/user/user.service';
 import { RequestStatusHistoryEntity } from 'src/request-status-history/RequestStatusHistory.entity';
+import { RequestService } from 'src/request/request.service';
 @Injectable()
 export class TravelService {
  
@@ -54,6 +55,8 @@ export class TravelService {
     @Inject(forwardRef(() => StripeService))
     private readonly stripeService: StripeService,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => RequestService))
+    private readonly requestService: RequestService,
   ) { }
 
   private generateTravelsListCacheKey(query: FindTravelsQueryDto): string {
@@ -450,64 +453,14 @@ export class TravelService {
       throw new CustomBadRequestException('Travel is already cancelled', ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
 
-    // 4. Get CANCELLED status for requests
-    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
-    if (!cancelledStatus) {
-      throw new NotFoundException('CANCELLED request status not found');
-    }
-
-    // 5. Cancel all requests and process refunds
+    // 4. Cancel all active requests (refund paid, release weight, notify requesters)
     if (travel.requests && travel.requests.length > 0) {
       for (const request of travel.requests) {
-        // Skip if already cancelled
-        if (request.currentStatus?.status === 'CANCELLED') {
-          continue;
-        }
-
-        // Cancel the request
-        request.currentStatusId = cancelledStatus.id;
-        request.currentStatus = cancelledStatus;
-        await this.requestRepository.save(request);
-
-        // Record status history
-        await this.requestStatusHistoryService.record(request.id, cancelledStatus.id);
-
-        // Process refunds for paid transactions
-        if (request.transactions && request.transactions.length > 0) {
-          for (const transaction of request.transactions) {
-            // Only refund if transaction is paid and has a Stripe Payment Intent
-            if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-              try {
-                // Refund via Stripe
-                await this.stripeService.refundPaymentIntent(transaction.stripePaymentIntentId);
-                
-                // Update transaction status to refunded
-                await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
-              } catch (error) {
-                // Log error but continue with other requests
-                console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
-                // Still update transaction status to indicate refund attempt failed
-                await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
-              }
-            } else if (transaction.status === 'pending') {
-              // For pending transactions, just mark as cancelled
-              await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
-            }
-          }
-        }
-
-        // Send email and notification to requester
-        if (request.requester) {
-          const requester = await this.userService.findOne({ id: request.requesterId });
-          if (requester) {
-            // Emit event for email and notification
-            this.userEventService.emitRequestCancelled(requester, request, false, travel.userId);
-          }
-        }
+        await this.requestService.cancelRequestForListingCancellation(request.id, travel.userId);
       }
     }
 
-    // 6. Cancel travel by changing status
+    // 5. Cancel travel by changing status
     travel.status = 'cancelled';
     if (user && user.id) {
       travel.updatedBy = user.id;

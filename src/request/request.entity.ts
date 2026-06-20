@@ -1,4 +1,5 @@
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { DeliveyProofEntity } from 'src/delivery-proof/delivery-proof.entity';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { InsuranceEntity } from 'src/insurance/insurance.entity';
@@ -26,7 +27,8 @@ import {
  */
 
 @Entity()
-export class RequestEntity extends BaseEntity {
+export class RequestEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.REQUEST;
   @Column({ nullable: true }) // Make nullable
   demandId: number | null;
 

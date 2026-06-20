@@ -1,5 +1,6 @@
 import { AirportEntity } from 'src/airport/entities/airport.entity';
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { UserEntity } from 'src/user/user.entity';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
@@ -10,7 +11,8 @@ export enum AlertType {
 }
 
 @Entity()
-export class AlertEntity extends BaseEntity {
+export class AlertEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.ALERT;
 
   @Column({ name: 'user_id', nullable: false })
   userId: number;

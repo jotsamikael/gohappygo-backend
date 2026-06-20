@@ -7,6 +7,10 @@ export class NotificationActorDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty()
   @Expose()
   fullName: string;
@@ -20,6 +24,10 @@ export class NotificationResponseDto {
   @ApiProperty()
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'nt_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ enum: NotificationType })
   @Expose()

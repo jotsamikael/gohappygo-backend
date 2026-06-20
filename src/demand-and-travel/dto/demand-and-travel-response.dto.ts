@@ -9,6 +9,10 @@ export class UserNameResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Formatted user name (e.g., "John D.")' })
   @Expose()
   name: string;
@@ -42,6 +46,10 @@ export class ImageResponseDto {
   @ApiProperty({ description: 'Image ID' })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ description: 'Image file URL' })
   @Expose()
@@ -92,6 +100,10 @@ export class CurrencySimpleResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'cu_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Currency code (e.g., CFA, USD, EUR)' })
   @Expose()
   code: string;
@@ -106,6 +118,10 @@ export class DemandOrTravelResponseDto {
   @ApiProperty({ description: 'Unique identifier' })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'dm_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ description: 'Type of item (demand or travel)', enum: ['demand', 'travel'] })
   @Expose()

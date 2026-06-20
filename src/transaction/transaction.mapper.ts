@@ -24,6 +24,7 @@ export class TransactionMapper {
 
         return {
             id: transaction.id,
+            publicId: transaction.publicId,
             payerId: transaction.payerId,
             payeeId: transaction.payeeId,
             requestId: transaction.requestId,
@@ -40,16 +41,19 @@ export class TransactionMapper {
             updatedAt: transaction.updatedAt,
             payer: transaction.payer ? {
                 id: transaction.payer.id,
+                publicId: transaction.payer?.publicId ?? '',
                 email: transaction.payer.email,
                 fullName: transaction.payer.username,
             } : null,
             payee: transaction.payee ? {
                 id: transaction.payee.id,
+                publicId: transaction.payee?.publicId ?? '',
                 email: transaction.payee.email,
                 fullName: transaction.payee.username,
             } : null,
             request: transaction.request ? {
                 id: transaction.request.id,
+                publicId: transaction.request?.publicId ?? '',
                 requestType: transaction.request.requestType,
                 weight: transaction.request.weight ? Number(transaction.request.weight) : null,
             } : null,

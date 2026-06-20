@@ -33,6 +33,7 @@ export class TravelMapper {
         // Transform departure airport
         const departureAirport = travel.departureAirport ? plainToInstance(TravelListAirportDto, {
             id: travel.departureAirport.id,
+            publicId: travel.departureAirport?.publicId ?? '',
             ident: travel.departureAirport.ident,
             type: travel.departureAirport.type,
             name: travel.departureAirport.name,
@@ -49,6 +50,7 @@ export class TravelMapper {
         // Transform arrival airport
         const arrivalAirport = travel.arrivalAirport ? plainToInstance(TravelListAirportDto, {
             id: travel.arrivalAirport.id,
+            publicId: travel.arrivalAirport?.publicId ?? '',
             ident: travel.arrivalAirport.ident,
             type: travel.arrivalAirport.type,
             name: travel.arrivalAirport.name,
@@ -65,6 +67,7 @@ export class TravelMapper {
         // Transform user
         const user = travel.user ? plainToInstance(TravelListUserDto, {
             id: travel.user.id,
+            publicId: travel.user?.publicId ?? '',
             createdAt: travel.user.createdAt,
             updatedAt: travel.user.updatedAt,
             isDeactivated: travel.user.isDeactivated,
@@ -84,6 +87,7 @@ export class TravelMapper {
         // Transform images
         const images = travel.images ? travel.images.map(image => plainToInstance(TravelListImageDto, {
             id: image.id,
+            publicId: image?.publicId ?? '',
             originalName: image.originalName,
             fileUrl: image.fileUrl,
             size: image.size,
@@ -99,6 +103,7 @@ export class TravelMapper {
         // Transform airline
         const airline = travel.airline ? plainToInstance(TravelListAirlineDto, {
             id: travel.airline.id,
+            publicId: travel.airline?.publicId ?? '',
             isDeactivated: travel.airline.isDeactivated,
             icaoCode: travel.airline.icaoCode,
             iataCode: travel.airline.iataCode || '',
@@ -122,6 +127,7 @@ export class TravelMapper {
         // Build the complete mapped data
         const mappedData: any = {
             id: travel.id,
+            publicId: travel.publicId,
             createdAt: travel.createdAt,
             updatedAt: travel.updatedAt,
             deletedAt: travel.deletedAt || null,
@@ -189,6 +195,7 @@ export class TravelMapper {
         // Transform airports
         const departureAirport = travel.departureAirport ? plainToInstance(TravelDetailAirportDto, {
             id: travel.departureAirport.id,
+            publicId: travel.departureAirport?.publicId ?? '',
             name: travel.departureAirport.name,
             latitudeDeg: travel.departureAirport.latitudeDeg,
             longitudeDeg: travel.departureAirport.longitudeDeg,
@@ -204,6 +211,7 @@ export class TravelMapper {
 
         const arrivalAirport = travel.arrivalAirport ? plainToInstance(TravelDetailAirportDto, {
             id: travel.arrivalAirport.id,
+            publicId: travel.arrivalAirport?.publicId ?? '',
             name: travel.arrivalAirport.name,
             latitudeDeg: travel.arrivalAirport.latitudeDeg,
             longitudeDeg: travel.arrivalAirport.longitudeDeg,
@@ -220,6 +228,7 @@ export class TravelMapper {
         // Transform user
         const user = travel.user ? plainToInstance(TravelDetailUserDto, {
             id: travel.user.id,
+            publicId: travel.user?.publicId ?? '',
             fullName: this.commonService.userFullName(travel.user),
             phone: travel.user.phone,
             username: travel.user.username || null,
@@ -237,6 +246,7 @@ export class TravelMapper {
         // Transform airline
         const airline = travel.airline ? plainToInstance(TravelDetailAirlineDto, {
             id: travel.airline.id,
+            publicId: travel.airline?.publicId ?? '',
             name: travel.airline.name,
             icaoCode: travel.airline.icaoCode,
             iataCode: travel.airline.iataCode || '',
@@ -250,6 +260,7 @@ export class TravelMapper {
         // Transform currency
         const currency = travel.currency ? plainToInstance(TravelDetailCurrencyDto, {
             id: travel.currency.id,
+            publicId: travel.currency?.publicId ?? '',
             code: travel.currency.code,
             symbol: travel.currency.symbol,
         }, {
@@ -260,6 +271,7 @@ export class TravelMapper {
         // Transform images
         const images = travel.images ? travel.images.map(image => plainToInstance(TravelDetailImageDto, {
             id: image.id,
+            publicId: image?.publicId ?? '',
             fileUrl: image.fileUrl,
             originalName: image.originalName,
             purpose: image.purpose?.toString() || '',
@@ -272,6 +284,7 @@ export class TravelMapper {
         const transformedReviews = reviews.map(review => {
             const reviewer = review.reviewer ? plainToInstance(TravelDetailReviewerDto, {
                 id: review.reviewer.id,
+                publicId: review.reviewer?.publicId ?? '',
                 fullName: this.commonService.userFullName(review.reviewer),
                 profilePictureUrl: review.reviewer.profilePictureUrl || null,
             }, {
@@ -281,6 +294,7 @@ export class TravelMapper {
 
             return plainToInstance(TravelDetailReviewDto, {
                 id: review.id,
+                publicId: review.publicId,
                 createdAt: review.createdAt,
                 updatedAt: review.updatedAt,
                 reviewerId: review.reviewerId,
@@ -298,6 +312,7 @@ export class TravelMapper {
         // Build the complete mapped data
         const mappedData: any = {
             id: travel.id,
+            publicId: travel.publicId,
             description: travel.description,
             flightNumber: travel.flightNumber,
             isSharedWeight: travel.isSharedWeight,

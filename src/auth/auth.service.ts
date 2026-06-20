@@ -286,7 +286,7 @@ export class AuthService {
       if (currencyData) {
         const currency = await this.currencyService.findOne(currencyData.id);
         if (currency) {
-          recentCurrency = { id: currency.id, name: currency.name, symbol: currency.symbol, code: currency.code };
+          recentCurrency = { id: currency.id, publicId: currency.publicId, name: currency.name, symbol: currency.symbol, code: currency.code };
         }
       }
     }
@@ -514,6 +514,7 @@ async uploadVerificationDocuments(
 private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
   return {
     id: fileEntity.id,
+    publicId: fileEntity.publicId,
     originalName: fileEntity.originalName,
     url: fileEntity.url,
     purpose: fileEntity.purpose,
@@ -616,6 +617,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         if (currency) {
           recentCurrency = {
             id: currency.id,
+            publicId: currency.publicId,
             name: currency.name,
             symbol: currency.symbol,
             code: currency.code
@@ -728,6 +730,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
         if (currency) {
           recentCurrency = {
             id: currency.id,
+            publicId: currency.publicId,
             name: currency.name,
             symbol: currency.symbol,
             code: currency.code,
@@ -1019,6 +1022,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
   return {
     user: {
       id: user.id,
+      publicId: user.publicId,
       email: user.email,
       fullName: this.commonService.userFullName(user),
       phone: user.phone,
@@ -1156,6 +1160,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
         if (currency) {
           recentCurrency = {
             id: currency.id,
+            publicId: currency.publicId,
             name: currency.name,
             symbol: currency.symbol,
             code: currency.code
@@ -1277,6 +1282,7 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
 
     return {
       id: user.id,
+      publicId: user.publicId,
       email: hideEmailAndPhone ? null : user.email,
       fullName,
       phone: hideEmailAndPhone ? null : user.phone,

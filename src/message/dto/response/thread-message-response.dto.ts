@@ -6,6 +6,10 @@ export class ThreadMessageUserDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Display name (Firstname L.)' })
   @Expose()
   fullName: string;
@@ -19,6 +23,10 @@ export class ThreadMessageResponseDto {
   @ApiProperty({ description: 'Message ID' })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'ms_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ description: 'Message content' })
   @Expose()

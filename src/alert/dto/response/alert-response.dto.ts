@@ -7,6 +7,10 @@ export class AlertAirportResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Airport name' })
   @Expose()
   name: string;
@@ -25,6 +29,10 @@ export class AlertUserResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'User email' })
   @Expose()
   email: string;
@@ -38,6 +46,10 @@ export class AlertResponseDto {
   @ApiProperty({ description: 'Alert ID' })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'at_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ description: 'User ID who created the alert' })
   @Expose()

@@ -33,6 +33,7 @@ export class DemandMapper {
         // Transform departure airport
         const departureAirport = demand.departureAirport ? plainToInstance(DemandListAirportDto, {
             id: demand.departureAirport.id,
+            publicId: demand.departureAirport?.publicId ?? '',
             ident: demand.departureAirport.ident,
             type: demand.departureAirport.type,
             name: demand.departureAirport.name,
@@ -49,6 +50,7 @@ export class DemandMapper {
         // Transform arrival airport
         const arrivalAirport = demand.arrivalAirport ? plainToInstance(DemandListAirportDto, {
             id: demand.arrivalAirport.id,
+            publicId: demand.arrivalAirport?.publicId ?? '',
             ident: demand.arrivalAirport.ident,
             type: demand.arrivalAirport.type,
             name: demand.arrivalAirport.name,
@@ -65,6 +67,7 @@ export class DemandMapper {
         // Transform user
         const user = demand.user ? plainToInstance(DemandListUserDto, {
             id: demand.user.id,
+            publicId: demand.user?.publicId ?? '',
             createdAt: demand.user.createdAt,
             updatedAt: demand.user.updatedAt,
             isDeactivated: demand.user.isDeactivated,
@@ -84,10 +87,10 @@ export class DemandMapper {
         // Transform images
         const images = demand.images ? demand.images.map(image => plainToInstance(DemandListImageDto, {
             id: image.id,
+            publicId: image?.publicId ?? '',
             originalName: image.originalName,
             fileUrl: image.fileUrl,
             size: image.size,
-            publicId: image.publicId,
             mimeType: image.mimeType,
             purpose: image.purpose,
             uploadedAt: image.uploadedAt,
@@ -101,6 +104,7 @@ export class DemandMapper {
         // Transform airline
         const airline = demand.airline ? plainToInstance(DemandListAirlineDto, {
             id: demand.airline.id,
+            publicId: demand.airline?.publicId ?? '',
             isDeactivated: demand.airline.isDeactivated,
             icaoCode: demand.airline.icaoCode,
             iataCode: demand.airline.iataCode || '',
@@ -124,6 +128,7 @@ export class DemandMapper {
         // Build the complete mapped data
         const mappedData: any = {
             id: demand.id,
+            publicId: demand.publicId,
             createdAt: demand.createdAt,
             updatedAt: demand.updatedAt,
             deletedAt: demand.deletedAt || null,
@@ -179,6 +184,7 @@ export class DemandMapper {
         // Transform airports
         const departureAirport = demand.departureAirport ? plainToInstance(DemandDetailAirportDto, {
             id: demand.departureAirport.id,
+            publicId: demand.departureAirport?.publicId ?? '',
             type: demand.departureAirport.type,
             name: demand.departureAirport.name,
             latitudeDeg: demand.departureAirport.latitudeDeg?.toString() || null,
@@ -195,6 +201,7 @@ export class DemandMapper {
 
         const arrivalAirport = demand.arrivalAirport ? plainToInstance(DemandDetailAirportDto, {
             id: demand.arrivalAirport.id,
+            publicId: demand.arrivalAirport?.publicId ?? '',
             type: demand.arrivalAirport.type,
             name: demand.arrivalAirport.name,
             latitudeDeg: demand.arrivalAirport.latitudeDeg?.toString() || null,
@@ -212,6 +219,7 @@ export class DemandMapper {
         // Transform user
         const user = demand.user ? plainToInstance(DemandDetailUserDto, {
             id: demand.user.id,
+            publicId: demand.user?.publicId ?? '',
             fullName: this.commonService.userFullName(demand.user),
             phone: demand.user.phone,
             username: demand.user.username || null,
@@ -231,6 +239,7 @@ export class DemandMapper {
         // Transform airline
         const airline = demand.airline ? plainToInstance(DemandDetailAirlineDto, {
             id: demand.airline.id,
+            publicId: demand.airline?.publicId ?? '',
             name: demand.airline.name,
             icaoCode: demand.airline.icaoCode,
             iataCode: demand.airline.iataCode || '',
@@ -245,6 +254,7 @@ export class DemandMapper {
         // Transform currency
         const currency = demand.currency ? plainToInstance(DemandDetailCurrencyDto, {
             id: demand.currency.id,
+            publicId: demand.currency?.publicId ?? '',
             code: demand.currency.code,
             symbol: demand.currency.symbol,
         }, {
@@ -255,6 +265,7 @@ export class DemandMapper {
         // Transform images
         const images = demand.images ? demand.images.map(image => plainToInstance(DemandDetailImageDto, {
             id: image.id,
+            publicId: image?.publicId ?? '',
             fileUrl: image.fileUrl,
             purpose: image.purpose,
             uploadedAt: image.uploadedAt,
@@ -269,6 +280,7 @@ export class DemandMapper {
         const transformedReviews = reviews.map(review => {
             const reviewer = review.reviewer ? plainToInstance(DemandDetailReviewerDto, {
                 id: review.reviewer.id,
+                publicId: review.reviewer?.publicId ?? '',
                 fullName: this.commonService.userFullName(review.reviewer),
                 profilePictureUrl: review.reviewer.profilePictureUrl || null,
             }, {
@@ -278,6 +290,7 @@ export class DemandMapper {
 
             return plainToInstance(DemandDetailReviewDto, {
                 id: review.id,
+                publicId: review.publicId,
                 createdAt: review.createdAt,
                 updatedAt: review.updatedAt,
                 reviewerId: review.reviewerId,
@@ -295,6 +308,7 @@ export class DemandMapper {
         // Build the complete mapped data
         const mappedData: any = {
             id: demand.id,
+            publicId: demand.publicId,
             description: demand.description,
             flightNumber: demand.flightNumber,
             departureAirport: departureAirport,

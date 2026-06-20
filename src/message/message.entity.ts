@@ -1,4 +1,5 @@
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { RequestEntity } from "src/request/request.entity";
 import { UserEntity } from "src/user/user.entity";
 import { Column, Entity, ManyToOne } from "typeorm";
@@ -9,7 +10,8 @@ import { Column, Entity, ManyToOne } from "typeorm";
 *Helps ensure communication happens within the platform.
 */
 @Entity()
-export class MessageEntity extends BaseEntity{
+export class MessageEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.MESSAGE;
       
 
     @Column({ length: 2000 })

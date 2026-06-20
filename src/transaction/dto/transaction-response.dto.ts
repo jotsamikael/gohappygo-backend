@@ -4,6 +4,9 @@ export class TransactionResponseDto {
     @ApiProperty({ example: 1 })
     id: number;
 
+    @ApiProperty({ example: 'tx_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    publicId: string;
+
     @ApiProperty({ example: 1 })
     payerId: number;
 
@@ -49,6 +52,7 @@ export class TransactionResponseDto {
     @ApiProperty({ nullable: true })
     payer: {
         id: number;
+        publicId: string;
         email: string;
         fullName: string;
     } | null;
@@ -56,6 +60,7 @@ export class TransactionResponseDto {
     @ApiProperty({ nullable: true })
     payee: {
         id: number;
+        publicId: string;
         email: string;
         fullName: string;
     } | null;
@@ -63,6 +68,7 @@ export class TransactionResponseDto {
     @ApiProperty({ nullable: true })
     request: {
         id: number;
+        publicId: string;
         requestType: string;
         weight: number | null;
     } | null;

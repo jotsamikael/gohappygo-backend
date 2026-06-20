@@ -6,6 +6,10 @@ export class AirportResponseDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'KJFK' })
     @Expose()
     ident: string;

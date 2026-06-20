@@ -14,6 +14,7 @@ export class AlertMapper {
   toResponseDto(alert: AlertEntity): AlertResponseDto {
     const mapped = {
       id: alert.id,
+      publicId: alert.publicId,
       userId: alert.userId,
       departureAirportId: alert.departureAirportId,
       arrivalAirportId: alert.arrivalAirportId,
@@ -45,6 +46,7 @@ export class AlertMapper {
   private toAirportResponseDto(airport: any): AlertAirportResponseDto {
     return plainToInstance(AlertAirportResponseDto, {
       id: airport.id,
+      publicId: airport?.publicId ?? '',
       name: airport.name,
       municipality: airport.municipality,
       isoCountry: airport.isoCountry,
@@ -60,6 +62,7 @@ export class AlertMapper {
   private toUserResponseDto(user: any): AlertUserResponseDto {
     return plainToInstance(AlertUserResponseDto, {
       id: user.id,
+      publicId: user?.publicId ?? '',
       email: user.email,
       fullName: this.commonService.userFullName(user),
     }, {

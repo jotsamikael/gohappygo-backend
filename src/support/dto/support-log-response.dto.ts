@@ -6,6 +6,10 @@ export class SupportLogResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'sl_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ description: 'Support request ID' })
   @Expose()
   supportRequestId: number;

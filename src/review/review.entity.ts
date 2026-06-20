@@ -1,4 +1,5 @@
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { UserEntity } from "src/user/user.entity";
 import { Column, ManyToOne, JoinColumn, Entity } from "typeorm";
 
@@ -8,7 +9,8 @@ import { Column, ManyToOne, JoinColumn, Entity } from "typeorm";
 */
 
 @Entity()
-export class ReviewEntity extends BaseEntity{
+export class ReviewEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.REVIEW;
   @Column()
   reviewerId: number;
 

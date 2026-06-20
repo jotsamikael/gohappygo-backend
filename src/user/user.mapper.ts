@@ -19,6 +19,7 @@ export class UserMapper {
   ): UserListItemResponseDto {
     return {
       id: user.id,
+      publicId: user.publicId,
       email: user.email,
       phone: user.phone,
       fullName: this.commonService.userFullName(user),

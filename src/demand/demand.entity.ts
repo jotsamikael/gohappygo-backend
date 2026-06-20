@@ -1,5 +1,6 @@
 import { AirportEntity } from "src/airport/entities/airport.entity";
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { RequestEntity } from "src/request/request.entity";
 import { UserEntity } from "src/user/user.entity";
 import { CurrencyEntity } from 'src/currency/entities/currency.entity';
@@ -13,7 +14,8 @@ import { AirlineEntity } from "src/airline/entities/airline.entity";
 *Represents a delivery request posted by a sender (HappyExpéditeur) with origin, destination, weight, and desired delivery date. 
 */
 @Entity()
-export class DemandEntity extends BaseEntity{
+export class DemandEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.DEMAND;
 
   @Column()
   userId: number;

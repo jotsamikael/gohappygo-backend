@@ -22,6 +22,7 @@ export class RequestMapper {
 
         return plainToInstance(UserResponseDto, {
             id: user.id,
+            publicId: user.publicId,
             fullName: fullName,
             profilePictureUrl: user.profilePictureUrl || null
         }, {
@@ -34,6 +35,7 @@ export class RequestMapper {
         // Map travel if exists
         const travel = request.travel ? plainToInstance(RequestTravelDto, {
             id: request.travel.id,
+            publicId: request.travel.publicId,
             createdAt: request.travel.createdAt,
             updatedAt: request.travel.updatedAt,
             createdBy: request.travel.createdBy,
@@ -57,6 +59,7 @@ export class RequestMapper {
             status: request.travel.status,
             user: request.travel.user ? plainToInstance(RequestUserDto, {
                 id: request.travel.user.id,
+                publicId: request.travel.user?.publicId ?? '',
                 createdAt: request.travel.user.createdAt,
                 isDeactivated: request.travel.user.isDeactivated,
                 phone: request.travel.user.phone,
@@ -75,6 +78,7 @@ export class RequestMapper {
         // Build the main response
         const mapped = plainToInstance(RequestAcceptResponseDto, {
             id: request.id,
+            publicId: request.publicId,
             createdAt: request.createdAt,
             updatedAt: request.updatedAt,
             deletedAt: request.deletedAt,

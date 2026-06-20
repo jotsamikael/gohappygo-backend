@@ -11,6 +11,10 @@ export class CurrencyResponseDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'cu_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({
         description: 'Currency name',
         example: 'USD',

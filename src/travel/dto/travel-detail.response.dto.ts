@@ -7,6 +7,10 @@ export class TravelDetailAirportDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'Brazos Polo Airport' })
     @Expose()
     name: string;
@@ -45,6 +49,10 @@ export class TravelDetailUserDto {
     @ApiProperty({ example: 38 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({ example: 'Patrick O.' })
     @Expose()
@@ -89,6 +97,10 @@ export class TravelDetailAirlineDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'al_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'Bahamasair' })
     @Expose()
     name: string;
@@ -116,6 +128,10 @@ export class TravelDetailImageDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'https://res.cloudinary.com/...' })
     @Expose()
     fileUrl: string;
@@ -135,6 +151,10 @@ export class TravelDetailReviewerDto {
     @Expose()
     id: number;
 
+    @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
+
     @ApiProperty({ example: 'Joe O.' })
     @Expose()
     fullName: string;
@@ -152,6 +172,10 @@ export class TravelDetailReviewDto {
     })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'rv_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({
         description: 'Review created at',
@@ -217,6 +241,10 @@ export class TravelDetailCurrencyDto {
     @ApiProperty({ example: 1 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'cu_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
     
     @ApiProperty({ example: 'USD' })
     @Expose()
@@ -231,6 +259,10 @@ export class TravelDetailResponseDto {
     @ApiProperty({ example: 16 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'tr_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({ example: 'Travel to New Delhi from Jerusalem with available space for packages' })
     @Expose()

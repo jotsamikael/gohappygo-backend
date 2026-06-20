@@ -1,4 +1,5 @@
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { RequestEntity } from "src/request/request.entity";
 import { UserEntity } from "src/user/user.entity";
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from "typeorm";
@@ -8,7 +9,8 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from "typeorm";
 *Records payer, payee, amount, and payment method.
 */
 @Entity()
-export class TransactionEntity extends BaseEntity{
+export class TransactionEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.TRANSACTION;
   @Column()
   payerId: number;
 

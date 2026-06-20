@@ -18,6 +18,7 @@ import { RequestStatusHistoryModule } from 'src/request-status-history/request-s
 import { TransactionModule } from 'src/transaction/transaction.module';
 import { StripeModule } from 'src/stripe/stripe.module';
 import { UserModule } from 'src/user/user.module';
+import { RequestModule } from 'src/request/request.module';
 
 @Module({
   imports:[
@@ -29,6 +30,7 @@ import { UserModule } from 'src/user/user.module';
     RequestStatusHistoryModule,
     forwardRef(() => TransactionModule),
     forwardRef(() => StripeModule),
+    forwardRef(() => RequestModule),
     UserModule
     
   ],

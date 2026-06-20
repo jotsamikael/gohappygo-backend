@@ -19,6 +19,9 @@ export class UserResponseDto {
     @ApiProperty({ example: 1 })
     id: number;
 
+    @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    publicId: string;
+
     @ApiProperty({ example: 'John' })
     name: string;
 }

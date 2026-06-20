@@ -138,7 +138,7 @@ export class TravelController {
         @ApiBearerAuth('JWT-auth')
         @ApiOperation({ 
             summary: 'Cancel a travel',
-            description: 'Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. When a travel is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.'
+            description: 'Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. This is the only way for a seller to back out of accepted requests: all associated non-terminal requests are cancelled, buyers receive partial refunds for paid transactions, reserved weight is released, and notifications are sent.'
         })
         @ApiResponse({ status: 200, description: 'Travel cancelled successfully', type: TravelResponseDto })
         @ApiResponse({ status: 400, description: 'Bad request - travel is already cancelled' })

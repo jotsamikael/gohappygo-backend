@@ -919,6 +919,7 @@ export class DemandAndTravelService {
 
         return {
             id: airline.id,
+            publicId: airline.publicId,
             name: airline.name,
             icaoCode: airline.icaoCode,
             iataCode: airline.iataCode,

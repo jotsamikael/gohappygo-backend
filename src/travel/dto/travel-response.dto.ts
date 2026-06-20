@@ -7,6 +7,10 @@ export class TravelListAirportDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: "0CT7" })
   @Expose()
   ident: string;
@@ -45,6 +49,10 @@ export class TravelListUserDto {
   @ApiProperty({ example: 43 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: "2025-11-09T12:04:35.233Z" })
   @Expose()
@@ -97,6 +105,10 @@ export class TravelListImageDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'uf_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: "images (1).jpg" })
   @Expose()
   originalName: string;
@@ -131,6 +143,10 @@ export class TravelListAirlineDto {
   @ApiProperty({ example: 70 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'al_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: false })
   @Expose()
@@ -173,6 +189,10 @@ export class TravelResponseDto {
   @ApiProperty({ example: 17 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'tr_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: "2025-11-14T21:22:34.763Z" })
   @Expose()

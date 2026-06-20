@@ -49,6 +49,7 @@ export class RequestService {
     @InjectRepository(UserEntity) private userRepository: Repository<UserEntity>,
     private requestStatusHistoryService: RequestStatusHistoryService,
     private requestStatusService: RequestStatusService,
+    @Inject(forwardRef(() => TravelService))
     private travelService: TravelService,
     private demandService: DemandService,
     private transactionService: TransactionService,
@@ -1009,6 +1010,20 @@ export class RequestService {
       );
     }
 
+    if (isOwner) {
+      const negotiatingStatus = await this.requestStatusService.getRequestByStatus('NEGOTIATING');
+      if (!negotiatingStatus) {
+        throw new CustomNotFoundException('NEGOTIATING request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+      }
+      if (request.currentStatusId !== negotiatingStatus.id) {
+        const listingLabel = request.travelId ? 'travel listing' : 'demand listing';
+        throw new CustomBadRequestException(
+          `Cannot reject a request that has already been accepted or is in progress. Cancel your ${listingLabel} instead to refund all related requests.`,
+          ErrorCode.REQUEST_CANNOT_BE_REJECTED,
+        );
+      }
+    }
+
     // 3. Check if request is already COMPLETED
     const completedStatus = await this.requestStatusService.getRequestByStatus('COMPLETED');
     if (!completedStatus) {
@@ -1068,12 +1083,9 @@ export class RequestService {
 
       // If cancellation is BEFORE travel date: immediate cancellation with refund (if transaction exists)
       if (isBeforeTravelDate) {
-        const transaction = await this.transactionService.getTransactionByRequestId(requestId);
+        const transaction = await this.transactionService.findTransactionByRequestId(requestId);
         if (!transaction) {
-          // Request accepted but no transaction (e.g. legacy/orphan). Allow cancellation without refund.
-          this.logger.warn(
-            `Cancelling request ${requestId} with no corresponding transaction (accepted-without-transaction case).`
-          );
+          // NEGOTIATING (no payment yet) or legacy accepted-without-transaction: cancel without refund.
         } else {
           // Process refund (only travelerPayment, fee is kept)
           if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
@@ -1207,6 +1219,66 @@ export class RequestService {
     await this.clearRequestListCache();
 
     return request;
+  }
+
+  /**
+   * Cancels a request when its parent travel/demand listing is cancelled.
+   * Skips terminal requests. Refunds paid transactions (partial) and releases reserved travel weight.
+   */
+  async cancelRequestForListingCancellation(
+    requestId: number,
+    listingOwnerUserId: number,
+  ): Promise<boolean> {
+    const terminalStatuses = ['COMPLETED', 'CANCELLED', 'REJECTED'];
+    const request = await this.getRequestById(requestId);
+    if (!request || terminalStatuses.includes(request.currentStatus?.status ?? '')) {
+      return false;
+    }
+
+    const transaction = await this.transactionService.findTransactionByRequestId(requestId);
+    if (transaction?.status === 'pending') {
+      await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+    } else {
+      try {
+        await this.refundRequestTransaction(requestId);
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to refund request ${requestId} during listing cancellation: ${error?.message ?? error}`,
+        );
+      }
+    }
+
+    const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
+    if (!cancelledStatus) {
+      throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        relations: ['currentStatus'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRequest || terminalStatuses.includes(lockedRequest.currentStatus?.status ?? '')) {
+        return;
+      }
+
+      lockedRequest.currentStatusId = cancelledStatus.id;
+      lockedRequest.currentStatus = cancelledStatus;
+      await transactionalEntityManager.save(RequestEntity, lockedRequest);
+      await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
+      await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
+    });
+
+    const requester = await this.userService.findOne({ id: request.requesterId });
+    if (requester) {
+      request.currentStatusId = cancelledStatus.id;
+      request.currentStatus = cancelledStatus;
+      this.userEventService.emitRequestCancelled(requester, request, false, listingOwnerUserId);
+    }
+
+    await this.clearRequestListCacheForUsers([request.requesterId, listingOwnerUserId]);
+    return true;
   }
 
   /**
@@ -2015,10 +2087,12 @@ export class RequestService {
     // Build requester object with fullName and profilePictureUrl
     const requester: UserResponseDto = request.requester ? {
       id: request.requester.id,
+      publicId: request.requester?.publicId ?? '',
       fullName: requesterFullName,
       profilePictureUrl: request.requester.profilePictureUrl || null
     } : {
       id: request.requesterId,
+      publicId: '',
       fullName: '',
       profilePictureUrl: null
     };
@@ -2150,6 +2224,7 @@ export class RequestService {
 
     return {
       id: request.id,
+      publicId: request.publicId,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       demandId: request.demandId,

@@ -1,10 +1,12 @@
-import { BaseEntity } from "src/baseEntity/base.entity";
+import { PublicIdentifiableEntity } from "src/baseEntity/public-identifiable.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
 import { Column, Entity, Index } from "typeorm";
 
 @Entity()
 @Index(['iataCode'], { unique: false, where: "iataCode IS NOT NULL" })
 @Index(['icaoCode'], { unique: false, where: "icaoCode IS NOT NULL" })
-export class AirportEntity extends BaseEntity {
+export class AirportEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.AIRPORT;
 
     @Column({ type: 'varchar', length: 20, unique: true })
     ident: string;

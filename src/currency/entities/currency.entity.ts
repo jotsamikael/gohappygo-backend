@@ -1,4 +1,5 @@
-import { BaseEntity } from 'src/baseEntity/base.entity';
+import { PublicIdentifiableEntity } from 'src/baseEntity/public-identifiable.entity';
+import { PublicIdPrefix } from 'src/common/public-id/public-id-prefix.enum';
 import { UserEntity } from 'src/user/user.entity';
 import { Column, Entity, OneToMany } from 'typeorm';
 
@@ -7,7 +8,8 @@ import { Column, Entity, OneToMany } from 'typeorm';
  * Stores currency code, name, symbol, and related information
  */
 @Entity()
-export class CurrencyEntity extends BaseEntity {
+export class CurrencyEntity extends PublicIdentifiableEntity {
+  static publicIdPrefix = PublicIdPrefix.CURRENCY;
   @Column({ unique: true, length: 3 })
   code: string; // ISO 4217 currency code (e.g., USD, EUR, GBP)
 

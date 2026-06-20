@@ -6,6 +6,10 @@ export class AirportResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'ap_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty()
   @Expose()
   isDeactivated: boolean;
@@ -68,6 +72,10 @@ export class UserResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty()
   @Expose()
   isDeactivated: boolean;
@@ -93,6 +101,10 @@ export class TravelResponseDto {
   @ApiProperty()
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'tr_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty()
   @Expose()
@@ -197,6 +209,10 @@ export class DemandResponseDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'dm_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty()
   @Expose()
   createdAt: Date;
@@ -261,6 +277,10 @@ export class BookmarkItemResponseDto {
   @ApiProperty()
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'bm_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty()
   @Expose()

@@ -7,6 +7,10 @@ export class RequestUserDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: '2025-09-13T19:44:29.010Z' })
   @Expose()
   createdAt: Date;
@@ -37,6 +41,10 @@ export class RequestTravelDto {
   @ApiProperty({ example: 32 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'tr_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: '2025-12-02T16:12:34.176Z' })
   @Expose()
@@ -133,6 +141,10 @@ export class RequestAcceptResponseDto {
   @ApiProperty({ example: 15 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'rq_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: '2025-12-03T09:47:37.401Z' })
   @Expose()

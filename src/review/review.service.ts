@@ -135,6 +135,7 @@ export class ReviewService implements OnModuleInit {
       message: 'Review created successfully',
       review: {
         id: reviewData.id,
+        publicId: reviewData.publicId,
         rating: reviewData.rating,
         comment: reviewData.comment,
         requestId: reviewData.requestId,
@@ -566,6 +567,7 @@ export class ReviewService implements OnModuleInit {
       message: 'Review moderated successfully',
       review: {
         id: moderatedReview.id,
+        publicId: moderatedReview.publicId,
         rating: moderatedReview.rating,
         comment: moderatedReview.comment,
         requestId: moderatedReview.requestId,

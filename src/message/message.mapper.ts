@@ -16,6 +16,7 @@ export class MessageMapper {
     
     return plainToInstance(ThreadMessageUserDto, {
       id: user.id,
+      publicId: user?.publicId ?? '',
       fullName: this.commonService.userFullName(user),
       profilePictureUrl: user.profilePictureUrl || null,
     }, {
@@ -33,6 +34,7 @@ export class MessageMapper {
 
     const mapped = {
       id: message.id,
+      publicId: message.publicId,
       content: message.content,
       isRead: message.isRead,
       createdAt: message.createdAt,

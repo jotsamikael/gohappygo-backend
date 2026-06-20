@@ -18,6 +18,7 @@ export class SupportMapper {
     const dto = plainToInstance(SupportRequestResponseDto, supportRequest, {
       excludeExtraneousValues: true,
     });
+    (dto as any).publicId = supportRequest.publicId;
 
     // Map logs with user information
     if (supportRequest.logs && supportRequest.logs.length > 0) {
@@ -36,6 +37,7 @@ export class SupportMapper {
     const dto = plainToInstance(SupportLogResponseDto, log, {
       excludeExtraneousValues: true,
     });
+    (dto as any).publicId = (log as any).publicId ?? '';
 
     // Add user full name if available
     if (log.userId && users && users.has(log.userId)) {

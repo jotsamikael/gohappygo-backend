@@ -1,5 +1,7 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { SupportLogEntity } from "./support-log.entity";
+import { PublicIdPrefix } from "src/common/public-id/public-id-prefix.enum";
+import { generatePublicId } from "src/common/public-id/public-id.util";
 
 export enum SupportStatus {
   PENDING = 'PENDING',
@@ -25,6 +27,9 @@ export enum SupportCategory {
 export class SupportRequestEntity {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'varchar', length: 40, unique: true, nullable: true })
+  publicId: string;
 
   @Column({ nullable: false })
   email: string;
@@ -52,4 +57,11 @@ export class SupportRequestEntity {
 
   @Column({ nullable: true })
   deletedAt: Date;
+
+  @BeforeInsert()
+  assignPublicId(): void {
+    if (!this.publicId) {
+      this.publicId = generatePublicId(PublicIdPrefix.SUPPORT_REQUEST);
+    }
+  }
 }

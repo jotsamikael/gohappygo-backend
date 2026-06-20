@@ -7,6 +7,10 @@ export class ReviewUserDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'us_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: '2025-10-09T18:07:14.516Z' })
   @Expose()
   createdAt: Date;
@@ -36,6 +40,10 @@ export class ReviewTravelDto {
   @ApiProperty({ example: 18 })
   @Expose()
   id: number;
+
+  @ApiProperty({ example: 'tr_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
 
   @ApiProperty({ example: '2025-11-15T08:18:06.238Z' })
   @Expose()
@@ -143,6 +151,10 @@ export class ReviewRequestDto {
   @Expose()
   id: number;
 
+  @ApiProperty({ example: 'rq_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  @Expose()
+  publicId: string;
+
   @ApiProperty({ example: '2025-11-15T08:43:03.693Z' })
   @Expose()
   createdAt: Date;
@@ -196,6 +208,9 @@ export class CreateReviewDataDto {
   @ApiProperty({ example: 1 })
   id: number;
 
+  @ApiProperty({ example: 'rv_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+  publicId: string;
+
   @ApiProperty({ example: 5 })
   rating: number;
 
@@ -234,6 +249,10 @@ export class ReviewResponseDto {
     @ApiProperty({ example: 3 })
     @Expose()
     id: number;
+
+    @ApiProperty({ example: 'rv_01ARZ3NDEKTSV4RRFFQ69G5FAV' })
+    @Expose()
+    publicId: string;
 
     @ApiProperty({ example: '2025-11-15T08:52:39.433Z' })
     @Expose()

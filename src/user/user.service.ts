@@ -251,6 +251,7 @@ private async mapToUserResponseDto(user: UserEntity): Promise<UserResponseDto> {
 
   return {
     id: user.id,
+    publicId: user.publicId,
     email: user.email,
     phone: user.phone,
     username: user.username,
@@ -258,7 +259,12 @@ private async mapToUserResponseDto(user: UserEntity): Promise<UserResponseDto> {
     profilePictureUrl: user.profilePictureUrl,
     bio: user.bio, // Add this line
     isDeactivated: user.isDeactivated,
-    role: user.role,
+    role: {
+      id: user.role.id,
+      name: user.role.name,
+      code: user.role.code,
+      description: user.role.description,
+    },
     isPhoneVerified: user.isPhoneVerified,
     isVerified: user.isVerified,
     isAwaitingVerification: isAwaitingVerification,
