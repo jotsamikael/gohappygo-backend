@@ -35,6 +35,10 @@ env:
   PM2_APP_NAME: gohappygo-api
   # Number of release folders to keep on the VPS for rollback
   RELEASES_TO_KEEP: 5
+  # Post-deploy health check: poll localhost until API responds or timeout
+  HEALTH_CHECK_URL: http://127.0.0.1:3000/api/airports?limit=1
+  HEALTH_CHECK_INTERVAL_SEC: 5
+  HEALTH_CHECK_MAX_WAIT_SEC: 90
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -143,7 +147,7 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: |
           ssh -p "$VPS_PORT" "${VPS_USER}@${VPS_HOST}" \
-            "APP_DIR='${VPS_APP_DIR}' RELEASE_ID='${RELEASE_ID}' RELEASES_TO_KEEP='${RELEASES_TO_KEEP}' PM2_APP_NAME='${PM2_APP_NAME}' bash -s" <<'REMOTE_SCRIPT'
+            "APP_DIR='${VPS_APP_DIR}' RELEASE_ID='${RELEASE_ID}' RELEASES_TO_KEEP='${RELEASES_TO_KEEP}' PM2_APP_NAME='${PM2_APP_NAME}' HEALTH_CHECK_URL='${HEALTH_CHECK_URL}' HEALTH_CHECK_INTERVAL_SEC='${HEALTH_CHECK_INTERVAL_SEC}' HEALTH_CHECK_MAX_WAIT_SEC='${HEALTH_CHECK_MAX_WAIT_SEC}' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           # Non-interactive SSH skips .bashrc — load Node/npm/pm2 (nvm, fnm, or profile)
@@ -214,10 +218,22 @@ jobs:
           fi
           pm2 save
 
-          # Wait briefly for NestJS to boot, then verify the API responds
-          sleep 5
-          if ! curl -sf "http://127.0.0.1:3000/api/airports?limit=1" -o /dev/null; then
-            echo "Health check failed after deploy."
+          # Poll until NestJS is listening (local boot often takes 6–10s+ on VPS)
+          health_ok=false
+          elapsed=0
+          while [ "${elapsed}" -lt "${HEALTH_CHECK_MAX_WAIT_SEC}" ]; do
+            if curl -sf "${HEALTH_CHECK_URL}" -o /dev/null; then
+              health_ok=true
+              echo "Health check passed after ${elapsed}s."
+              break
+            fi
+            sleep "${HEALTH_CHECK_INTERVAL_SEC}"
+            elapsed=$((elapsed + HEALTH_CHECK_INTERVAL_SEC))
+            echo "Waiting for API... (${elapsed}s / ${HEALTH_CHECK_MAX_WAIT_SEC}s)"
+          done
+
+          if [ "${health_ok}" = false ]; then
+            echo "Health check failed after deploy (timeout ${HEALTH_CHECK_MAX_WAIT_SEC}s)."
 
             # Roll back to the previous release if one existed
             if [ -n "${PREVIOUS_RELEASE}" ] && [ -d "${PREVIOUS_RELEASE}" ]; then
