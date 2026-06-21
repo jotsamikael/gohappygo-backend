@@ -13,7 +13,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { TravelEntity } from 'src/travel/travel.entity';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { EmailModule } from 'src/email/email.module';
-import { EmailTemplatesService } from 'src/email/email-templates.service';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -21,6 +21,7 @@ import { EmailTemplatesService } from 'src/email/email-templates.service';
     UserModule,
     RequestModule,
     EmailModule,
+    CommonModule,
     CacheModule.register(),
     JwtModule.register({
       secret: 'jwt_secret', // Same as your auth module
@@ -28,7 +29,7 @@ import { EmailTemplatesService } from 'src/email/email-templates.service';
     }),
   ],
   controllers: [MessageController],
-  providers: [MessageService, MessageGateway, MessageMapper, EmailTemplatesService],
+  providers: [MessageService, MessageGateway, MessageMapper],
   exports: [MessageService],
 })
 export class MessageModule {}

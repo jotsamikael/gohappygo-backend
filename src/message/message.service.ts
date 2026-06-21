@@ -14,7 +14,10 @@ import { TravelEntity } from 'src/travel/travel.entity';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
-import { SendPublicMessageDto, AnnouncementType } from './dto/send-public-message.dto';
+import { CustomNotFoundException, CustomBadRequestException, CustomForbiddenException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
+import { ContactAnnouncerDto, AnnouncementType, isValidAnnouncementPublicId } from './dto/contact-announcer.dto';
+import { CommonService } from 'src/common/service/common.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -31,6 +34,7 @@ export class MessageService {
     private requestService: RequestService,
     private emailService: EmailService,
     private emailTemplatesService: EmailTemplatesService,
+    private commonService: CommonService,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
@@ -293,90 +297,135 @@ export class MessageService {
   }
 
   /**
-   * Send a public message from a visitor/user about a travel or demand
-   * This sends an email to the travel/demand owner with the message details
+   * Send an inquiry email to a travel or demand creator.
+   * No message is persisted in the database.
    */
-  async sendPublicMessage(dto: SendPublicMessageDto): Promise<{ success: boolean; message: string }> {
+  async contactAnnouncer(
+    sender: UserEntity,
+    dto: ContactAnnouncerDto,
+  ): Promise<{ success: boolean; message: string }> {
+    if (!isValidAnnouncementPublicId(dto.publicId, dto.announcementType)) {
+      throw new CustomBadRequestException(
+        'Invalid publicId for the given announcement type',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
     let owner: UserEntity;
-    let departureAirport: string = 'N/A';
-    let arrivalAirport: string = 'N/A';
-    let flightNumber: string = '';
-    let pricePerKilo: string = '';
+    let departureAirportName: string;
+    let arrivalAirportName: string;
+    let travelDate: Date | null | undefined;
 
     try {
-      // Get the travel or demand based on the announcement type
       if (dto.announcementType === AnnouncementType.TRAVEL) {
         const travel = await this.travelRepository.findOne({
-          where: { id: dto.announcementId },
-          relations: ['user', 'departureAirport', 'arrivalAirport', 'airline'],
+          where: { publicId: dto.publicId },
+          relations: ['user', 'departureAirport', 'arrivalAirport'],
         });
 
         if (!travel) {
-          throw new NotFoundException(`Travel with ID ${dto.announcementId} not found`);
+          throw new CustomNotFoundException(
+            `Travel with publicId ${dto.publicId} not found`,
+            ErrorCode.TRAVEL_NOT_FOUND,
+          );
         }
 
         owner = travel.user;
-        departureAirport = travel.departureAirport?.name || 'Unknown';
-        arrivalAirport = travel.arrivalAirport?.name || 'Unknown';
-        flightNumber = travel.flightNumber || '';
-        pricePerKilo = travel.pricePerKg ? `${travel.pricePerKg}` : '';
-      } else if (dto.announcementType === AnnouncementType.DEMAND) {
+        departureAirportName = travel.departureAirport?.name ?? 'Unknown';
+        arrivalAirportName = travel.arrivalAirport?.name ?? 'Unknown';
+        travelDate = travel.travelDate ?? travel.departureDatetime;
+      } else {
         const demand = await this.demandRepository.findOne({
-          where: { id: dto.announcementId },
-          relations: ['user', 'departureAirport', 'arrivalAirport', 'airline'],
+          where: { publicId: dto.publicId },
+          relations: ['user', 'departureAirport', 'arrivalAirport'],
         });
 
         if (!demand) {
-          throw new NotFoundException(`Demand with ID ${dto.announcementId} not found`);
+          throw new CustomNotFoundException(
+            `Demand with publicId ${dto.publicId} not found`,
+            ErrorCode.DEMAND_NOT_FOUND,
+          );
         }
 
         owner = demand.user;
-        departureAirport = demand.departureAirport?.name || 'Unknown';
-        arrivalAirport = demand.arrivalAirport?.name || 'Unknown';
-        flightNumber = demand.flightNumber || '';
-        pricePerKilo = demand.pricePerKg ? `${demand.pricePerKg}` : '';
-      } else {
-        throw new BadRequestException('Invalid announcement type');
+        departureAirportName = demand.departureAirport?.name ?? 'Unknown';
+        arrivalAirportName = demand.arrivalAirport?.name ?? 'Unknown';
+        travelDate = demand.travelDate;
       }
 
-      if (!owner || !owner.email) {
-        throw new NotFoundException('Could not find owner or owner email for this announcement');
+      if (!owner?.email) {
+        throw new CustomNotFoundException(
+          'Could not find owner email for this announcement',
+          ErrorCode.USER_NOT_FOUND,
+        );
       }
 
-      // Send email to the owner
-      const emailTemplate = this.emailTemplatesService.getPublicMessageTemplate(
-        `${owner.firstName} ${owner.lastName}`,
-        dto.announcementType,
-        departureAirport,
-        arrivalAirport,
-        flightNumber,
-        pricePerKilo,
-        dto.message
-      );
+      if (owner.id === sender.id) {
+        throw new CustomForbiddenException(
+          'You cannot send an inquiry to your own announcement',
+          ErrorCode.MESSAGE_UNAUTHORIZED,
+        );
+      }
 
+      const senderName = this.commonService.userFullName(sender);
       const emailFrom = this.configService.get<string>('EMAIL_FROM');
+      const emailHtml = this.emailTemplatesService.getContactAnnouncerTemplate({
+        recipientName: this.commonService.userGreetingName(owner),
+        senderName,
+        announcementType: dto.announcementType,
+        message: dto.message,
+        departureAirportName,
+        arrivalAirportName,
+        travelDate,
+      });
+      const emailText = this.buildAnnouncerInquiryEmailBody(
+        dto.message,
+        departureAirportName,
+        arrivalAirportName,
+        travelDate,
+      );
 
       const emailSent = await this.emailService.sendEmail({
         to: owner.email,
         from: emailFrom,
-        subject: `New Message About Your ${dto.announcementType === AnnouncementType.TRAVEL ? 'Travel' : 'Demand'} - GoHappyGo`,
-        html: emailTemplate,
+        subject: `You received an inquiry from ${senderName}`,
+        html: emailHtml,
+        text: emailText,
       });
 
       if (!emailSent) {
-        this.logger.warn(`Failed to send email to ${owner.email}, but message was processed`);
+        this.logger.warn(`Failed to send inquiry email to ${owner.email}`);
+      } else {
+        this.logger.log(
+          `Inquiry sent by user #${sender.id} about ${dto.announcementType} ${dto.publicId}, email delivered to ${owner.email}`,
+        );
       }
-
-      this.logger.log(`Public message received about ${dto.announcementType} #${dto.announcementId}, email sent to ${owner.email}`);
 
       return {
         success: true,
-        message: 'Message sent successfully. The announcement owner will receive an email with your message.',
+        message: 'Your message was sent to the announcement creator.',
       };
     } catch (error) {
-      this.logger.error(`Error sending public message: ${error.message}`, error);
+      this.logger.error(`Error sending announcer inquiry: ${error.message}`, error);
       throw error;
     }
+  }
+
+  private buildAnnouncerInquiryEmailBody(
+    message: string,
+    departureAirportName: string,
+    arrivalAirportName: string,
+    travelDate: Date | null | undefined,
+  ): string {
+    const formattedTravelDate = travelDate
+      ? new Date(travelDate).toISOString().split('T')[0]
+      : 'N/A';
+
+    return `${message}
+
+Departure airport: ${departureAirportName}
+Arrival airport: ${arrivalAirportName}
+Travel date: ${formattedTravelDate}`;
   }
 }
 

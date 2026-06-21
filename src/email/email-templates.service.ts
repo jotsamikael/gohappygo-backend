@@ -2104,6 +2104,86 @@ export class EmailTemplatesService {
     `;
   }
 
+  getContactAnnouncerTemplate(params: {
+    recipientName: string;
+    senderName: string;
+    announcementType: 'travel' | 'demand';
+    message: string;
+    departureAirportName: string;
+    arrivalAirportName: string;
+    travelDate: Date | string | null | undefined;
+  }): string {
+    const {
+      recipientName,
+      senderName,
+      announcementType,
+      message,
+      departureAirportName,
+      arrivalAirportName,
+      travelDate,
+    } = params;
+
+    const announcementLabel = announcementType === 'travel' ? 'Travel' : 'Demand';
+    const formattedTravelDate = this.formatEmailDate(travelDate) || 'N/A';
+    const safeMessage = this.escapeHtml(message).replace(/\n/g, '<br>');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>You received an inquiry from ${this.escapeHtml(senderName)} - GoHappyGo</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 24px; background: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; }
+          .message-box { background: white; padding: 16px; border: 1px solid #ddd; border-radius: 6px; margin: 20px 0; }
+          .announcement-details { background: #e3f2fd; padding: 16px; border-left: 4px solid #2196F3; margin: 20px 0; border-radius: 4px; }
+          .detail-row { margin: 8px 0; }
+          .label { font-weight: bold; color: #1976D2; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">You received an inquiry from ${this.escapeHtml(senderName)}</h1>
+          </div>
+          <div class="content">
+            <p>Hello ${this.escapeHtml(recipientName)},</p>
+            <p>A GoHappyGo member sent you a message about your ${announcementLabel.toLowerCase()} listing.</p>
+
+            <div class="message-box">
+              <h3 style="margin-top: 0;">Message</h3>
+              <p style="margin-bottom: 0;">${safeMessage}</p>
+            </div>
+
+            <div class="announcement-details">
+              <h3 style="margin-top: 0;">${announcementType === 'travel' ? 'Travel' : 'Demand'} details</h3>
+              <div class="detail-row">
+                <span class="label">Departure airport:</span> ${this.escapeHtml(departureAirportName)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Arrival airport:</span> ${this.escapeHtml(arrivalAirportName)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Travel date:</span> ${this.escapeHtml(formattedTravelDate)}
+              </div>
+            </div>
+
+            <p>You can reply to this member from your GoHappyGo account.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} GoHappyGo. All rights reserved.</p>
+            <p>This is an automated message from GoHappyGo. Please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   getPublicMessageTemplate(
     recipientName: string,
     announcementType: string,

@@ -325,7 +325,7 @@ export class TravelResponseDto {
   @Type(() => TravelListCurrencyDto)
   currency: TravelListCurrencyDto | null;
 
-  @ApiProperty({ example: false, description: 'Whether the travel is editable (true if no requests exist)' })
+  @ApiProperty({ example: false, description: 'Whether the travel is editable (true only for active travels with no requests)' })
   @Expose()
   isEditable: boolean;
 }

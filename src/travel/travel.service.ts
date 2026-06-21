@@ -266,13 +266,14 @@ export class TravelService {
       });
     }
 
+    const requestCountByTravelId = this.buildRequestCountMap(raw);
+
     // Add isEditable property to each travel entity and transform to DTOs
-    // isEditable = true if travel has no requests (requestCount === 0)
-    const itemsWithIsEditable = entities.map((travel: TravelEntity, index: number) => {
-      const requestCount = parseInt(raw[index]?.requestCount || '0', 10);
+    const itemsWithIsEditable = entities.map((travel: TravelEntity) => {
+      const requestCount = requestCountByTravelId.get(travel.id) ?? 0;
       return {
         ...travel,
-        isEditable: requestCount === 0
+        isEditable: this.isTravelEditable(travel, requestCount),
       } as TravelEntity & { isEditable: boolean };
     });
 
@@ -754,6 +755,23 @@ export class TravelService {
     }
   }
 
+  private buildRequestCountMap(rawRows: Record<string, unknown>[]): Map<number, number> {
+    const requestCountByTravelId = new Map<number, number>();
 
-  
+    for (const row of rawRows) {
+      const travelId = Number(row.travel_id);
+      if (!travelId || requestCountByTravelId.has(travelId)) {
+        continue;
+      }
+
+      const rawCount = row.requestCount ?? row.travel_requestCount ?? '0';
+      requestCountByTravelId.set(travelId, parseInt(String(rawCount), 10) || 0);
+    }
+
+    return requestCountByTravelId;
+  }
+
+  private isTravelEditable(travel: TravelEntity, requestCount: number): boolean {
+    return travel.status === 'active' && requestCount === 0;
+  }
 }

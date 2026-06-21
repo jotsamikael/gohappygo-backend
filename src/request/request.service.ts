@@ -326,9 +326,9 @@ export class RequestService {
   //createRequest to seek travel - Updated to only require weight
   async createRequestToTravel(createRequestDto: CreateRequestToTravelDto, user: UserEntity): Promise<RequestEntity> {
     //check if user account is verified
-    if (!user.isVerified) {
+    /*if (!user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }
+    }*/
 
     //check if travel is created by the same user as the requester
     if (createRequestDto.travelId && createRequestDto.travelId === user.id) {
