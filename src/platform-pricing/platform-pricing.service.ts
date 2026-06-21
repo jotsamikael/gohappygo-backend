@@ -258,6 +258,50 @@ export class PlatformPricingService {
   }
 
   /**
+   * Normalize monetary amounts to 2 decimal places before tier lookup.
+   */
+  private normalizeMoney(amount: number): number {
+    return Number(amount.toFixed(2));
+  }
+
+  /**
+   * Find a pricing tier for an amount. Tries exact match first, then promotes
+   * fractional/gap amounts via Math.ceil to the next tier.
+   */
+  private findPricingTier(
+    amount: number,
+    allPricings: PlatformPricingEntity[],
+  ): PlatformPricingEntity | undefined {
+    const exactMatch = allPricings.find(
+      (p) => amount >= Number(p.lowerBound) && amount <= Number(p.upperBound),
+    );
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    const promotedAmount = Math.ceil(amount);
+    const promotedMatch = allPricings.find(
+      (p) =>
+        promotedAmount >= Number(p.lowerBound) &&
+        promotedAmount <= Number(p.upperBound),
+    );
+    if (promotedMatch) {
+      return promotedMatch;
+    }
+
+    const highestTier = allPricings[allPricings.length - 1];
+    if (
+      highestTier &&
+      amount < 151 &&
+      amount > Number(highestTier.upperBound)
+    ) {
+      return highestTier;
+    }
+
+    return undefined;
+  }
+
+  /**
    * Calculate platform fee based on traveler payment amount
    * This method finds the appropriate pricing tier and returns the fee
    */
@@ -266,19 +310,17 @@ export class PlatformPricingService {
       return 0;
     }
 
-    // Get all pricing tiers ordered by lowerBound
+    const normalizedPayment = this.normalizeMoney(travelerPayment);
+
     const allPricings = await this.platformPricingRepository.find({
       order: { lowerBound: 'ASC' },
     });
 
-    // Find the pricing tier that contains the travelerPayment amount
-    const matchingPricing = allPricings.find(
-      (p) => travelerPayment >= Number(p.lowerBound) && travelerPayment <= Number(p.upperBound),
-    );
+    const matchingPricing = this.findPricingTier(normalizedPayment, allPricings);
 
     if (!matchingPricing) {
       throw new CustomBadRequestException(
-        `No pricing tier found for amount ${travelerPayment}`,
+        `No pricing tier found for amount ${normalizedPayment}`,
         ErrorCode.PLATFORM_PRICING_TIER_NOT_FOUND,
       );
     }
@@ -300,19 +342,20 @@ export class PlatformPricingService {
     tvaAmount: number;
     totalAmount: number;
   }> {
+    const normalizedPayment = this.normalizeMoney(travelerPayment);
     let fee = 0;
 
-    if (travelerPayment <= 151) { //for traveler amount less than or equal 151, get the corresponding fee
-      fee = await this.calculateFee(travelerPayment);
-
+    if (normalizedPayment >= 151) {
+      fee = this.roundToNearestHalf(0.15 * normalizedPayment);
+    } else {
+      fee = await this.calculateFee(normalizedPayment);
     }
-    fee = this.roundToNearestHalf(0.15 * travelerPayment) //for traveler amount greater than 151, a fee of 15% is automatically applied and rounded to 0.5€
 
     const tvaAmount = (tvaPercentage / 100) * fee;
-    const totalAmount = travelerPayment + fee + tvaAmount;
+    const totalAmount = normalizedPayment + fee + tvaAmount;
 
     return {
-      travelerPayment,
+      travelerPayment: normalizedPayment,
       fee,
       tvaAmount: Number(tvaAmount.toFixed(2)),
       totalAmount: Number(totalAmount.toFixed(2)),
