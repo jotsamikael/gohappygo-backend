@@ -72,6 +72,33 @@ export class RequestService {
     return this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
   }
 
+  /** Update scalar request fields without cascading to loaded relations. */
+  private async updateRequestFields(
+    requestId: number,
+    fields: Partial<RequestEntity>,
+    entityManager?: EntityManager,
+  ): Promise<void> {
+    const repo = entityManager
+      ? entityManager.getRepository(RequestEntity)
+      : this.requestRepository;
+    await repo.update(requestId, fields);
+  }
+
+  /** Persist status change and append history without orphaning existing history rows. */
+  private async updateRequestStatus(
+    requestId: number,
+    statusId: number,
+    extraFields?: Partial<RequestEntity>,
+    entityManager?: EntityManager,
+  ): Promise<void> {
+    await this.updateRequestFields(
+      requestId,
+      { currentStatusId: statusId, ...extraFields },
+      entityManager,
+    );
+    await this.requestStatusHistoryService.record(requestId, statusId, entityManager);
+  }
+
   private assertTravelDateAllowsCompletion(request: RequestEntity): void {
     if (this.canBypassTravelDateRules()) {
       return;
@@ -220,10 +247,9 @@ export class RequestService {
       throw new NotFoundException('Completed status not found');
     }
 
+    await this.updateRequestStatus(requestId, completedStatus.id);
     request.currentStatusId = completedStatus.id;
     request.currentStatus = completedStatus;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(requestId, completedStatus.id);
 
     const affectedUserIds = [request.requesterId];
     if (request.travel) {
@@ -301,10 +327,9 @@ export class RequestService {
       throw new CustomNotFoundException('PROOF_DEADLINE_MISSED status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
+    await this.updateRequestStatus(request.id, missedStatus.id);
     request.currentStatusId = missedStatus.id;
     request.currentStatus = missedStatus;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(request.id, missedStatus.id);
 
     const affectedUserIds = [request.requesterId];
     if (request.travel) {
@@ -827,7 +852,12 @@ export class RequestService {
     request.settledByUserId = admin.id;
     request.settleAction = settleAction;
     request.settleNote = dto.note ?? null;
-    await this.requestRepository.save(request);
+    await this.updateRequestFields(requestId, {
+      settledAt: request.settledAt,
+      settledByUserId: request.settledByUserId,
+      settleAction: request.settleAction,
+      settleNote: request.settleNote,
+    });
 
     let result: RequestEntity;
 
@@ -866,11 +896,13 @@ export class RequestService {
       }
     } else if (dto.action === SettleRequestAction.COMPLETE_AND_RELEASE_FUNDS) {
       result = await this.releaseFundsAndMarkCompleted(requestId, admin);
-      result.settledAt = request.settledAt;
-      result.settledByUserId = request.settledByUserId;
-      result.settleAction = request.settleAction;
-      result.settleNote = request.settleNote;
-      await this.requestRepository.save(result);
+      await this.updateRequestFields(requestId, {
+        settledAt: request.settledAt,
+        settledByUserId: request.settledByUserId,
+        settleAction: request.settleAction,
+        settleNote: request.settleNote,
+      });
+      result = (await this.getRequestById(requestId))!;
     } else {
       throw new CustomBadRequestException('Invalid settle action', ErrorCode.SETTLE_ACTION_INVALID);
     }
@@ -1127,11 +1159,12 @@ export class RequestService {
           throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
         }
 
+        request.cancellationRequestedAt = new Date();
+        await this.updateRequestStatus(requestId, pendingCancellationStatus.id, {
+          cancellationRequestedAt: request.cancellationRequestedAt,
+        });
         request.currentStatusId = pendingCancellationStatus.id;
         request.currentStatus = pendingCancellationStatus;
-        request.cancellationRequestedAt = new Date();
-        await this.requestRepository.save(request);
-        await this.requestStatusHistoryService.record(requestId, pendingCancellationStatus.id);
 
         // Send email and notification to seller requesting confirmation
         const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
@@ -1384,10 +1417,12 @@ export class RequestService {
 
     request.cancellationDisputedAt = new Date();
     request.cancellationConfirmedBy = user.id;
+    await this.updateRequestStatus(requestId, disputedStatus.id, {
+      cancellationDisputedAt: request.cancellationDisputedAt,
+      cancellationConfirmedBy: request.cancellationConfirmedBy,
+    });
     request.currentStatusId = disputedStatus.id;
     request.currentStatus = disputedStatus;
-    await this.requestRepository.save(request);
-    await this.requestStatusHistoryService.record(requestId, disputedStatus.id);
 
     // Send email to buyer and admin (single CANCELLATION_DISPUTED emit to avoid duplicate admin email)
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);

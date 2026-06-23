@@ -78,6 +78,22 @@ export class UserProfileResponseDto {
     @Expose()
     fullName: string | null;
 
+    @ApiProperty({
+      example: 'James',
+      nullable: true,
+      description: 'Included only when the authenticated user requests their own profile',
+    })
+    @Expose()
+    firstName?: string | null;
+
+    @ApiProperty({
+      example: 'Doe',
+      nullable: true,
+      description: 'Included only when the authenticated user requests their own profile',
+    })
+    @Expose()
+    lastName?: string | null;
+
     @ApiProperty({ example: '+1234567890', nullable: true })
     @Expose()
     phone: string | null;

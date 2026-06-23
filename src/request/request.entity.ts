@@ -57,7 +57,7 @@ export class RequestEntity extends PublicIdentifiableEntity {
   @JoinColumn({ name: 'currentStatusId' })
   currentStatus: RequestStatusEntity;
 
-  @OneToMany(() => RequestStatusHistoryEntity, (r) => r.request, { cascade: true })
+  @OneToMany(() => RequestStatusHistoryEntity, (r) => r.request)
   requestStatusHistory: RequestStatusHistoryEntity[];
 
   @OneToOne(() => InsuranceEntity, (r) => r.request)

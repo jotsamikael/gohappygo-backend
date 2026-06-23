@@ -2,6 +2,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsString, IsOptional, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
 
 export class CreateRequestToDemandDto {
   @ApiProperty({
@@ -31,7 +32,7 @@ export class CreateRequestToDemandDto {
     maxLength: 10
   })
   @IsNotEmpty()
-  @Type(() => Number)
+  @TransformLocaleDecimal()
   @IsNumber()
   offerPrice: number;
 

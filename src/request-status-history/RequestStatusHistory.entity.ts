@@ -1,7 +1,7 @@
 import { BaseEntity } from "src/baseEntity/base.entity";
 import { RequestStatusEntity } from "src/request-status/requestStatus.entity";
 import { RequestEntity } from "src/request/request.entity";
-import { Column, Entity, ManyToOne } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne } from "typeorm";
 /*@jotsamikael
 *Tracks the status history of a request over time. Used for auditing, filtering, and supporting workflows like "pending", "accepted", "in_transit", etc.
 */
@@ -14,10 +14,11 @@ export class RequestStatusHistoryEntity extends BaseEntity{
      @Column()
     requestStatusId: number
 
-    @ManyToOne(()=>RequestStatusEntity,(reqStatus)=>reqStatus.requestStatusHistory)
-    requestStatus:RequestStatusEntity;
+    @ManyToOne(() => RequestStatusEntity, (reqStatus) => reqStatus.requestStatusHistory)
+    @JoinColumn({ name: 'requestStatusId' })
+    requestStatus: RequestStatusEntity;
 
-
-    @ManyToOne(()=>RequestEntity,(r)=>r.requestStatusHistory)
+    @ManyToOne(() => RequestEntity, (r) => r.requestStatusHistory)
+    @JoinColumn({ name: 'requestId' })
     request: RequestEntity;
 }

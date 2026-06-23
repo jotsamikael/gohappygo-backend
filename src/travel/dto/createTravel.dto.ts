@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsString, MaxLength, MinLength, IsDateString, IsBoolean, IsOptional } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
 
 export class CreateTravelDto {
   @ApiProperty({
@@ -86,7 +87,7 @@ export class CreateTravelDto {
     example: 5.00
   })
   @IsNotEmpty({ message: 'feeForGloomy can not be empty' })
-  @Type(() => Number)
+  @TransformLocaleDecimal()
   @IsNumber({}, { message: 'feeForGloomy must be a number' })
   feeForGloomy: number;
 
@@ -121,7 +122,7 @@ export class CreateTravelDto {
     example: 25.50
   })
   @IsNotEmpty({ message: 'pricePerKg can not be empty' })
-  @Type(() => Number)
+  @TransformLocaleDecimal()
   @IsNumber({}, { message: 'pricePerKg must be a number' })
   pricePerKg: number;
 
@@ -140,7 +141,7 @@ export class CreateTravelDto {
     example: 50.0
   })
   @IsNotEmpty({ message: 'totalWeightAllowance can not be empty' })
-  @Type(() => Number)
+  @TransformLocaleDecimal()
   @IsNumber({}, { message: 'totalWeightAllowance must be a number' })
   totalWeightAllowance: number;
 

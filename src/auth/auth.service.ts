@@ -1275,6 +1275,9 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
 
     const needsRegistrationCompletion = !user.stripeAccountId;
 
+    const isOwnProfile =
+      requester !== null && !isViewingOtherUser && requester.id === user.id;
+
     // Visitors and USER role: when viewing someone else's profile, hide email/phone but still show display name + bio.
     const requesterIsVisitorOrUser =
       requester === null || requester.role?.code === UserRole.USER;
@@ -1285,6 +1288,12 @@ private async deleteUserVerificationFiles(userId: number): Promise<void> {
       publicId: user.publicId,
       email: hideEmailAndPhone ? null : user.email,
       fullName,
+      ...(isOwnProfile
+        ? {
+            firstName: user.firstName ?? null,
+            lastName: user.lastName ?? null,
+          }
+        : {}),
       phone: hideEmailAndPhone ? null : user.phone,
       profilePictureUrl: user.profilePictureUrl || null,
       bio: user.bio || null,

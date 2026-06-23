@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional, IsNumber, IsEnum, IsDateString } from "class-validator";
 import { Type } from "class-transformer";
+import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
 import { PackageKind } from "../package-kind.enum";
 
 export class CreateDemandDto{
@@ -61,7 +62,7 @@ export class CreateDemandDto{
       type: 'number'
     })
     @IsNotEmpty({ message: 'weight can not be empty' })
-    @Type(() => Number)
+    @TransformLocaleDecimal()
     @IsNumber({}, { message: 'weight must be a number' })
     weight: number;
   
@@ -71,7 +72,7 @@ export class CreateDemandDto{
       type: 'number'
     })
     @IsNotEmpty({ message: 'pricePerKg can not be empty' })
-    @Type(() => Number)
+    @TransformLocaleDecimal()
     @IsNumber({}, { message: 'pricePerKg must be a number' })
     pricePerKg: number;
 

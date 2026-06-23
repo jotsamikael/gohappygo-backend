@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsPositive, Min } from 'class-validator';
+import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
 
 export class CalculatePlatformPricingDto {
   @ApiProperty({
@@ -7,6 +8,7 @@ export class CalculatePlatformPricingDto {
     example: 5.5,
     minimum: 0.01,
   })
+  @TransformLocaleDecimal()
   @IsNumber()
   @IsPositive()
   @Min(0.01)

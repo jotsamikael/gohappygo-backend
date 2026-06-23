@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsString, Matches, Length } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
 
 export class CreateRequestToTravelDto {
 
@@ -30,7 +31,7 @@ export class CreateRequestToTravelDto {
     minLength: 1,
     maxLength: 10
   })  
-  @Type(() => Number)
+  @TransformLocaleDecimal()
   @IsNumber()
   @IsNotEmpty()
   weight: number;
