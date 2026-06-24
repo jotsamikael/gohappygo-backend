@@ -32,5 +32,11 @@ export class AccountStatusResponseDto {
     example: true,
   })
   detailsSubmitted: boolean;
+
+  @ApiProperty({
+    description: 'Whether stripeAccountStatus was updated in the database during this sync',
+    example: true,
+  })
+  wasUpdated: boolean;
 }
 

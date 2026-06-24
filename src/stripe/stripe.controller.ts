@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Req,
+  Query,
   UseGuards,
   RawBodyRequest,
   HttpCode,
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UserEntity } from 'src/user/user.entity';
 import { CreateAccountLinkResponseDto } from './dto/create-account-link.dto';
 import { AccountStatusResponseDto } from './dto/account-status-response.dto';
+import { GetOnboardingLinkQueryDto, OnboardingClient } from './dto/get-onboarding-link-query.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
 
 @ApiTags('Stripe')
@@ -40,7 +42,10 @@ export class StripeController {
   async getOnboardingLink(
     @CurrentUser() user: UserEntity,
     @Req() req: any,
+    @Query() query: GetOnboardingLinkQueryDto,
   ): Promise<CreateAccountLinkResponseDto> {
+    const client = query.client ?? OnboardingClient.WEB;
+
     // Get or create Stripe Connect account
     let accountId = user.stripeAccountId;
 
@@ -56,8 +61,7 @@ export class StripeController {
       accountId = account.id;
     }
 
-    // Create Account Link
-    const url = await this.stripeService.createAccountLink(accountId);
+    const url = await this.stripeService.createAccountLink(accountId, client);
 
     return { url };
   }
@@ -81,6 +85,7 @@ export class StripeController {
         chargesEnabled: false,
         transfersEnabled: false,
         detailsSubmitted: false,
+        wasUpdated: false,
       };
     }
 
@@ -93,6 +98,7 @@ export class StripeController {
       chargesEnabled: status.chargesEnabled,
       transfersEnabled: status.transfersEnabled,
       detailsSubmitted: status.detailsSubmitted,
+      wasUpdated: status.wasUpdated,
     };
   }
 

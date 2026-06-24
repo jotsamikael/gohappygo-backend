@@ -12,6 +12,8 @@ import { StripeWebhookEventEntity } from './entities/stripe-webhook-event.entity
 import { TransactionEntity } from 'src/transaction/transaction.entity';
 import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
+import { OnboardingClient } from './dto/get-onboarding-link-query.dto';
+import { resolveStripeOnboardingUrls } from './stripe-onboarding-urls.util';
 
 @Injectable()
 export class StripeService {
@@ -149,10 +151,16 @@ export class StripeService {
    * Uses 'account_update' for existing accounts that need verification/updates
    * Uses 'account_onboarding' for new accounts
    */
-  async createAccountLink(accountId: string): Promise<string> {
+  async createAccountLink(
+    accountId: string,
+    client: OnboardingClient = OnboardingClient.WEB,
+  ): Promise<string> {
     try {
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://gohappygo.netlify.app';
-      
+      const { returnUrl, refreshUrl } = resolveStripeOnboardingUrls(
+        this.configService,
+        client,
+      );
+
       // Retrieve account to determine link type
       const account = await this.stripe.accounts.retrieve(accountId);
       
@@ -168,14 +176,14 @@ export class StripeService {
       
       this.logger.log(
         `Creating account link for account ${accountId}: ` +
-        `type=${linkType}, details_submitted=${account.details_submitted}, ` +
-        `hasPendingRequirements=${hasPendingRequirements}`
+        `client=${client}, type=${linkType}, details_submitted=${account.details_submitted}, ` +
+        `hasPendingRequirements=${hasPendingRequirements}, return_url=${returnUrl}`,
       );
       
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
-        refresh_url: `${frontendUrl}/settings/payments?refresh=true`,
-        return_url: `${frontendUrl}/stripe-onboarding`, 
+        refresh_url: refreshUrl,
+        return_url: returnUrl,
         type: linkType,
       });
 
@@ -912,7 +920,13 @@ export class StripeService {
           await this.handleTransferReversed(event.data.object as Stripe.Transfer);
           break;
         case 'account.updated':
-          await this.handleAccountUpdated(event.data.object as Stripe.Account);
+          await this.handleAccountUpdated(
+            event.data.object as Stripe.Account,
+            (event.data as { previous_attributes?: Record<string, unknown> }).previous_attributes,
+          );
+          break;
+        case 'capability.updated':
+          await this.handleCapabilityUpdated(event);
           break;
         case 'balance.available':
           // Optional: Trigger fund release processing when balance becomes available
@@ -1063,69 +1077,116 @@ export class StripeService {
   }
 
   /**
-   * Handle account.updated webhook
+   * Sync user stripeAccountStatus (and release pending transfers when appropriate)
+   * from a Stripe Account object. Used by account.updated and capability.updated webhooks.
    */
-  private async handleAccountUpdated(account: Stripe.Account): Promise<void> {
-    this.logger.log(`[handleAccountUpdated] Processing account.updated webhook for account: ${account.id}`);
-    this.logger.log(`[handleAccountUpdated] Account charges_enabled: ${account.charges_enabled}`);
-    this.logger.log(`[handleAccountUpdated] Account details_submitted: ${account.details_submitted}`);
-    
-    // Check if transfers capability is now active
+  private async syncUserFromStripeAccount(
+    account: Stripe.Account,
+    options?: { previousTransfersCapability?: string },
+  ): Promise<void> {
+    const logPrefix = '[syncUserFromStripeAccount]';
+    this.logger.log(`${logPrefix} Syncing user for account: ${account.id}`);
+
     const transfersCapability = account.capabilities?.transfers;
-    const previousTransfersCapability = (account as any).previous_attributes?.capabilities?.transfers;
-    
-    this.logger.log(`[handleAccountUpdated] Transfers capability: ${transfersCapability}`);
-    this.logger.log(`[handleAccountUpdated] Previous transfers capability: ${previousTransfersCapability || 'undefined'}`);
-    
-    // IMPORTANT: Check if transfers capability is active AND external account exists
-    // Only release transfers when BOTH conditions are met
+    const previousTransfersCapability = options?.previousTransfersCapability;
+
+    this.logger.log(`${logPrefix} Transfers capability: ${transfersCapability}`);
+    this.logger.log(
+      `${logPrefix} Previous transfers capability: ${previousTransfersCapability ?? 'undefined'}`,
+    );
+
     if (transfersCapability === 'active') {
-      // Check if external account exists
       const hasExternalAccount = await this.hasExternalAccount(account.id);
-      
+
       if (hasExternalAccount) {
-        // Check if this is a new activation (previous was not active) or if we should check anyway
-        const shouldRelease = previousTransfersCapability !== 'active' || previousTransfersCapability === undefined;
-        
-        this.logger.log(`[handleAccountUpdated] External account exists: ${hasExternalAccount}`);
-        this.logger.log(`[handleAccountUpdated] Should release pending transfers: ${shouldRelease}`);
-        
+        const shouldRelease =
+          previousTransfersCapability !== 'active' ||
+          previousTransfersCapability === undefined;
+
         if (shouldRelease) {
-          this.logger.log(`[handleAccountUpdated] Transfers capability is active and external account exists for account ${account.id}, releasing pending transfers`);
+          this.logger.log(
+            `${logPrefix} Releasing pending transfers for account ${account.id}`,
+          );
           try {
             await this.releasePendingTransfersForAccount(account.id);
-            this.logger.log(`[handleAccountUpdated] Pending transfers released successfully`);
           } catch (error) {
-            this.logger.error(`[handleAccountUpdated] Error releasing pending transfers: ${error.message}`);
-            // Don't throw - continue to update status
+            this.logger.error(
+              `${logPrefix} Error releasing pending transfers: ${error.message}`,
+            );
           }
         }
       } else {
-        this.logger.log(`[handleAccountUpdated] Transfers capability is active but external account is missing. Waiting for external account to be added.`);
+        this.logger.log(
+          `${logPrefix} Transfers active but external account missing for ${account.id}`,
+        );
       }
     }
-    
-    // Update user's Stripe account status
-    this.logger.log(`[handleAccountUpdated] Finding user by Stripe account ID: ${account.id}`);
+
     const user = await this.userService.findByStripeAccountId(account.id);
-    if (user) {
-      this.logger.log(`[handleAccountUpdated] User found: ${user.id} (${user.email})`);
-      this.logger.log(`[handleAccountUpdated] Current stripeAccountStatus: ${user.stripeAccountStatus}`);
-      
-      this.logger.log(`[handleAccountUpdated] Retrieving account status from Stripe...`);
-      const status = await this.getAccountStatus(account.id);
-      this.logger.log(`[handleAccountUpdated] Stripe account status: ${status.status}`);
-      this.logger.log(`[handleAccountUpdated] chargesEnabled: ${status.chargesEnabled}, transfersEnabled: ${status.transfersEnabled}, detailsSubmitted: ${status.detailsSubmitted}`);
-      
-      const previousStatus = user.stripeAccountStatus;
-      user.stripeAccountStatus = status.status;
-      
-      this.logger.log(`[handleAccountUpdated] Updating user stripeAccountStatus from '${previousStatus}' to '${status.status}'`);
-      await this.userService.save(user);
-      this.logger.log(`[handleAccountUpdated] User stripeAccountStatus updated successfully`);
-    } else {
-      this.logger.warn(`[handleAccountUpdated] No user found for Stripe account ID: ${account.id}`);
+    if (!user) {
+      this.logger.warn(`${logPrefix} No user found for Stripe account ID: ${account.id}`);
+      return;
     }
+
+    const status = await this.getAccountStatus(account.id);
+    const previousStatus = user.stripeAccountStatus;
+
+    if (previousStatus !== status.status) {
+      user.stripeAccountStatus = status.status;
+      await this.userService.save(user);
+      this.logger.log(
+        `${logPrefix} Updated user ${user.id} stripeAccountStatus from '${previousStatus}' to '${status.status}'`,
+      );
+
+      if (status.status === 'active' && previousStatus !== 'active') {
+        try {
+          await this.releasePendingTransfersForAccount(account.id);
+        } catch (error) {
+          this.logger.error(
+            `${logPrefix} Error releasing pending transfers after activation: ${error.message}`,
+          );
+        }
+      }
+    } else {
+      this.logger.log(`${logPrefix} Status already in sync: '${previousStatus}'`);
+    }
+  }
+
+  /**
+   * Handle account.updated webhook
+   */
+  private async handleAccountUpdated(
+    account: Stripe.Account,
+    previousAttributes?: Record<string, unknown>,
+  ): Promise<void> {
+    this.logger.log(
+      `[handleAccountUpdated] Processing account.updated webhook for account: ${account.id}`,
+    );
+
+    const previousCapabilities = previousAttributes?.capabilities as
+      | { transfers?: string }
+      | undefined;
+    const previousTransfersCapability = previousCapabilities?.transfers;
+
+    await this.syncUserFromStripeAccount(account, { previousTransfersCapability });
+  }
+
+  /**
+   * Handle capability.updated webhook (Connect account capability changes)
+   */
+  private async handleCapabilityUpdated(event: Stripe.Event): Promise<void> {
+    const accountId = event.account;
+    if (!accountId) {
+      this.logger.warn('[handleCapabilityUpdated] capability.updated without account id');
+      return;
+    }
+
+    this.logger.log(
+      `[handleCapabilityUpdated] Processing capability.updated for account: ${accountId}`,
+    );
+
+    const account = await this.stripe.accounts.retrieve(accountId);
+    await this.syncUserFromStripeAccount(account);
   }
 
   /**
