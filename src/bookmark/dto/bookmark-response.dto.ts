@@ -53,6 +53,20 @@ export class DemandImageResponseDto {
   demandImageUrl: string;
 }
 
+export class BookmarkCurrencyResponseDto {
+  @ApiProperty({ example: 'EUR' })
+  @Expose()
+  code: string;
+
+  @ApiProperty({ example: 'EURO' })
+  @Expose()
+  name: string;
+
+  @ApiProperty({ example: '€' })
+  @Expose()
+  symbol: string;
+}
+
 
 export class BookmarkAirlineResponseDto {
   @ApiProperty()
@@ -325,6 +339,11 @@ export class BookmarkItemResponseDto {
   @Expose()
   @Type(() => DemandImageResponseDto)
   demandImage: DemandImageResponseDto | null;
+
+  @ApiProperty({ type: BookmarkCurrencyResponseDto, nullable: true })
+  @Expose()
+  @Type(() => BookmarkCurrencyResponseDto)
+  currency: BookmarkCurrencyResponseDto | null;
 }
 
 export class BookmarkListResponseDto {

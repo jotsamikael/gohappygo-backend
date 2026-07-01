@@ -6,6 +6,7 @@ import {
   AirportResponseDto,
   UserResponseDto,
   DemandImageResponseDto,
+  BookmarkCurrencyResponseDto,
 } from './dto/bookmark-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { Injectable } from '@nestjs/common';
@@ -47,6 +48,22 @@ export class BookmarkMapper {
   toDemandResponse(demand: any): DemandResponseDto | null {
   return plainToInstance(DemandResponseDto, demand, { excludeExtraneousValues: true,
     enableImplicitConversion: true });
+  }
+
+  toCurrencyResponse(currency: any): BookmarkCurrencyResponseDto | null {
+    if (!currency) {
+      return null;
+    }
+
+    return plainToInstance(
+      BookmarkCurrencyResponseDto,
+      {
+        code: currency.code,
+        name: currency.name,
+        symbol: currency.symbol,
+      },
+      { excludeExtraneousValues: true, enableImplicitConversion: true },
+    );
   }
 
   toBookmarkItemResponse(bookmark: BookmarkEntity): BookmarkItemResponseDto {
@@ -100,6 +117,10 @@ export class BookmarkMapper {
         });
       }
     }
+
+    bookmarkData.currency = this.toCurrencyResponse(
+      bookmark.travel?.currency ?? bookmark.demand?.currency ?? null,
+    );
 
     return plainToInstance(BookmarkItemResponseDto, bookmarkData,
        { excludeExtraneousValues: true,

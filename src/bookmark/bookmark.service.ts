@@ -100,11 +100,13 @@ export class BookmarkService {
         'travel.arrivalAirport', 
         'travel.airline', 
         'travel.user',
+        'travel.currency',
         'demand', 
         'demand.departureAirport', 
         'demand.arrivalAirport', 
         'demand.user',
-        'demand.images'
+        'demand.images',
+        'demand.currency',
       ],
     });
     
@@ -130,11 +132,13 @@ export class BookmarkService {
       .leftJoinAndSelect('travel.arrivalAirport', 'travelArrivalAirport')
       .leftJoinAndSelect('travel.airline', 'travelAirline')
       .leftJoinAndSelect('travel.user', 'travelUser')
+      .leftJoinAndSelect('travel.currency', 'travelCurrency')
       .leftJoinAndSelect('bookmark.demand', 'demand')
       .leftJoinAndSelect('demand.departureAirport', 'demandDepartureAirport')
       .leftJoinAndSelect('demand.arrivalAirport', 'demandArrivalAirport')
       .leftJoinAndSelect('demand.user', 'demandUser')
       .leftJoinAndSelect('demand.images', 'demandImages')
+      .leftJoinAndSelect('demand.currency', 'demandCurrency')
       .where('bookmark.userId = :userId', { userId })
       .skip(skip)
       .take(limit);
