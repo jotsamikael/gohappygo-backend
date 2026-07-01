@@ -8,4 +8,5 @@ export interface ReviewUserDto {
   fullName: string;
   id: number;
   profilePictureUrl: string | null;
+  publicId: string;
 }

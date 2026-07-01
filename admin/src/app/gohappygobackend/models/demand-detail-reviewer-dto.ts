@@ -6,4 +6,5 @@ export interface DemandDetailReviewerDto {
   fullName: string;
   id: number;
   profilePictureUrl: string;
+  publicId: string;
 }

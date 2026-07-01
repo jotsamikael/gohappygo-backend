@@ -29,4 +29,9 @@ export interface AccountStatusResponseDto {
    * Whether the account can make transfers
    */
   transfersEnabled: boolean;
+
+  /**
+   * Whether stripeAccountStatus was updated in the database during this sync
+   */
+  wasUpdated: boolean;
 }

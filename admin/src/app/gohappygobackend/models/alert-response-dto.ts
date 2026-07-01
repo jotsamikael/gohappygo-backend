@@ -46,6 +46,7 @@ export interface AlertResponseDto {
    * Alert ID
    */
   id: number;
+  publicId: string;
 
   /**
    * Travel date (optional)

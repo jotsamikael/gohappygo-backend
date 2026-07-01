@@ -31,6 +31,7 @@ export interface DemandResponseDto {
   isDeactivated: boolean;
   packageKind: 'FRAGILE' | 'URGENT' | 'STANDARD' | 'MORE_THAN_3000';
   pricePerKg: string;
+  publicId: string;
   status: string;
   travelDate: string;
   updatedAt: string;

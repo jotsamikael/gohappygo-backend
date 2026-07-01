@@ -23,4 +23,9 @@ export interface KycStatusResponseDto {
    * Last status update timestamp
    */
   kycUpdatedAt: string | null;
+
+  /**
+   * Whether kycStatus was updated in the database during this sync
+   */
+  wasUpdated: boolean;
 }

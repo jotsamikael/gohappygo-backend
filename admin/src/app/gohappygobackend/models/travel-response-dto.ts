@@ -35,12 +35,13 @@ export interface TravelResponseDto {
   isDeactivated: boolean;
 
   /**
-   * Whether the travel is editable (true if no requests exist)
+   * Whether the travel is editable (true only for active travels with no requests)
    */
   isEditable: boolean;
   isInstant: boolean;
   isSharedWeight: boolean;
   pricePerKg: string;
+  publicId: string;
   punctualityLevel: boolean;
   status: string;
   totalWeightAllowance: string;

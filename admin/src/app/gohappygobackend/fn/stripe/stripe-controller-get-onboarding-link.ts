@@ -11,11 +11,17 @@ import { RequestBuilder } from '../../request-builder';
 import { CreateAccountLinkResponseDto } from '../../models/create-account-link-response-dto';
 
 export interface StripeControllerGetOnboardingLink$Params {
+
+/**
+ * Client platform that started onboarding (controls Stripe return/refresh URLs)
+ */
+  client?: 'web' | 'mobile';
 }
 
 export function stripeControllerGetOnboardingLink(http: HttpClient, rootUrl: string, params?: StripeControllerGetOnboardingLink$Params, context?: HttpContext): Observable<StrictHttpResponse<CreateAccountLinkResponseDto>> {
   const rb = new RequestBuilder(rootUrl, stripeControllerGetOnboardingLink.PATH, 'get');
   if (params) {
+    rb.query('client', params.client, {});
   }
 
   return http.request(

@@ -18,4 +18,5 @@ export interface AlertUserResponseDto {
    * User ID
    */
   id: number;
+  publicId: string;
 }

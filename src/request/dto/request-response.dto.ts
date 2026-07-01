@@ -136,6 +136,27 @@ export class RequestResponseDto {
 
   @ApiProperty({ description: 'User ID who uploaded meeting proof', required: false, nullable: true })
   meetingProofUploadedByUserId?: number | null;
+
+  @ApiProperty({
+    description: 'When an admin resolved a cancellation dispute',
+    required: false,
+    nullable: true,
+  })
+  disputeResolvedAt?: Date | null;
+
+  @ApiProperty({
+    description: 'Admin user ID who resolved the cancellation dispute',
+    required: false,
+    nullable: true,
+  })
+  disputeResolvedByUserId?: number | null;
+
+  @ApiProperty({
+    description: 'Admin notes on how the dispute was resolved',
+    required: false,
+    nullable: true,
+  })
+  disputeResolutionNote?: string | null;
 }
 
 export class PaginatedRequestsResponseDto {

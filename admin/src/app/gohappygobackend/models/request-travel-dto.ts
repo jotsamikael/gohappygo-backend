@@ -20,6 +20,7 @@ export interface RequestTravelDto {
   isInstant: boolean;
   isSharedWeight: boolean;
   pricePerKg: string;
+  publicId: string;
 
   /**
    * Punctuality level (false = punctual, true = very punctual)

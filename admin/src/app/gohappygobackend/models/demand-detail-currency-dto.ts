@@ -5,5 +5,6 @@
 export interface DemandDetailCurrencyDto {
   code: string;
   id: number;
+  publicId: string;
   symbol: string;
 }

@@ -105,7 +105,7 @@ export class KycService extends BaseService {
   /**
    * Get KYC verification status.
    *
-   * Returns the current KYC verification status for the authenticated user
+   * Returns the current KYC verification status for the authenticated user, synced from Didit when a session exists
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `kycDiditControllerGetKycStatus()` instead.
@@ -119,7 +119,7 @@ export class KycService extends BaseService {
   /**
    * Get KYC verification status.
    *
-   * Returns the current KYC verification status for the authenticated user
+   * Returns the current KYC verification status for the authenticated user, synced from Didit when a session exists
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `kycDiditControllerGetKycStatus$Response()` instead.

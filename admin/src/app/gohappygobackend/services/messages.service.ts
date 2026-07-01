@@ -11,6 +11,9 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { ContactAnnouncerResponseDto } from '../models/contact-announcer-response-dto';
+import { messageControllerContactAnnouncer } from '../fn/messages/message-controller-contact-announcer';
+import { MessageControllerContactAnnouncer$Params } from '../fn/messages/message-controller-contact-announcer';
 import { messageControllerGetThread } from '../fn/messages/message-controller-get-thread';
 import { MessageControllerGetThread$Params } from '../fn/messages/message-controller-get-thread';
 import { messageControllerGetUnreadCount } from '../fn/messages/message-controller-get-unread-count';
@@ -19,10 +22,7 @@ import { messageControllerMarkThreadAsRead } from '../fn/messages/message-contro
 import { MessageControllerMarkThreadAsRead$Params } from '../fn/messages/message-controller-mark-thread-as-read';
 import { messageControllerSendMessage } from '../fn/messages/message-controller-send-message';
 import { MessageControllerSendMessage$Params } from '../fn/messages/message-controller-send-message';
-import { messageControllerSendPublicMessage } from '../fn/messages/message-controller-send-public-message';
-import { MessageControllerSendPublicMessage$Params } from '../fn/messages/message-controller-send-public-message';
 import { PaginatedThreadResponseDto } from '../models/paginated-thread-response-dto';
-import { SendPublicMessageResponseDto } from '../models/send-public-message-response-dto';
 
 
 /**
@@ -34,36 +34,36 @@ export class MessagesService extends BaseService {
     super(config, http);
   }
 
-  /** Path part for operation `messageControllerSendPublicMessage()` */
-  static readonly MessageControllerSendPublicMessagePath = '/api/message/send-public';
+  /** Path part for operation `messageControllerContactAnnouncer()` */
+  static readonly MessageControllerContactAnnouncerPath = '/api/message/contact-announcer';
 
   /**
-   * Send a public message about a travel or demand.
+   * Contact a travel or demand announcer.
    *
-   * Allow visitors/users to send a message about a travel or demand posting. This is a public endpoint that does not require authentication.
+   * Send an inquiry email to the creator of a travel or demand. Requires authentication. The message is not stored in the database.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `messageControllerSendPublicMessage()` instead.
+   * To access only the response body, use `messageControllerContactAnnouncer()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  messageControllerSendPublicMessage$Response(params: MessageControllerSendPublicMessage$Params, context?: HttpContext): Observable<StrictHttpResponse<SendPublicMessageResponseDto>> {
-    return messageControllerSendPublicMessage(this.http, this.rootUrl, params, context);
+  messageControllerContactAnnouncer$Response(params: MessageControllerContactAnnouncer$Params, context?: HttpContext): Observable<StrictHttpResponse<ContactAnnouncerResponseDto>> {
+    return messageControllerContactAnnouncer(this.http, this.rootUrl, params, context);
   }
 
   /**
-   * Send a public message about a travel or demand.
+   * Contact a travel or demand announcer.
    *
-   * Allow visitors/users to send a message about a travel or demand posting. This is a public endpoint that does not require authentication.
+   * Send an inquiry email to the creator of a travel or demand. Requires authentication. The message is not stored in the database.
    *
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `messageControllerSendPublicMessage$Response()` instead.
+   * To access the full response (for headers, for example), `messageControllerContactAnnouncer$Response()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  messageControllerSendPublicMessage(params: MessageControllerSendPublicMessage$Params, context?: HttpContext): Observable<SendPublicMessageResponseDto> {
-    return this.messageControllerSendPublicMessage$Response(params, context).pipe(
-      map((r: StrictHttpResponse<SendPublicMessageResponseDto>): SendPublicMessageResponseDto => r.body)
+  messageControllerContactAnnouncer(params: MessageControllerContactAnnouncer$Params, context?: HttpContext): Observable<ContactAnnouncerResponseDto> {
+    return this.messageControllerContactAnnouncer$Response(params, context).pipe(
+      map((r: StrictHttpResponse<ContactAnnouncerResponseDto>): ContactAnnouncerResponseDto => r.body)
     );
   }
 

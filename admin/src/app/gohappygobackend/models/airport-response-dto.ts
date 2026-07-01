@@ -17,5 +17,6 @@ export interface AirportResponseDto {
   longitudeDeg: number | null;
   municipality: string | null;
   name: string;
+  publicId: string;
   type: string;
 }

@@ -1,10 +1,12 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
-import { FormControl } from '@angular/forms';
+import { AfterViewInit, Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
+import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSort, Sort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { NotificationService } from 'src/app/core/services/notification.service';
+import { ResolveRequestDto, SettleRequestDto } from 'src/app/gohappygobackend/models';
 import { RequestsService } from 'src/app/gohappygobackend/services';
 
 export interface Request {
@@ -31,6 +33,8 @@ export interface Request {
   currentStatus: {
     status: string;
   };
+  hasMeetingProof?: boolean;
+  meetingProofUploadedAt?: string | null;
   travel: any | null;
   demand: any | null;
 }
@@ -94,13 +98,51 @@ export class MatchComponent implements OnInit, AfterViewInit {
 
   Math = Math;
 
+  settleForm: FormGroup;
+  resolveForm: FormGroup;
+  selectedSettleRequest: Request | null = null;
+  selectedResolveRequest: Request | null = null;
+  isSettling = false;
+  isResolving = false;
+  settleActionOptions: Array<{
+    value: SettleRequestDto['action'];
+    label: string;
+  }> = [
+    { value: 'CANCEL_AND_REFUND', label: 'Cancel and refund' },
+    { value: 'COMPLETE_AND_RELEASE_FUNDS', label: 'Complete and release funds' },
+  ];
+
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
+  @ViewChild('settleModalTemplate') settleModalTemplate: TemplateRef<any>;
+  @ViewChild('resolveModalTemplate') resolveModalTemplate: TemplateRef<any>;
+  @ViewChild('selfieModalTemplate') selfieModalTemplate: TemplateRef<any>;
+
+  private settleDialogRef: MatDialogRef<any> | null = null;
+  private resolveDialogRef: MatDialogRef<any> | null = null;
+  private selfieDialogRef: MatDialogRef<any> | null = null;
+
+  selectedSelfieRequest: Request | null = null;
+  selfieSignedUrl: string | null = null;
+  selfieExpiresAt: string | null = null;
+  isLoadingSelfie = false;
+  selfieLoadError: string | null = null;
 
   constructor(
     private requestsService: RequestsService,
-    private notificationService: NotificationService
-  ) {}
+    private notificationService: NotificationService,
+    private dialog: MatDialog,
+    private formBuilder: FormBuilder,
+  ) {
+    this.settleForm = this.formBuilder.group({
+      action: [null, Validators.required],
+      note: ['', Validators.maxLength(500)],
+    });
+
+    this.resolveForm = this.formBuilder.group({
+      note: ['', [Validators.required, Validators.maxLength(500)]],
+    });
+  }
 
   ngOnInit(): void {
     this.breadCrumbItems = [{ label: 'Tables' }, { label: 'Request Matches', active: true }];
@@ -335,6 +377,161 @@ export class MatchComponent implements OnInit, AfterViewInit {
     this.notificationService.info(`Viewing details for request #${request.id}`);
   }
 
+  onSettleRequest(request: Request): void {
+    this.selectedSettleRequest = request;
+    this.settleForm.reset({
+      action: null,
+      note: '',
+    });
+
+    this.settleDialogRef = this.dialog.open(this.settleModalTemplate, {
+      width: '520px',
+      maxWidth: '95vw',
+      disableClose: true,
+    });
+
+    this.settleDialogRef.afterClosed().subscribe(() => {
+      this.selectedSettleRequest = null;
+      this.isSettling = false;
+      this.settleDialogRef = null;
+    });
+  }
+
+  onResolveRequest(request: Request): void {
+    this.selectedResolveRequest = request;
+    this.resolveForm.reset({ note: '' });
+
+    this.resolveDialogRef = this.dialog.open(this.resolveModalTemplate, {
+      width: '520px',
+      maxWidth: '95vw',
+      disableClose: true,
+    });
+
+    this.resolveDialogRef.afterClosed().subscribe(() => {
+      this.selectedResolveRequest = null;
+      this.isResolving = false;
+      this.resolveDialogRef = null;
+    });
+  }
+
+  submitResolve(): void {
+    if (!this.selectedResolveRequest || this.resolveForm.invalid) {
+      this.resolveForm.markAllAsTouched();
+      return;
+    }
+
+    const body: ResolveRequestDto = {
+      note: this.resolveForm.value.note?.trim(),
+    };
+
+    this.isResolving = true;
+
+    this.requestsService
+      .requestControllerResolveRequest$Json({
+        id: this.selectedResolveRequest.id,
+        body,
+      })
+      .subscribe({
+        next: (response) => {
+          this.notificationService.success(
+            response.message ||
+              `Request #${this.selectedResolveRequest!.id} dispute resolved successfully`,
+          );
+          this.isResolving = false;
+          this.resolveDialogRef?.close(true);
+          this.loadRequests();
+        },
+        error: (error) => {
+          console.error('Error resolving request dispute:', error);
+          const message =
+            error?.error?.message ||
+            error?.message ||
+            'Failed to resolve dispute. Please try again.';
+          this.notificationService.error(message);
+          this.isResolving = false;
+        },
+      });
+  }
+
+  submitSettle(): void {
+    if (!this.selectedSettleRequest || this.settleForm.invalid) {
+      this.settleForm.markAllAsTouched();
+      return;
+    }
+
+    const body: SettleRequestDto = {
+      action: this.settleForm.value.action,
+      note: this.settleForm.value.note?.trim() || undefined,
+    };
+
+    this.isSettling = true;
+
+    this.requestsService
+      .requestControllerSettleRequest({
+        id: this.selectedSettleRequest.id,
+        body,
+      })
+      .subscribe({
+        next: () => {
+          this.notificationService.success(
+            `Request #${this.selectedSettleRequest!.id} settled successfully`,
+          );
+          this.isSettling = false;
+          this.settleDialogRef?.close(true);
+          this.loadRequests();
+        },
+        error: (error) => {
+          console.error('Error settling request:', error);
+          const message =
+            error?.error?.message ||
+            error?.message ||
+            'Failed to settle request. Please try again.';
+          this.notificationService.error(message);
+          this.isSettling = false;
+        },
+      });
+  }
+
+  onViewSelfie(request: Request): void {
+    this.selectedSelfieRequest = request;
+    this.selfieSignedUrl = null;
+    this.selfieExpiresAt = null;
+    this.selfieLoadError = null;
+    this.isLoadingSelfie = true;
+
+    this.selfieDialogRef = this.dialog.open(this.selfieModalTemplate, {
+      width: '640px',
+      maxWidth: '95vw',
+    });
+
+    this.selfieDialogRef.afterClosed().subscribe(() => {
+      this.selectedSelfieRequest = null;
+      this.selfieSignedUrl = null;
+      this.selfieExpiresAt = null;
+      this.selfieLoadError = null;
+      this.isLoadingSelfie = false;
+      this.selfieDialogRef = null;
+    });
+
+    this.requestsService
+      .requestControllerGetMeetingProofSignedUrl({ id: request.id })
+      .subscribe({
+        next: (response) => {
+          this.selfieSignedUrl = response.signedUrl;
+          this.selfieExpiresAt = response.expiresAt;
+          this.isLoadingSelfie = false;
+        },
+        error: (error) => {
+          console.error('Error loading meeting proof:', error);
+          this.selfieLoadError =
+            error?.error?.message ||
+            error?.message ||
+            'Failed to load meeting proof selfie.';
+          this.isLoadingSelfie = false;
+        },
+      });
+  }
+
   /**
    * Accept request
    */
@@ -381,6 +578,10 @@ export class MatchComponent implements OnInit, AfterViewInit {
     return new Date(dateString).toLocaleDateString();
   }
 
+  formatDateTime(dateString: string): string {
+    return new Date(dateString).toLocaleString();
+  }
+
   /**
    * Get status badge class
    */
@@ -401,7 +602,10 @@ export class MatchComponent implements OnInit, AfterViewInit {
       case 'rejected':
       case 'cancelled':
       case 'proof_deadline_missed':
+      case 'cancellation_disputed':
         return 'badge-soft-danger';
+      case 'resolved':
+        return 'badge-soft-success';
       case 'expired':
         return 'badge-soft-secondary';
       default:
@@ -459,6 +663,8 @@ export class MatchComponent implements OnInit, AfterViewInit {
       case 'cancelled': return 'Cancelled';
       case 'proof_issue': return 'Proof Issue';
       case 'proof_deadline_missed': return 'Proof Deadline Missed';
+      case 'cancellation_disputed': return 'Cancellation Disputed';
+      case 'resolved': return 'Resolved';
       case 'expired': return 'Expired';
       default: return status || '-';
     }

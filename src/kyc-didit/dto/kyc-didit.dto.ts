@@ -41,6 +41,12 @@ export class KycStatusResponseDto {
 
   @ApiProperty({ description: 'Whether user is verified' })
   isVerified: boolean;
+
+  @ApiProperty({
+    description: 'Whether kycStatus was updated in the database during this sync',
+    example: true,
+  })
+  wasUpdated: boolean;
 }
 
 /**

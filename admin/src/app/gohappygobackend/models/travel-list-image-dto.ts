@@ -7,6 +7,7 @@ export interface TravelListImageDto {
   id: number;
   mimeType: string;
   originalName: string;
+  publicId: string;
   purpose: number;
   size: number;
   travelId: number;

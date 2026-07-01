@@ -163,7 +163,7 @@ export class TravelsService extends BaseService {
   /**
    * Cancel a travel.
    *
-   * Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. When a travel is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.
+   * Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. This is the only way for a seller to back out of accepted requests: all associated non-terminal requests are cancelled, buyers receive partial refunds for paid transactions, reserved weight is released, and notifications are sent.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `travelControllerDeleteTravel()` instead.
@@ -177,7 +177,7 @@ export class TravelsService extends BaseService {
   /**
    * Cancel a travel.
    *
-   * Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. When a travel is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.
+   * Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. This is the only way for a seller to back out of accepted requests: all associated non-terminal requests are cancelled, buyers receive partial refunds for paid transactions, reserved weight is released, and notifications are sent.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `travelControllerDeleteTravel$Response()` instead.

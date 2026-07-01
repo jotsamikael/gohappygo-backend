@@ -11,11 +11,17 @@ import { RequestBuilder } from '../../request-builder';
 import { KycStartResponseDto } from '../../models/kyc-start-response-dto';
 
 export interface KycDiditControllerStartKyc$Params {
+
+/**
+ * Client platform starting KYC (controls Didit return_url)
+ */
+  client?: 'web' | 'mobile';
 }
 
 export function kycDiditControllerStartKyc(http: HttpClient, rootUrl: string, params?: KycDiditControllerStartKyc$Params, context?: HttpContext): Observable<StrictHttpResponse<KycStartResponseDto>> {
   const rb = new RequestBuilder(rootUrl, kycDiditControllerStartKyc.PATH, 'post');
   if (params) {
+    rb.query('client', params.client, {});
   }
 
   return http.request(

@@ -18,6 +18,7 @@ export interface TransactionResponseDto {
 } | null;
   payerId: number;
   paymentMethod: string;
+  publicId: string;
   request: {
 } | null;
   requestId: number;

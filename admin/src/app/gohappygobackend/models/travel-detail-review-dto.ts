@@ -19,6 +19,7 @@ export interface TravelDetailReviewDto {
    * Review ID
    */
   id: number;
+  publicId: string;
 
   /**
    * Review rating

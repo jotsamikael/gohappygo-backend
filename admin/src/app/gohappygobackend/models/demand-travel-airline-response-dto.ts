@@ -10,4 +10,5 @@ export interface DemandTravelAirlineResponseDto {
 };
   name: string;
   prefix: string;
+  publicId: string;
 }

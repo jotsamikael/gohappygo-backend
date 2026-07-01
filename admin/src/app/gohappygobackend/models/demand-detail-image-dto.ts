@@ -6,6 +6,7 @@ export interface DemandDetailImageDto {
   demandId: number;
   fileUrl: string;
   id: number;
+  publicId: string;
   purpose: number;
   travelId: {
 } | null;

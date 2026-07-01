@@ -13,6 +13,7 @@ export interface CurrencySimpleResponseDto {
    * Currency ID
    */
   id: number;
+  publicId: string;
 
   /**
    * Currency symbol (e.g., XAF, $, €)

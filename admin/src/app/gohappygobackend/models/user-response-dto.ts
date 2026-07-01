@@ -16,6 +16,7 @@ export interface UserResponseDto {
   numberOfReviews: number;
   phone: string;
   profilePictureUrl: string;
+  publicId: string;
   rating: {
 } | null;
   role: UserRoleResponseDto;

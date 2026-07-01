@@ -20,6 +20,7 @@ export interface UserListItemResponseDto {
   numberOfReviews: number;
   phone: string;
   profilePictureUrl: string;
+  publicId: string;
   rating: {
 } | null;
   role: UserListRoleResponseDto;

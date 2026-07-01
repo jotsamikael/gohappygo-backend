@@ -196,21 +196,33 @@
                         <i class="mdi mdi-18px mdi-eye-outline"></i>
                         <span>View Details</span>
                       </button>
-  
-                      <button *ngIf="row.currentStatus.status === 'NEGOTIATING'" mat-menu-item (click)="onAcceptRequest(row)" class="menu-item">
-                        <i class="mdi mdi-18px mdi-check"></i>
-                        <span>Accept Request</span>
+                      <button
+                        *ngIf="row.hasMeetingProof"
+                        mat-menu-item
+                        (click)="onViewSelfie(row)"
+                        class="menu-item">
+                        <i class="mdi mdi-18px mdi-camera-account"></i>
+                        <span>View selfie</span>
+                      </button>
+                      <button
+                        *ngIf="row.currentStatus.status === 'PROOF_DEADLINE_MISSED'"
+                        mat-menu-item
+                        (click)="onSettleRequest(row)"
+                        class="menu-item">
+                        <i class="mdi mdi-18px mdi-gavel"></i>
+                        <span>Settle</span>
+                      </button>
+                      <button
+                        *ngIf="row.currentStatus.status === 'CANCELLATION_DISPUTED'"
+                        mat-menu-item
+                        (click)="onResolveRequest(row)"
+                        class="menu-item">
+                        <i class="mdi mdi-18px mdi-check-decagram"></i>
+                        <span>Resolve</span>
                       </button>
   
-                      <button *ngIf="row.currentStatus.status === 'NEGOTIATING'" mat-menu-item (click)="onRejectRequest(row)" class="menu-item">
-                        <i class="mdi mdi-18px mdi-close"></i>
-                        <span>Reject Request</span>
-                      </button>
-  
-                      <button *ngIf="row.currentStatus.status === 'ACCEPTED'" mat-menu-item (click)="onCompleteRequest(row)" class="menu-item">
-                        <i class="mdi mdi-18px mdi-check-circle"></i>
-                        <span>Mark as Completed</span>
-                      </button>
+          
+                     
                     </mat-menu>
                   </td>
                 </ng-container>
@@ -246,3 +258,122 @@
       </div>
     </div>
   </div>
+
+  <ng-template #settleModalTemplate>
+    <h2 mat-dialog-title>Settle Request #{{ selectedSettleRequest?.id }}</h2>
+    <mat-dialog-content>
+      <p class="text-muted mb-3">
+        This request missed the meeting proof deadline. Choose how to settle it.
+      </p>
+      <form [formGroup]="settleForm">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Settlement action</mat-label>
+          <mat-select formControlName="action">
+            <mat-option *ngFor="let option of settleActionOptions" [value]="option.value">
+              {{ option.label }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="settleForm.get('action')?.hasError('required')">
+            Please select a settlement action
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Notes</mat-label>
+          <textarea
+            matInput
+            formControlName="note"
+            rows="4"
+            placeholder="Enter notes explaining this settlement decision (optional)"></textarea>
+          <mat-hint align="end">{{ settleForm.get('note')?.value?.length || 0 }}/500</mat-hint>
+          <mat-error *ngIf="settleForm.get('note')?.hasError('maxlength')">
+            Notes must be 500 characters or less
+          </mat-error>
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button type="button" mat-stroked-button mat-dialog-close [disabled]="isSettling">
+        Cancel
+      </button>
+      <button
+        type="button"
+        mat-raised-button
+        color="primary"
+        (click)="submitSettle()"
+        [disabled]="settleForm.invalid || isSettling">
+        <mat-spinner diameter="20" *ngIf="isSettling"></mat-spinner>
+        <span *ngIf="!isSettling">Confirm settlement</span>
+        <span *ngIf="isSettling">Settling...</span>
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+
+  <ng-template #resolveModalTemplate>
+    <h2 mat-dialog-title>Resolve Dispute — Request #{{ selectedResolveRequest?.id }}</h2>
+    <mat-dialog-content>
+      <p class="text-muted mb-3">
+        Record how this cancellation dispute was handled. Refunds and payouts are managed outside the app.
+      </p>
+      <form [formGroup]="resolveForm">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Resolution note</mat-label>
+          <textarea
+            matInput
+            formControlName="note"
+            rows="4"
+            placeholder="e.g. Refunded buyer via Stripe Dashboard payment pi_xxx; both parties notified."></textarea>
+          <mat-hint align="end">{{ resolveForm.get('note')?.value?.length || 0 }}/500</mat-hint>
+          <mat-error *ngIf="resolveForm.get('note')?.hasError('required')">
+            Please enter a resolution note
+          </mat-error>
+          <mat-error *ngIf="resolveForm.get('note')?.hasError('maxlength')">
+            Notes must be 500 characters or less
+          </mat-error>
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button type="button" mat-stroked-button mat-dialog-close [disabled]="isResolving">
+        Cancel
+      </button>
+      <button
+        type="button"
+        mat-raised-button
+        color="primary"
+        (click)="submitResolve()"
+        [disabled]="resolveForm.invalid || isResolving">
+        <mat-spinner diameter="20" *ngIf="isResolving"></mat-spinner>
+        <span *ngIf="!isResolving">Confirm resolution</span>
+        <span *ngIf="isResolving">Resolving...</span>
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+
+  <ng-template #selfieModalTemplate>
+    <h2 mat-dialog-title>Meeting proof — Request #{{ selectedSelfieRequest?.id }}</h2>
+    <mat-dialog-content>
+      <div *ngIf="isLoadingSelfie" class="d-flex flex-column align-items-center py-4">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p class="text-muted mt-3 mb-0">Loading selfie...</p>
+      </div>
+
+      <div *ngIf="!isLoadingSelfie && selfieLoadError" class="text-center py-4">
+        <mat-icon class="text-danger" style="font-size: 48px;">error_outline</mat-icon>
+        <p class="text-danger mt-2 mb-0">{{ selfieLoadError }}</p>
+      </div>
+
+      <div *ngIf="!isLoadingSelfie && selfieSignedUrl" class="selfie-preview">
+        <img [src]="selfieSignedUrl" alt="Meeting proof selfie" class="selfie-image" />
+        <p *ngIf="selectedSelfieRequest?.meetingProofUploadedAt" class="text-muted small mt-2 mb-0">
+          Uploaded: {{ formatDate(selectedSelfieRequest.meetingProofUploadedAt) }}
+        </p>
+        <p *ngIf="selfieExpiresAt" class="text-muted small mb-0">
+          Link expires: {{ formatDateTime(selfieExpiresAt) }}
+        </p>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button type="button" mat-stroked-button mat-dialog-close>Close</button>
+    </mat-dialog-actions>
+  </ng-template>

@@ -17,7 +17,7 @@ import {
 } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 
-const TERMINAL_REQUEST_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED'];
+const TERMINAL_REQUEST_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'RESOLVED'];
 
 @Injectable()
 export class RequestListingCancellationService {

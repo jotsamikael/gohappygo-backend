@@ -10,4 +10,5 @@ export interface DemandDetailAirlineDto {
   isDeactivated: boolean;
   logoUrl: string;
   name: string;
+  publicId: string;
 }

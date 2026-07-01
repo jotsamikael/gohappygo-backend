@@ -11,5 +11,6 @@ export interface DemandListAirportDto {
   isoRegion: string;
   municipality: string;
   name: string;
+  publicId: string;
   type: string;
 }

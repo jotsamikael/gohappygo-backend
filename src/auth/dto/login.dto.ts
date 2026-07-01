@@ -1,11 +1,13 @@
 import { IsEmail, IsNotEmpty, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { NormalizeEmail } from 'src/common/transforms/normalize-email.util';
 
 export class LoginDto {
     @ApiProperty({
         description: 'User email address',
         example: 'admin@gohappygo.com'
     })
+    @NormalizeEmail()
     @IsEmail({}, { message: 'Provide a valid email' })
     email: string
 

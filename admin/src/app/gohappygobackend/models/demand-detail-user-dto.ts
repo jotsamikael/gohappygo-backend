@@ -13,6 +13,7 @@ export interface DemandDetailUserDto {
   numberOfReviews: number;
   phone: string;
   profilePictureUrl: string;
+  publicId: string;
   rating: {
 } | null;
   username: {

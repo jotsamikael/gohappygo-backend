@@ -24,6 +24,7 @@ export interface ThreadMessageResponseDto {
    * Whether the message has been read
    */
   isRead: boolean;
+  publicId: string;
 
   /**
    * Message receiver

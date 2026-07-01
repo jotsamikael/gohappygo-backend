@@ -30,6 +30,7 @@ export interface DemandDetailResponseDto {
   isDeactivated: boolean;
   packageKind: string;
   pricePerKg: string;
+  publicId: string;
   requests: Array<string>;
   reviews: Array<DemandDetailReviewDto>;
   status: string;

@@ -31,11 +31,16 @@ import { requestControllerGetAllRequests } from '../fn/requests/request-controll
 import { RequestControllerGetAllRequests$Params } from '../fn/requests/request-controller-get-all-requests';
 import { requestControllerGetMeetingProofSignedUrl } from '../fn/requests/request-controller-get-meeting-proof-signed-url';
 import { RequestControllerGetMeetingProofSignedUrl$Params } from '../fn/requests/request-controller-get-meeting-proof-signed-url';
+import { requestControllerResolveRequest$FormData } from '../fn/requests/request-controller-resolve-request-form-data';
+import { RequestControllerResolveRequest$FormData$Params } from '../fn/requests/request-controller-resolve-request-form-data';
+import { requestControllerResolveRequest$Json } from '../fn/requests/request-controller-resolve-request-json';
+import { RequestControllerResolveRequest$Json$Params } from '../fn/requests/request-controller-resolve-request-json';
 import { requestControllerSettleRequest } from '../fn/requests/request-controller-settle-request';
 import { RequestControllerSettleRequest$Params } from '../fn/requests/request-controller-settle-request';
 import { requestControllerUploadMeetingProof } from '../fn/requests/request-controller-upload-meeting-proof';
 import { RequestControllerUploadMeetingProof$Params } from '../fn/requests/request-controller-upload-meeting-proof';
 import { RequestResponseDto } from '../models/request-response-dto';
+import { ResolveRequestResponseDto } from '../models/resolve-request-response-dto';
 import { UploadMeetingProofResponseDto } from '../models/upload-meeting-proof-response-dto';
 
 
@@ -241,6 +246,69 @@ export class RequestsService extends BaseService {
     );
   }
 
+  /** Path part for operation `requestControllerResolveRequest()` */
+  static readonly RequestControllerResolveRequestPath = '/api/request/resolve/{id}';
+
+  /**
+   * Admin resolve a cancellation dispute.
+   *
+   * Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `requestControllerResolveRequest$Json()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  requestControllerResolveRequest$Json$Response(params: RequestControllerResolveRequest$Json$Params, context?: HttpContext): Observable<StrictHttpResponse<ResolveRequestResponseDto>> {
+    return requestControllerResolveRequest$Json(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Admin resolve a cancellation dispute.
+   *
+   * Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `requestControllerResolveRequest$Json$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  requestControllerResolveRequest$Json(params: RequestControllerResolveRequest$Json$Params, context?: HttpContext): Observable<ResolveRequestResponseDto> {
+    return this.requestControllerResolveRequest$Json$Response(params, context).pipe(
+      map((r: StrictHttpResponse<ResolveRequestResponseDto>): ResolveRequestResponseDto => r.body)
+    );
+  }
+
+  /**
+   * Admin resolve a cancellation dispute.
+   *
+   * Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `requestControllerResolveRequest$FormData()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  requestControllerResolveRequest$FormData$Response(params: RequestControllerResolveRequest$FormData$Params, context?: HttpContext): Observable<StrictHttpResponse<ResolveRequestResponseDto>> {
+    return requestControllerResolveRequest$FormData(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Admin resolve a cancellation dispute.
+   *
+   * Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `requestControllerResolveRequest$FormData$Response()` instead.
+   *
+   * This method sends `multipart/form-data` and handles request body of type `multipart/form-data`.
+   */
+  requestControllerResolveRequest$FormData(params: RequestControllerResolveRequest$FormData$Params, context?: HttpContext): Observable<ResolveRequestResponseDto> {
+    return this.requestControllerResolveRequest$FormData$Response(params, context).pipe(
+      map((r: StrictHttpResponse<ResolveRequestResponseDto>): ResolveRequestResponseDto => r.body)
+    );
+  }
+
   /** Path part for operation `requestControllerAcceptRequest()` */
   static readonly RequestControllerAcceptRequestPath = '/api/request/{id}/accept';
 
@@ -315,7 +383,7 @@ export class RequestsService extends BaseService {
    *
    * Cancel or reject a request based on the connected user:
    * - If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.
-   * - If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.
+   * - If the travel/demand owner calls this endpoint: Rejects the request while it is still NEGOTIATING (no refund). Cannot reject accepted or in-progress requests — cancel the travel/demand listing instead.
    * Only non-completed requests can be cancelled/rejected. Both parties will receive email notifications.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
@@ -332,7 +400,7 @@ export class RequestsService extends BaseService {
    *
    * Cancel or reject a request based on the connected user:
    * - If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.
-   * - If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.
+   * - If the travel/demand owner calls this endpoint: Rejects the request while it is still NEGOTIATING (no refund). Cannot reject accepted or in-progress requests — cancel the travel/demand listing instead.
    * Only non-completed requests can be cancelled/rejected. Both parties will receive email notifications.
    *
    * This method provides access only to the response body.

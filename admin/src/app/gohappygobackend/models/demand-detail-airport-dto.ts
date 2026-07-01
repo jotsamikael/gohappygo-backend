@@ -12,5 +12,6 @@ export interface DemandDetailAirportDto {
   longitudeDeg: string;
   municipality: string;
   name: string;
+  publicId: string;
   type: string;
 }

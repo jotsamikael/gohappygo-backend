@@ -12,6 +12,7 @@ export interface DemandListUserDto {
   isVerified: boolean;
   numberOfReviews: number;
   profilePictureUrl: string;
+  publicId: string;
   rating: {
 } | null;
   stripeAccountStatus: string;

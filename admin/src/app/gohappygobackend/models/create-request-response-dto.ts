@@ -45,6 +45,24 @@ export interface CreateRequestResponseDto {
 };
 
   /**
+   * Admin notes on how the dispute was resolved
+   */
+  disputeResolutionNote?: {
+} | null;
+
+  /**
+   * When an admin resolved a cancellation dispute
+   */
+  disputeResolvedAt?: {
+} | null;
+
+  /**
+   * Admin user ID who resolved the cancellation dispute
+   */
+  disputeResolvedByUserId?: {
+} | null;
+
+  /**
    * Whether a meeting proof selfie has been uploaded
    */
   hasMeetingProof: boolean;
@@ -53,6 +71,11 @@ export interface CreateRequestResponseDto {
    * Request ID
    */
   id: number;
+
+  /**
+   * Whether a delivery proof photo has been uploaded for this request
+   */
+  isPhotoTaken: boolean;
 
   /**
    * Date and time of the most recently sent message in this request chat
@@ -71,6 +94,7 @@ export interface CreateRequestResponseDto {
    */
   meetingProofUploadedByUserId?: {
 } | null;
+  publicId: string;
 
   /**
    * Request type

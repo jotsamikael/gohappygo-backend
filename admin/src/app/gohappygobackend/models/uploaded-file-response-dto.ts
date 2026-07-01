@@ -5,6 +5,7 @@
 export interface UploadedFileResponseDto {
   id: number;
   originalName: string;
+  publicId: string;
   purpose: string;
   uploadedAt: string;
   url: string;

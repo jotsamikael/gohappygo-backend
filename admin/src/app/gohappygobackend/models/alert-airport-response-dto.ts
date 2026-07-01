@@ -25,4 +25,5 @@ export interface AlertAirportResponseDto {
    * Airport name
    */
   name: string;
+  publicId: string;
 }

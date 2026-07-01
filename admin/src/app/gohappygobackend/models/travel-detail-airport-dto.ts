@@ -12,4 +12,5 @@ export interface TravelDetailAirportDto {
   latitudeDeg: number;
   longitudeDeg: number;
   name: string;
+  publicId: string;
 }

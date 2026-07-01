@@ -1572,7 +1572,7 @@
     },
     "/api/auth/me": {
       "get": {
-        "description": "Get information about the current authenticated user. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email and phone. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.",
+        "description": "Get information about the current authenticated user. Returns firstName and lastName when fetching your own profile. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email, phone, firstName, and lastName. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.",
         "operationId": "AuthController_getCurrentUser",
         "parameters": [
           {
@@ -2549,7 +2549,7 @@
         ]
       },
       "delete": {
-        "description": "Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. When a travel is cancelled, all associated requests are cancelled, money is refunded to requesters, and notifications are sent.",
+        "description": "Cancel a travel by setting its status to cancelled. Only the travel owner can cancel their travel. This is the only way for a seller to back out of accepted requests: all associated non-terminal requests are cancelled, buyers receive partial refunds for paid transactions, reserved weight is released, and notifications are sent.",
         "operationId": "TravelController_deleteTravel",
         "parameters": [
           {
@@ -2918,7 +2918,22 @@
     "/api/stripe/onboarding-link": {
       "get": {
         "operationId": "StripeController_getOnboardingLink",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "client",
+            "required": false,
+            "in": "query",
+            "description": "Client platform that started onboarding (controls Stripe return/refresh URLs)",
+            "schema": {
+              "default": "web",
+              "type": "string",
+              "enum": [
+                "web",
+                "mobile"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Onboarding link generated successfully",
@@ -3671,40 +3686,51 @@
         ]
       }
     },
-    "/api/message/send-public": {
+    "/api/message/contact-announcer": {
       "post": {
-        "description": "Allow visitors/users to send a message about a travel or demand posting. This is a public endpoint that does not require authentication.",
-        "operationId": "MessageController_sendPublicMessage",
+        "description": "Send an inquiry email to the creator of a travel or demand. Requires authentication. The message is not stored in the database.",
+        "operationId": "MessageController_contactAnnouncer",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendPublicMessageDto"
+                "$ref": "#/components/schemas/ContactAnnouncerDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Message sent successfully",
+            "description": "Inquiry email sent successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SendPublicMessageResponseDto"
+                  "$ref": "#/components/schemas/ContactAnnouncerResponseDto"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request - invalid announcement type or data"
+            "description": "Bad request - invalid announcement type or public ID"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - cannot contact your own announcement"
           },
           "404": {
-            "description": "Travel or Demand not found"
+            "description": "Travel or demand not found"
           }
         },
-        "summary": "Send a public message about a travel or demand",
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Contact a travel or demand announcer",
         "tags": [
           "messages"
         ]
@@ -4288,6 +4314,59 @@
         ]
       }
     },
+    "/api/request/resolve/{id}": {
+      "patch": {
+        "description": "Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.",
+        "operationId": "RequestController_resolveRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Request ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequestDto"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveRequestResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Admin resolve a cancellation dispute",
+        "tags": [
+          "requests"
+        ]
+      }
+    },
     "/api/request/{id}/accept": {
       "patch": {
         "operationId": "RequestController_acceptRequest",
@@ -4374,7 +4453,7 @@
     },
     "/api/request/{id}/cancel": {
       "delete": {
-        "description": "Cancel or reject a request based on the connected user:\n- If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.\n- If the travel/demand owner calls this endpoint: Rejects the request, no refund is processed, and sets status to REJECTED.\nOnly non-completed requests can be cancelled/rejected. Both parties will receive email notifications.",
+        "description": "Cancel or reject a request based on the connected user:\n- If the requester calls this endpoint: Cancels the request. If before travel date, processes refund immediately. If during/after travel date, requires seller confirmation.\n- If the travel/demand owner calls this endpoint: Rejects the request while it is still NEGOTIATING (no refund). Cannot reject accepted or in-progress requests — cancel the travel/demand listing instead.\nOnly non-completed requests can be cancelled/rejected. Both parties will receive email notifications.",
         "operationId": "RequestController_cancelRequest",
         "parameters": [
           {
@@ -4399,7 +4478,7 @@
             }
           },
           "400": {
-            "description": "Bad request - request is already completed, cancelled, or rejected"
+            "description": "Bad request - request is already completed, cancelled, rejected, or cannot be rejected after acceptance"
           },
           "401": {
             "description": "Unauthorized"
@@ -5947,7 +6026,22 @@
       "post": {
         "description": "Initiates a new KYC verification session with Didit and returns the redirect URL for the user to complete verification",
         "operationId": "KycDiditController_startKyc",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "client",
+            "required": false,
+            "in": "query",
+            "description": "Client platform starting KYC (controls Didit return_url)",
+            "schema": {
+              "default": "web",
+              "type": "string",
+              "enum": [
+                "web",
+                "mobile"
+              ]
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "KYC session created successfully",
@@ -6007,7 +6101,7 @@
     },
     "/api/kyc/status": {
       "get": {
-        "description": "Returns the current KYC verification status for the authenticated user",
+        "description": "Returns the current KYC verification status for the authenticated user, synced from Didit when a session exists",
         "operationId": "KycDiditController_getKycStatus",
         "parameters": [],
         "responses": {
@@ -6844,6 +6938,79 @@
         ]
       }
     },
+    "/api/notification/device-token": {
+      "put": {
+        "description": "Register or refresh the current device FCM token for push notifications",
+        "operationId": "NotificationController_registerDeviceToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device token registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterDeviceTokenResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Register FCM device token",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "description": "Remove the device FCM token on logout",
+        "operationId": "NotificationController_unregisterDeviceToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterDeviceTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Device token unregistered successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Unregister FCM device token",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/api/support": {
       "post": {
         "description": "Allows visitors and users to submit support requests. Sends confirmation email to requester and notification to support team.",
@@ -7534,6 +7701,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "email": {
             "type": "string",
             "example": "john.doe@example.com"
@@ -7597,6 +7768,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "email",
           "phone",
           "fullName",
@@ -7694,6 +7866,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "email": {
             "type": "string",
             "example": "john.doe@example.com"
@@ -7760,6 +7936,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "email",
           "fullName",
           "phone",
@@ -7975,6 +8152,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "fl_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "departureCity": {
             "type": "string",
             "example": "Paris"
@@ -7986,6 +8167,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "departureCity",
           "arrivalCity"
         ]
@@ -7996,6 +8178,10 @@
           "id": {
             "type": "number",
             "example": 1
+          },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
             "type": "string",
@@ -8052,6 +8238,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "icaoCode",
           "iataCode",
@@ -8416,6 +8603,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "originalName": {
             "type": "string",
             "example": "selfie.jpg"
@@ -8436,6 +8627,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "originalName",
           "url",
           "purpose",
@@ -8471,6 +8663,10 @@
             "minLength": 1,
             "maxLength": 10
           },
+          "publicId": {
+            "type": "string",
+            "example": "cu_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "name": {
             "type": "string",
             "description": "Currency name",
@@ -8495,6 +8691,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "symbol",
           "code"
@@ -8580,6 +8777,10 @@
             "type": "number",
             "example": 29
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "email": {
             "type": "object",
             "example": "jotsamikael0@gmail.com",
@@ -8589,6 +8790,18 @@
             "type": "object",
             "example": "James D.",
             "nullable": true
+          },
+          "firstName": {
+            "type": "object",
+            "example": "James",
+            "nullable": true,
+            "description": "Included only when the authenticated user requests their own profile"
+          },
+          "lastName": {
+            "type": "object",
+            "example": "Doe",
+            "nullable": true,
+            "description": "Included only when the authenticated user requests their own profile"
           },
           "phone": {
             "type": "object",
@@ -8672,8 +8885,11 @@
         },
         "required": [
           "id",
+          "publicId",
           "email",
           "fullName",
+          "firstName",
+          "lastName",
           "phone",
           "profilePictureUrl",
           "bio",
@@ -9040,6 +9256,10 @@
             "type": "number",
             "example": 1987
           },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "ident": {
             "type": "string",
             "example": "0CT7"
@@ -9075,6 +9295,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "ident",
           "type",
           "name",
@@ -9091,6 +9312,10 @@
           "id": {
             "type": "number",
             "example": 43
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -9143,6 +9368,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "isDeactivated",
@@ -9162,6 +9388,10 @@
           "id": {
             "type": "number",
             "example": 102
+          },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "originalName": {
             "type": "string",
@@ -9195,6 +9425,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "originalName",
           "fileUrl",
           "size",
@@ -9210,6 +9441,10 @@
           "id": {
             "type": "number",
             "example": 70
+          },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "isDeactivated": {
             "type": "boolean",
@@ -9234,6 +9469,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "isDeactivated",
           "icaoCode",
           "iataCode",
@@ -9269,6 +9505,10 @@
           "id": {
             "type": "number",
             "example": 17
+          },
+          "publicId": {
+            "type": "string",
+            "example": "tr_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -9400,11 +9640,12 @@
           "isEditable": {
             "type": "boolean",
             "example": false,
-            "description": "Whether the travel is editable (true if no requests exist)"
+            "description": "Whether the travel is editable (true only for active travels with no requests)"
           }
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "deletedAt",
@@ -9486,6 +9727,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "cu_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "code": {
             "type": "string",
             "example": "USD"
@@ -9497,6 +9742,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "code",
           "symbol"
         ]
@@ -9507,6 +9753,10 @@
           "id": {
             "type": "number",
             "example": 1568
+          },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
             "type": "string",
@@ -9544,6 +9794,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "latitudeDeg",
           "longitudeDeg",
@@ -9560,6 +9811,10 @@
           "id": {
             "type": "number",
             "example": 38
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "fullName": {
             "type": "string",
@@ -9603,6 +9858,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName",
           "phone",
           "username",
@@ -9620,6 +9876,10 @@
           "id": {
             "type": "number",
             "example": 6
+          },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
             "type": "string",
@@ -9644,6 +9904,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "icaoCode",
           "iataCode",
@@ -9657,6 +9918,10 @@
           "id": {
             "type": "number",
             "example": 100
+          },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "fileUrl": {
             "type": "string",
@@ -9673,6 +9938,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fileUrl",
           "originalName",
           "purpose"
@@ -9685,6 +9951,10 @@
             "type": "number",
             "example": 43
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "fullName": {
             "type": "string",
             "example": "Joe O."
@@ -9696,6 +9966,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName",
           "profilePictureUrl"
         ]
@@ -9707,6 +9978,10 @@
             "type": "number",
             "description": "Review ID",
             "example": 1
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rv_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -9757,6 +10032,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "reviewerId",
@@ -9773,6 +10049,10 @@
           "id": {
             "type": "number",
             "example": 16
+          },
+          "publicId": {
+            "type": "string",
+            "example": "tr_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "description": {
             "type": "string",
@@ -9863,6 +10143,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "description",
           "flightNumber",
           "isSharedWeight",
@@ -9967,6 +10248,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "payerId": {
             "type": "number",
             "example": 1
@@ -10059,6 +10344,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "payerId",
           "payeeId",
           "requestId",
@@ -10200,6 +10486,11 @@
             "type": "boolean",
             "description": "Whether account details are submitted",
             "example": true
+          },
+          "wasUpdated": {
+            "type": "boolean",
+            "description": "Whether stripeAccountStatus was updated in the database during this sync",
+            "example": true
           }
         },
         "required": [
@@ -10207,7 +10498,8 @@
           "status",
           "chargesEnabled",
           "transfersEnabled",
-          "detailsSubmitted"
+          "detailsSubmitted",
+          "wasUpdated"
         ]
       },
       "CreatePlatformPricingDto": {
@@ -10245,6 +10537,10 @@
             "type": "number",
             "description": "Pricing record ID"
           },
+          "publicId": {
+            "type": "string",
+            "example": "pp_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "lowerBound": {
             "type": "number",
             "description": "Lower bound of the price range in EUR"
@@ -10270,6 +10566,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "lowerBound",
           "upperBound",
           "fee",
@@ -10451,6 +10748,10 @@
             "type": "number",
             "example": 41401
           },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "ident": {
             "type": "string",
             "example": "KONT"
@@ -10486,6 +10787,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "ident",
           "type",
           "name",
@@ -10502,6 +10804,10 @@
           "id": {
             "type": "number",
             "example": 29
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -10555,6 +10861,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "isDeactivated",
@@ -10575,6 +10882,10 @@
             "type": "number",
             "example": 130
           },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "originalName": {
             "type": "string",
             "example": "WhatsApp-Image-2024-07-18-at-10.51.20-PM-1.webp"
@@ -10586,10 +10897,6 @@
           "size": {
             "type": "number",
             "example": 352528
-          },
-          "publicId": {
-            "type": "string",
-            "example": "gohappygo/eafxnlj9nsez14m4n51p"
           },
           "mimeType": {
             "type": "string",
@@ -10616,10 +10923,10 @@
         },
         "required": [
           "id",
+          "publicId",
           "originalName",
           "fileUrl",
           "size",
-          "publicId",
           "mimeType",
           "purpose",
           "uploadedAt",
@@ -10633,6 +10940,10 @@
           "id": {
             "type": "number",
             "example": 782
+          },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "isDeactivated": {
             "type": "boolean",
@@ -10657,6 +10968,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "isDeactivated",
           "icaoCode",
           "iataCode",
@@ -10692,6 +11004,10 @@
           "id": {
             "type": "number",
             "example": 19
+          },
+          "publicId": {
+            "type": "string",
+            "example": "dm_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -10806,6 +11122,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "deletedAt",
@@ -10880,6 +11197,10 @@
             "type": "number",
             "example": 25528
           },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "type": {
             "type": "string",
             "example": "medium_airport"
@@ -10919,6 +11240,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "type",
           "name",
           "latitudeDeg",
@@ -10937,6 +11259,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "cu_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "code": {
             "type": "string",
             "example": "USD"
@@ -10948,6 +11274,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "code",
           "symbol"
         ]
@@ -10958,6 +11285,10 @@
           "id": {
             "type": "number",
             "example": 38
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "fullName": {
             "type": "string",
@@ -11009,6 +11340,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName",
           "phone",
           "username",
@@ -11028,6 +11360,10 @@
           "id": {
             "type": "number",
             "example": 2008
+          },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
             "type": "string",
@@ -11057,6 +11393,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "icaoCode",
           "iataCode",
@@ -11071,6 +11408,10 @@
           "id": {
             "type": "number",
             "example": 75
+          },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "fileUrl": {
             "type": "string",
@@ -11097,6 +11438,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fileUrl",
           "purpose",
           "uploadedAt",
@@ -11111,6 +11453,10 @@
             "type": "number",
             "example": 43
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "fullName": {
             "type": "string",
             "example": "Joe O."
@@ -11122,6 +11468,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName",
           "profilePictureUrl"
         ]
@@ -11133,6 +11480,10 @@
             "type": "number",
             "description": "Review ID",
             "example": 1
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rv_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -11183,6 +11534,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "reviewerId",
@@ -11199,6 +11551,10 @@
           "id": {
             "type": "number",
             "example": 11
+          },
+          "publicId": {
+            "type": "string",
+            "example": "dm_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "description": {
             "type": "string",
@@ -11320,6 +11676,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "description",
           "flightNumber",
           "departureAirport",
@@ -11408,7 +11765,7 @@
           }
         }
       },
-      "SendPublicMessageDto": {
+      "ContactAnnouncerDto": {
         "type": "object",
         "properties": {
           "announcementType": {
@@ -11418,16 +11775,16 @@
               "travel",
               "demand"
             ],
-            "example": "travel"
+            "example": "demand"
           },
-          "announcementId": {
-            "type": "number",
-            "description": "ID of the travel or demand",
-            "example": 1
+          "publicId": {
+            "type": "string",
+            "description": "Public ID of the travel or demand",
+            "example": "dm_01KVD6D8C1M432RYJVPPCJ1RM8"
           },
           "message": {
             "type": "string",
-            "description": "Message content",
+            "description": "Message content sent to the announcement creator",
             "example": "Hello, I am interested in your travel",
             "minLength": 1,
             "maxLength": 1000
@@ -11435,21 +11792,21 @@
         },
         "required": [
           "announcementType",
-          "announcementId",
+          "publicId",
           "message"
         ]
       },
-      "SendPublicMessageResponseDto": {
+      "ContactAnnouncerResponseDto": {
         "type": "object",
         "properties": {
           "success": {
             "type": "boolean",
             "example": true,
-            "description": "Whether the message was sent successfully"
+            "description": "Whether the inquiry email was sent successfully"
           },
           "message": {
             "type": "string",
-            "example": "Message sent successfully. The announcement owner will receive an email with your message.",
+            "example": "Your message was sent to the announcement creator.",
             "description": "Success message"
           }
         },
@@ -11495,6 +11852,10 @@
             "type": "number",
             "description": "User ID"
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "fullName": {
             "type": "string",
             "description": "Display name (Firstname L.)"
@@ -11507,6 +11868,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName"
         ]
       },
@@ -11516,6 +11878,10 @@
           "id": {
             "type": "number",
             "description": "Message ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "ms_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "content": {
             "type": "string",
@@ -11554,6 +11920,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "content",
           "isRead",
           "createdAt",
@@ -11647,6 +12014,10 @@
             "description": "Request ID",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "rq_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -11746,6 +12117,11 @@
             "description": "Whether a meeting proof selfie has been uploaded",
             "example": false
           },
+          "isPhotoTaken": {
+            "type": "boolean",
+            "description": "Whether a delivery proof photo has been uploaded for this request",
+            "example": false
+          },
           "meetingProofUploadedAt": {
             "type": "object",
             "description": "When meeting proof was uploaded",
@@ -11755,10 +12131,26 @@
             "type": "object",
             "description": "User ID who uploaded meeting proof",
             "nullable": true
+          },
+          "disputeResolvedAt": {
+            "type": "object",
+            "description": "When an admin resolved a cancellation dispute",
+            "nullable": true
+          },
+          "disputeResolvedByUserId": {
+            "type": "object",
+            "description": "Admin user ID who resolved the cancellation dispute",
+            "nullable": true
+          },
+          "disputeResolutionNote": {
+            "type": "object",
+            "description": "Admin notes on how the dispute was resolved",
+            "nullable": true
           }
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "requesterId",
@@ -11769,7 +12161,8 @@
           "currentStatus",
           "unReadMessages",
           "canReview",
-          "hasMeetingProof"
+          "hasMeetingProof",
+          "isPhotoTaken"
         ]
       },
       "MeetingProofSignedUrlResponseDto": {
@@ -11802,6 +12195,10 @@
             "description": "Request ID",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "rq_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -11901,6 +12298,11 @@
             "description": "Whether a meeting proof selfie has been uploaded",
             "example": false
           },
+          "isPhotoTaken": {
+            "type": "boolean",
+            "description": "Whether a delivery proof photo has been uploaded for this request",
+            "example": false
+          },
           "meetingProofUploadedAt": {
             "type": "object",
             "description": "When meeting proof was uploaded",
@@ -11910,10 +12312,26 @@
             "type": "object",
             "description": "User ID who uploaded meeting proof",
             "nullable": true
+          },
+          "disputeResolvedAt": {
+            "type": "object",
+            "description": "When an admin resolved a cancellation dispute",
+            "nullable": true
+          },
+          "disputeResolvedByUserId": {
+            "type": "object",
+            "description": "Admin user ID who resolved the cancellation dispute",
+            "nullable": true
+          },
+          "disputeResolutionNote": {
+            "type": "object",
+            "description": "Admin notes on how the dispute was resolved",
+            "nullable": true
           }
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "requesterId",
@@ -11924,7 +12342,8 @@
           "currentStatus",
           "unReadMessages",
           "canReview",
-          "hasMeetingProof"
+          "hasMeetingProof",
+          "isPhotoTaken"
         ]
       },
       "PaginatedRequestsResponseDto": {
@@ -11978,6 +12397,39 @@
           "action"
         ]
       },
+      "ResolveRequestDto": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Admin notes describing how the dispute was handled (e.g. manual Stripe refund/payout reference).",
+            "example": "Refunded buyer via Stripe Dashboard payment pi_xxx; both parties notified by phone."
+          }
+        }
+      },
+      "ResolveRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Request dispute resolved successfully"
+          },
+          "requestId": {
+            "type": "number",
+            "example": 42
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "requestId"
+        ]
+      },
       "UploadMeetingProofResponseDto": {
         "type": "object",
         "properties": {
@@ -12012,6 +12464,10 @@
             "type": "number",
             "example": 29
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -12041,6 +12497,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "isDeactivated",
           "phone",
@@ -12055,6 +12512,10 @@
           "id": {
             "type": "number",
             "example": 32
+          },
+          "publicId": {
+            "type": "string",
+            "example": "tr_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -12150,6 +12611,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "createdBy",
@@ -12180,6 +12642,10 @@
           "id": {
             "type": "number",
             "example": 15
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rq_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -12249,6 +12715,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "deletedAt",
@@ -12363,6 +12830,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "ident": {
             "type": "string",
             "example": "KJFK"
@@ -12433,6 +12904,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "ident",
           "type",
           "name",
@@ -12651,6 +13123,10 @@
             "type": "number",
             "example": 30
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -12672,6 +13148,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "fullName",
           "email",
@@ -12684,6 +13161,10 @@
           "id": {
             "type": "number",
             "example": 1
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rv_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "rating": {
             "type": "number",
@@ -12719,6 +13200,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "rating",
           "comment",
           "requestId",
@@ -12786,6 +13268,10 @@
           "id": {
             "type": "number",
             "example": 18
+          },
+          "publicId": {
+            "type": "string",
+            "example": "tr_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -12891,6 +13377,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "deletedAt",
@@ -12928,6 +13415,10 @@
           "id": {
             "type": "number",
             "example": 12
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rq_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -12993,6 +13484,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "demandId",
@@ -13012,6 +13504,10 @@
           "id": {
             "type": "number",
             "example": 3
+          },
+          "publicId": {
+            "type": "string",
+            "example": "rv_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "createdAt": {
             "format": "date-time",
@@ -13071,6 +13567,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "updatedAt",
           "reviewerId",
@@ -13148,6 +13645,10 @@
             "type": "number",
             "description": "Currency ID"
           },
+          "publicId": {
+            "type": "string",
+            "example": "cu_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "code": {
             "type": "string",
             "description": "Currency code (e.g., CFA, USD, EUR)"
@@ -13159,6 +13660,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "code",
           "symbol"
         ]
@@ -13169,6 +13671,10 @@
           "id": {
             "type": "number",
             "description": "User ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "name": {
             "type": "string",
@@ -13205,6 +13711,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "fullName",
           "createdAt",
@@ -13219,6 +13726,10 @@
           "id": {
             "type": "number",
             "description": "Image ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "uf_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "fileUrl": {
             "type": "string",
@@ -13235,6 +13746,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fileUrl",
           "originalName",
           "purpose"
@@ -13246,6 +13758,10 @@
           "id": {
             "type": "number",
             "description": "Unique identifier"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "dm_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "type": {
             "type": "string",
@@ -13402,6 +13918,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "type",
           "title",
           "description",
@@ -13446,6 +13963,10 @@
             "type": "number",
             "example": 1
           },
+          "publicId": {
+            "type": "string",
+            "example": "al_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "name": {
             "type": "string",
             "example": "Air France"
@@ -13469,6 +13990,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name",
           "icaoCode",
           "iataCode",
@@ -13526,13 +14048,19 @@
           "isVerified": {
             "type": "boolean",
             "description": "Whether user is verified"
+          },
+          "wasUpdated": {
+            "type": "boolean",
+            "description": "Whether kycStatus was updated in the database during this sync",
+            "example": true
           }
         },
         "required": [
           "kycStatus",
           "kycUpdatedAt",
           "kycProvider",
-          "isVerified"
+          "isVerified",
+          "wasUpdated"
         ]
       },
       "KycSessionDetailsResponseDto": {
@@ -13762,6 +14290,10 @@
           "id": {
             "type": "number"
           },
+          "publicId": {
+            "type": "string",
+            "example": "bm_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -13816,6 +14348,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "createdAt",
           "userId",
           "bookmarkType",
@@ -13862,6 +14395,10 @@
           "id": {
             "type": "number"
           },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "fullName": {
             "type": "string"
           },
@@ -13871,6 +14408,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "fullName"
         ]
       },
@@ -13879,6 +14417,10 @@
         "properties": {
           "id": {
             "type": "number"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "nt_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "notificationType": {
             "type": "string",
@@ -13953,6 +14495,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "notificationType",
           "targetUserId",
           "title",
@@ -13994,6 +14537,66 @@
         "required": [
           "unreadCount",
           "totalCount"
+        ]
+      },
+      "RegisterDeviceTokenDto": {
+        "type": "object",
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "description": "FCM device token from Firebase SDK",
+            "minLength": 20,
+            "maxLength": 512
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ],
+            "description": "Device platform"
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "Optional stable device identifier from client",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "fcmToken",
+          "platform"
+        ]
+      },
+      "RegisterDeviceTokenResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-05-30T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "success",
+          "registeredAt"
+        ]
+      },
+      "UnregisterDeviceTokenDto": {
+        "type": "object",
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "description": "FCM device token to unregister",
+            "minLength": 20,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "fcmToken"
         ]
       },
       "SupportRequesterType": {
@@ -14062,6 +14665,10 @@
             "type": "number",
             "description": "Log ID"
           },
+          "publicId": {
+            "type": "string",
+            "example": "sl_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "supportRequestId": {
             "type": "number",
             "description": "Support request ID"
@@ -14096,6 +14703,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "supportRequestId",
           "message",
           "isRead",
@@ -14111,6 +14719,10 @@
           "id": {
             "type": "number",
             "description": "Support request ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "sp_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "email": {
             "type": "string",
@@ -14169,6 +14781,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "email",
           "message",
           "supportRequesterType",
@@ -14273,6 +14886,10 @@
             "type": "number",
             "description": "Airport ID"
           },
+          "publicId": {
+            "type": "string",
+            "example": "ap_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
           "name": {
             "type": "string",
             "description": "Airport name"
@@ -14288,6 +14905,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "name"
         ]
       },
@@ -14297,6 +14915,10 @@
           "id": {
             "type": "number",
             "description": "User ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "email": {
             "type": "string",
@@ -14309,6 +14931,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "email",
           "fullName"
         ]
@@ -14319,6 +14942,10 @@
           "id": {
             "type": "number",
             "description": "Alert ID"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "at_01ARZ3NDEKTSV4RRFFQ69G5FAV"
           },
           "userId": {
             "type": "number",
@@ -14388,6 +15015,7 @@
         },
         "required": [
           "id",
+          "publicId",
           "userId",
           "departureAirportId",
           "arrivalAirportId",

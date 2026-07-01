@@ -11,6 +11,7 @@ export interface TravelDetailUserDto {
   numberOfReviews: number;
   phone: string;
   profilePictureUrl: string;
+  publicId: string;
   rating: {
 } | null;
   username: {

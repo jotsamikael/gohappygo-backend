@@ -7,6 +7,7 @@ export interface CreateReviewDataDto {
   comment: string;
   createdAt: string;
   id: number;
+  publicId: string;
   rating: number;
   requestId: number;
   reviewee: ReviewUserDto;

@@ -6,7 +6,7 @@ import { MatTableDataSource } from '@angular/material/table';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { NotificationService } from 'src/app/core/services/notification.service';
 import { PlatformPricingResponseDto, UpdatePlatformPricingDto, CreatePlatformPricingDto } from 'src/app/gohappygobackend/models';
-  import { PlatformPricingService } from 'src/app/gohappygobackend/services/platform-pricing.service';
+import { PlatformPricingService } from 'src/app/gohappygobackend/services/platform-pricing.service';
 
 export interface PlatformPricingFilters {
   page?: number;
@@ -151,13 +151,14 @@ export class PlateformPricingComponent implements OnInit, AfterViewInit {
           console.log('Full response:', response);
           
           // Ensure data is properly formatted
-          const formattedData = response.data.map((item: any) => ({
+          const formattedData: PlatformPricingResponseDto[] = response.data.map((item) => ({
             id: item.id,
+            publicId: item.publicId,
             lowerBound: typeof item.lowerBound === 'string' ? parseFloat(item.lowerBound) : item.lowerBound,
             upperBound: typeof item.upperBound === 'string' ? parseFloat(item.upperBound) : item.upperBound,
             fee: typeof item.fee === 'string' ? parseFloat(item.fee) : item.fee,
             createdAt: item.createdAt,
-            updatedAt: item.updatedAt
+            updatedAt: item.updatedAt,
           }));
           
           console.log('Formatted data:', formattedData);

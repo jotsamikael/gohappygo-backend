@@ -43,6 +43,7 @@ export enum UserEventType {
     MEETING_PROOF_UPLOADED = 'request.meeting_proof_uploaded',
     PROOF_DEADLINE_MISSED = 'request.proof_deadline_missed',
     REQUEST_SETTLED_BY_ADMIN = 'request.settled_by_admin',
+    REQUEST_DISPUTE_RESOLVED_BY_ADMIN = 'request.dispute_resolved_by_admin',
     
     // Transaction Events
     TRANSACTION_CREATED = 'transaction.created',

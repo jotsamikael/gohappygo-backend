@@ -33,6 +33,7 @@ export interface UserNameResponseDto {
    * Total number of reviews received
    */
   numberOfReviews: number;
+  publicId: string;
 
   /**
    * Average rating received by user

@@ -6,4 +6,5 @@ export interface TravelDetailReviewerDto {
   fullName: string;
   id: number;
   profilePictureUrl: string;
+  publicId: string;
 }

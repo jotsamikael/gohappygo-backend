@@ -29,6 +29,7 @@ export interface SupportRequestResponseDto {
    * Support request message
    */
   message: string;
+  publicId: string;
 
   /**
    * Support request status

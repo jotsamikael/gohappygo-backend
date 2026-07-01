@@ -108,6 +108,7 @@ export interface DemandOrTravelResponseDto {
    * Price per kg (demands only)
    */
   pricePerKg?: number;
+  publicId: string;
 
   /**
    * Punctuality level (travels only, false = punctual, true = very punctual)

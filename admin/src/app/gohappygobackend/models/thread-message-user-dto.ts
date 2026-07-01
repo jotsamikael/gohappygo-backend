@@ -19,4 +19,5 @@ export interface ThreadMessageUserDto {
    */
   profilePictureUrl?: {
 } | null;
+  publicId: string;
 }

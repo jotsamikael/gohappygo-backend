@@ -11,4 +11,5 @@ export interface RequestUserDto {
   isDeactivated: boolean;
   phone: string;
   profilePictureUrl: string;
+  publicId: string;
 }

@@ -9,4 +9,5 @@ export interface TravelListAirlineDto {
   isDeactivated: boolean;
   logoUrl: string;
   name: string;
+  publicId: string;
 }

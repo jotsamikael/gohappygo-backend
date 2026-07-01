@@ -14,6 +14,7 @@ export interface ReviewRequestDto {
   demandId: {
 } | null;
   id: number;
+  publicId: string;
   requestType: string;
   requesterId: number;
   travel: ReviewTravelDto | null;

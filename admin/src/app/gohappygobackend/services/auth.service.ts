@@ -526,7 +526,7 @@ export class AuthService extends BaseService {
   /**
    * Get current user information with profile stats.
    *
-   * Get information about the current authenticated user. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email and phone. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.
+   * Get information about the current authenticated user. Returns firstName and lastName when fetching your own profile. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email, phone, firstName, and lastName. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `authControllerGetCurrentUser()` instead.
@@ -540,7 +540,7 @@ export class AuthService extends BaseService {
   /**
    * Get current user information with profile stats.
    *
-   * Get information about the current authenticated user. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email and phone. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.
+   * Get information about the current authenticated user. Returns firstName and lastName when fetching your own profile. Optionally provide userId to load another user's profile. For visitors or callers with role USER, another user's profile returns fullName and bio but omits email, phone, firstName, and lastName. Admins/operators still receive email and phone when viewing another user. Visitors must pass userId.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `authControllerGetCurrentUser$Response()` instead.

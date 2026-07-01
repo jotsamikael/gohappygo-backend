@@ -127,4 +127,14 @@ export class RequestEntity extends PublicIdentifiableEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   settleNote: string | null;
+
+  /** Admin resolution after CANCELLATION_DISPUTED (manual payout/refund handled outside the app) */
+  @Column({ type: 'datetime', nullable: true })
+  disputeResolvedAt: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  disputeResolvedByUserId: number | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  disputeResolutionNote: string | null;
 }

@@ -12,7 +12,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { RequestService } from './request.service';
 import { DeliveryProofService } from 'src/delivery-proof/delivery-proof.service';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorattor';
@@ -27,6 +27,8 @@ import { CreateRequestResponseDto, PaginatedRequestsResponseDto, RequestResponse
 import { RequestAcceptResponseDto } from './dto/request-accept-response.dto';
 import { UploadMeetingProofResponseDto } from 'src/delivery-proof/dto/upload-meeting-proof-response.dto';
 import { SettleRequestDto } from './dto/settle-request.dto';
+import { ResolveRequestDto } from './dto/resolve-request.dto';
+import { ResolveRequestResponseDto } from './dto/resolve-request-response.dto';
 import { MeetingProofSignedUrlResponseDto } from 'src/delivery-proof/dto/meeting-proof-signed-url-response.dto';
 
 
@@ -146,6 +148,28 @@ export class RequestController {
       admin,
       latestMessageDatesMap.get(settled.id) || null,
     );
+  }
+
+  @Patch('resolve/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OPERATOR)
+  @UseInterceptors(AnyFilesInterceptor())
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Admin resolve a cancellation dispute',
+    description:
+      'Marks a CANCELLATION_DISPUTED request as RESOLVED after manual review. Refunds and payouts are handled outside the app; optional note records what was done.',
+  })
+  @ApiParam({ name: 'id', description: 'Request ID' })
+  @ApiResponse({ status: 200, type: ResolveRequestResponseDto })
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @ApiBody({ type: ResolveRequestDto })
+  async resolveRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ResolveRequestDto,
+    @CurrentUser() admin: UserEntity,
+  ): Promise<ResolveRequestResponseDto> {
+    return this.requestService.resolveCancellationDispute(id, admin, dto);
   }
 
   @Post(':id/meeting-proof')

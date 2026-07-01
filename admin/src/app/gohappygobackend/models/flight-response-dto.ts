@@ -6,4 +6,5 @@ export interface FlightResponseDto {
   arrivalCity: string;
   departureCity: string;
   id: number;
+  publicId: string;
 }

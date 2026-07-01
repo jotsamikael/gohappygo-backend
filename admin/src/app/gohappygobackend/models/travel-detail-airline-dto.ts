@@ -9,4 +9,5 @@ export interface TravelDetailAirlineDto {
   logoUrl: string;
   name: string;
   prefix: string;
+  publicId: string;
 }

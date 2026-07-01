@@ -17,6 +17,7 @@ export interface BookmarkItemResponseDto {
   id: number;
   notes: {
 };
+  publicId: string;
   travel: TravelResponseDto | null;
   travelId: {
 };

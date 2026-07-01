@@ -12,6 +12,7 @@ export interface TravelListUserDto {
   isVerified: boolean;
   numberOfReviews: number;
   profilePictureUrl: string;
+  publicId: string;
   rating: string;
   stripeAccountStatus: string;
   stripeCountryCode: {

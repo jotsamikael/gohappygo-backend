@@ -18,6 +18,7 @@ export interface ImageResponseDto {
    * Original file name
    */
   originalName: string;
+  publicId: string;
 
   /**
    * File purpose (e.g., DEMAND_IMAGE_1, TRAVEL_IMAGE_1)

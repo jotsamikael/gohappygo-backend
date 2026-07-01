@@ -10,6 +10,12 @@ export interface UserProfileResponseDto {
   createdAt: string;
   email: {
 } | null;
+
+  /**
+   * Included only when the authenticated user requests their own profile
+   */
+  firstName: {
+} | null;
   fullName: {
 } | null;
   id: number;
@@ -23,6 +29,12 @@ export interface UserProfileResponseDto {
   isVerified: boolean;
 
   /**
+   * Included only when the authenticated user requests their own profile
+   */
+  lastName: {
+} | null;
+
+  /**
    * True if social user has not yet completed registration (no Stripe Connect account)
    */
   needsRegistrationCompletion: boolean;
@@ -31,6 +43,7 @@ export interface UserProfileResponseDto {
   profilePictureUrl: {
 } | null;
   profileStats: ProfileStatsResponseDto;
+  publicId: string;
   recentCurrency: CurrencyResponseDto | null;
   stripeAccountId: {
 } | null;

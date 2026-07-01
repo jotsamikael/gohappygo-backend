@@ -9,6 +9,7 @@ export interface ReviewResponseDto {
 } | null;
   createdAt: string;
   id: number;
+  publicId: string;
   rating: {
 };
   request: ReviewRequestDto | null;

@@ -23,9 +23,14 @@ import { notificationControllerMarkAllAsRead } from '../fn/notifications/notific
 import { NotificationControllerMarkAllAsRead$Params } from '../fn/notifications/notification-controller-mark-all-as-read';
 import { notificationControllerMarkAsRead } from '../fn/notifications/notification-controller-mark-as-read';
 import { NotificationControllerMarkAsRead$Params } from '../fn/notifications/notification-controller-mark-as-read';
+import { notificationControllerRegisterDeviceToken } from '../fn/notifications/notification-controller-register-device-token';
+import { NotificationControllerRegisterDeviceToken$Params } from '../fn/notifications/notification-controller-register-device-token';
+import { notificationControllerUnregisterDeviceToken } from '../fn/notifications/notification-controller-unregister-device-token';
+import { NotificationControllerUnregisterDeviceToken$Params } from '../fn/notifications/notification-controller-unregister-device-token';
 import { NotificationCountResponseDto } from '../models/notification-count-response-dto';
 import { NotificationResponseDto } from '../models/notification-response-dto';
 import { PaginatedNotificationsResponseDto } from '../models/paginated-notifications-response-dto';
+import { RegisterDeviceTokenResponseDto } from '../models/register-device-token-response-dto';
 
 @Injectable({ providedIn: 'root' })
 export class NotificationsService extends BaseService {
@@ -276,6 +281,72 @@ export class NotificationsService extends BaseService {
  */
 'affected'?: number;
 } => r.body)
+    );
+  }
+
+  /** Path part for operation `notificationControllerRegisterDeviceToken()` */
+  static readonly NotificationControllerRegisterDeviceTokenPath = '/api/notification/device-token';
+
+  /**
+   * Register FCM device token.
+   *
+   * Register or refresh the current device FCM token for push notifications
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `notificationControllerRegisterDeviceToken()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  notificationControllerRegisterDeviceToken$Response(params: NotificationControllerRegisterDeviceToken$Params, context?: HttpContext): Observable<StrictHttpResponse<RegisterDeviceTokenResponseDto>> {
+    return notificationControllerRegisterDeviceToken(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Register FCM device token.
+   *
+   * Register or refresh the current device FCM token for push notifications
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `notificationControllerRegisterDeviceToken$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  notificationControllerRegisterDeviceToken(params: NotificationControllerRegisterDeviceToken$Params, context?: HttpContext): Observable<RegisterDeviceTokenResponseDto> {
+    return this.notificationControllerRegisterDeviceToken$Response(params, context).pipe(
+      map((r: StrictHttpResponse<RegisterDeviceTokenResponseDto>): RegisterDeviceTokenResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `notificationControllerUnregisterDeviceToken()` */
+  static readonly NotificationControllerUnregisterDeviceTokenPath = '/api/notification/device-token';
+
+  /**
+   * Unregister FCM device token.
+   *
+   * Remove the device FCM token on logout
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `notificationControllerUnregisterDeviceToken()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  notificationControllerUnregisterDeviceToken$Response(params: NotificationControllerUnregisterDeviceToken$Params, context?: HttpContext): Observable<StrictHttpResponse<void>> {
+    return notificationControllerUnregisterDeviceToken(this.http, this.rootUrl, params, context);
+  }
+
+  /**
+   * Unregister FCM device token.
+   *
+   * Remove the device FCM token on logout
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `notificationControllerUnregisterDeviceToken$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  notificationControllerUnregisterDeviceToken(params: NotificationControllerUnregisterDeviceToken$Params, context?: HttpContext): Observable<void> {
+    return this.notificationControllerUnregisterDeviceToken$Response(params, context).pipe(
+      map((r: StrictHttpResponse<void>): void => r.body)
     );
   }
 

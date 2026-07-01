@@ -6,5 +6,6 @@ export interface TravelDetailImageDto {
   fileUrl: string;
   id: number;
   originalName: string;
+  publicId: string;
   purpose: string;
 }

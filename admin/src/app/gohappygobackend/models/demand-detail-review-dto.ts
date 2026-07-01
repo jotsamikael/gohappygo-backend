@@ -19,6 +19,7 @@ export interface DemandDetailReviewDto {
    * Review ID
    */
   id: number;
+  publicId: string;
 
   /**
    * Review rating

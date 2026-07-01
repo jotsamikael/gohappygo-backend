@@ -1,6 +1,7 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { StripeConnectCountry } from 'src/stripe/enums/stripe-connect-countries.enum';
+import { NormalizeEmail } from 'src/common/transforms/normalize-email.util';
 
 export class RegisterDto {
   @ApiProperty({
@@ -31,6 +32,7 @@ export class RegisterDto {
     example: 'john.doe@example.com'
   })
   @IsNotEmpty()
+  @NormalizeEmail()
   @IsEmail()
   email: string;
 

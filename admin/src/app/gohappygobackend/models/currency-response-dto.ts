@@ -18,6 +18,7 @@ export interface CurrencyResponseDto {
    * Currency name
    */
   name: string;
+  publicId: string;
 
   /**
    * Currency symbol

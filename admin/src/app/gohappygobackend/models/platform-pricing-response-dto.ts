@@ -23,6 +23,7 @@ export interface PlatformPricingResponseDto {
    * Lower bound of the price range in EUR
    */
   lowerBound: number;
+  publicId: string;
 
   /**
    * Last update timestamp

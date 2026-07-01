@@ -16,6 +16,7 @@ export interface AirlineResponseDto {
 };
   name: string;
   prefix: string;
+  publicId: string;
   updatedAt: string;
   wikipediaUrl: string;
 }

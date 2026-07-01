@@ -15,6 +15,7 @@ export interface RequestAcceptResponseDto {
 } | null;
   id: number;
   isDeactivated: boolean;
+  publicId: string;
   requestType: string;
   requesterId: number;
   travel: RequestTravelDto | null;

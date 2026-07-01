@@ -6,4 +6,5 @@ export interface NotificationActorDto {
   fullName: string;
   id: number;
   profilePictureUrl?: string;
+  publicId: string;
 }

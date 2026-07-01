@@ -28,6 +28,7 @@ export interface SupportLogResponseDto {
    * Log message
    */
   message: string;
+  publicId: string;
 
   /**
    * Support request ID

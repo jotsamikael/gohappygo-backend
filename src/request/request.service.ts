@@ -37,6 +37,8 @@ import { UserEventType } from 'src/events/event-types';
 import { DeliveryProofService } from 'src/delivery-proof/delivery-proof.service';
 import { getRequestTravelDateOnly, toDateOnly } from './utils/request-date-policy';
 import { SettleRequestDto, SettleRequestAction } from './dto/settle-request.dto';
+import { ResolveRequestDto } from './dto/resolve-request.dto';
+import { ResolveRequestResponseDto } from './dto/resolve-request-response.dto';
 
 @Injectable()
 export class RequestService {
@@ -646,7 +648,7 @@ export class RequestService {
     }
 
     // 5. CHECK IF REQUEST IS IN A TERMINAL STATE (cannot be accepted)
-    const terminalStatuses = ['COMPLETED', 'CANCELLED', 'DELIVERED'];
+    const terminalStatuses = ['COMPLETED', 'CANCELLED', 'DELIVERED', 'RESOLVED'];
     if (request.currentStatus && terminalStatuses.includes(request.currentStatus.status)) {
       throw new CustomBadRequestException(
         `Cannot accept request with status '${request.currentStatus.status}'`,
@@ -916,6 +918,72 @@ export class RequestService {
 
     await this.clearRequestListCache();
     return (await this.getRequestById(requestId))!;
+  }
+
+  /**
+   * Admin marks a CANCELLATION_DISPUTED request as RESOLVED after manual review.
+   * Payment actions (refund/payout) are handled outside the app; this records audit data only.
+   */
+  async resolveCancellationDispute(
+    requestId: number,
+    admin: UserEntity,
+    dto: ResolveRequestDto,
+  ): Promise<ResolveRequestResponseDto> {
+    const request = await this.getRequestById(requestId);
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const disputedStatus = await this.requestStatusService.getRequestByStatus('CANCELLATION_DISPUTED');
+    if (!disputedStatus || request.currentStatusId !== disputedStatus.id) {
+      throw new CustomBadRequestException(
+        'Request is not in CANCELLATION_DISPUTED status',
+        ErrorCode.REQUEST_NOT_CANCELLATION_DISPUTED,
+      );
+    }
+
+    if (request.disputeResolvedAt) {
+      throw new CustomBadRequestException(
+        'Request dispute has already been resolved by an admin',
+        ErrorCode.REQUEST_ALREADY_RESOLVED,
+      );
+    }
+
+    const resolvedStatus = await this.requestStatusService.getRequestByStatus('RESOLVED');
+    if (!resolvedStatus) {
+      throw new CustomNotFoundException('RESOLVED status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    const resolvedAt = new Date();
+    const resolutionNote = dto.note?.trim() ? dto.note.trim() : null;
+
+    await this.requestRepository.manager.transaction(async (entityManager) => {
+      await this.updateRequestStatus(
+        requestId,
+        resolvedStatus.id,
+        {
+          disputeResolvedAt: resolvedAt,
+          disputeResolvedByUserId: admin.id,
+          disputeResolutionNote: resolutionNote,
+        },
+        entityManager,
+      );
+    });
+
+    this.userEventService['eventEmitter'].emit(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN, {
+      requestId,
+      adminId: admin.id,
+      note: resolutionNote,
+      timestamp: resolvedAt,
+    });
+
+    await this.clearRequestListCache();
+
+    return {
+      success: true,
+      message: 'Request dispute resolved successfully',
+      requestId,
+    };
   }
 
   /**
@@ -1787,7 +1855,7 @@ export class RequestService {
         TO_CONFIRM: ['NEGOTIATING'],
         AWAITING_DELIVER: ['ACCEPTED', 'PENDING_CANCELLATION_CONFIRMATION'],
         PROOF_ISSUE: ['PROOF_DEADLINE_MISSED'],
-        FINISHED: ['COMPLETED', 'CANCELLATION_DISPUTED', 'DELIVERED'],
+        FINISHED: ['COMPLETED', 'CANCELLATION_DISPUTED', 'DELIVERED', 'RESOLVED'],
       };
 
       const mappedStatuses = statusGroupMap[status as keyof typeof statusGroupMap];
@@ -2221,6 +2289,9 @@ export class RequestService {
       isPhotoTaken: !!request.deliveryProof,
       meetingProofUploadedAt: request.deliveryProof?.uploadedAt ?? null,
       meetingProofUploadedByUserId: request.deliveryProof?.uploadedByUserId ?? null,
+      disputeResolvedAt: request.disputeResolvedAt ?? null,
+      disputeResolvedByUserId: request.disputeResolvedByUserId ?? null,
+      disputeResolutionNote: request.disputeResolutionNote ?? null,
     };
   }
 

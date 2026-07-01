@@ -5,5 +5,6 @@
 export interface TravelDetailCurrencyDto {
   code: string;
   id: number;
+  publicId: string;
   symbol: string;
 }

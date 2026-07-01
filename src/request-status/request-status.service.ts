@@ -76,6 +76,11 @@ constructor(@InjectRepository(RequestStatusEntity) private requestStatusReposito
         status: 'PROOF_DEADLINE_MISSED',
         comment: 'No meeting proof uploaded before deadline; awaiting admin settlement',
       },
+      {
+        label: 'Resolved',
+        status: 'RESOLVED',
+        comment: 'Cancellation dispute closed by admin after manual review and payment handling',
+      },
     ];
 
     for (const requestStatus of defaultRequestatus) {
