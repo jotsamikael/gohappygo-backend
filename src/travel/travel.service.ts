@@ -321,20 +321,31 @@ export class TravelService {
       throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
     }
 
-    //check if the user has already published a travel that is not expired with the same flight number
-    const existingTravel1 = await this.travelRepository.findOne({
-      where: { flightNumber: createTravelDto.flightNumber, userId:user.id, status:'active' }
-    })
-    if (existingTravel1) {
-      throw new CustomBadRequestException('You have already published a travel with the same flight number', ErrorCode.TRAVEL_ALREADY_EXISTS);
-    } 
+    const departureDatetime = new Date(createTravelDto.departureDatetime);
 
-    //check if the user has already published a travel that is not expired with the same departure and arrival airports
-    const existingTravel2 = await this.travelRepository.findOne({
-      where: { departureAirportId: createTravelDto.departureAirportId, arrivalAirportId: createTravelDto.arrivalAirportId, userId:user.id, status:'active' }
-    })
-    if (existingTravel2) {
-      throw new CustomBadRequestException('You have already published a travel with the same departure and arrival airports', ErrorCode.TRAVEL_ALREADY_EXISTS);
+    const existingTravelByFlight = await this.findActiveTravelDuplicateByFlight({
+      userId: user.id,
+      flightNumber: createTravelDto.flightNumber,
+      departureDatetime,
+    });
+    if (existingTravelByFlight) {
+      throw new CustomBadRequestException(
+        'You have already published an active travel with the same flight number on this departure date',
+        ErrorCode.TRAVEL_ALREADY_EXISTS,
+      );
+    }
+
+    const existingTravelByRoute = await this.findActiveTravelDuplicateByRoute({
+      userId: user.id,
+      departureAirportId: createTravelDto.departureAirportId,
+      arrivalAirportId: createTravelDto.arrivalAirportId,
+      departureDatetime,
+    });
+    if (existingTravelByRoute) {
+      throw new CustomBadRequestException(
+        'You have already published an active travel on the same route on this departure date',
+        ErrorCode.TRAVEL_ALREADY_EXISTS,
+      );
     }
 
     // Get airline from flight number
@@ -356,8 +367,8 @@ export class TravelService {
       departureAirportId: createTravelDto.departureAirportId,
       arrivalAirportId: createTravelDto.arrivalAirportId,
       // Write both fields during migration: travelDate (new) and departureDatetime (legacy)
-      departureDatetime: new Date(createTravelDto.departureDatetime),
-      travelDate: new Date(createTravelDto.departureDatetime),
+      departureDatetime,
+      travelDate: departureDatetime,
       pricePerKg: createTravelDto.pricePerKg,
       totalWeightAllowance: createTravelDto.totalWeightAllowance,
       weightAvailable: createTravelDto.totalWeightAllowance,
@@ -610,39 +621,59 @@ export class TravelService {
       }
     }
 
-    // 8. Check for duplicate active travels (if flight number or route is being updated)
-    if (updateTravelDto.flightNumber) {
-      const existingTravel = await this.travelRepository.findOne({
-        where: { 
-          flightNumber: updateTravelDto.flightNumber, 
-          userId: user.id, 
-          status: 'active'
-        }
+    const effectiveFlightNumber = updateTravelDto.flightNumber ?? travel.flightNumber;
+    const effectiveDepartureAirportId =
+      updateTravelDto.departureAirportId ?? travel.departureAirportId;
+    const effectiveArrivalAirportId =
+      updateTravelDto.arrivalAirportId ?? travel.arrivalAirportId;
+    const effectiveDepartureDatetime = updateTravelDto.departureDatetime
+      ? new Date(updateTravelDto.departureDatetime)
+      : travel.departureDatetime;
+
+    if (effectiveDepartureAirportId === effectiveArrivalAirportId) {
+      throw new CustomBadRequestException(
+        'Departure and arrival airports cannot be the same',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    // 8. Check for duplicate active travels on the same trip instance (flight + date, or route + date)
+    const flightOrDateChanged =
+      updateTravelDto.flightNumber !== undefined ||
+      updateTravelDto.departureDatetime !== undefined;
+    const routeOrDateChanged =
+      updateTravelDto.departureAirportId !== undefined ||
+      updateTravelDto.arrivalAirportId !== undefined ||
+      updateTravelDto.departureDatetime !== undefined;
+
+    if (flightOrDateChanged) {
+      const existingTravelByFlight = await this.findActiveTravelDuplicateByFlight({
+        userId: user.id,
+        flightNumber: effectiveFlightNumber,
+        departureDatetime: effectiveDepartureDatetime,
+        excludeTravelId: id,
       });
-      if (existingTravel && existingTravel.id !== id) {
-        throw new CustomBadRequestException('You have already published an active travel with the same flight number', ErrorCode.TRAVEL_ALREADY_EXISTS);
+      if (existingTravelByFlight) {
+        throw new CustomBadRequestException(
+          'You have already published an active travel with the same flight number on this departure date',
+          ErrorCode.TRAVEL_ALREADY_EXISTS,
+        );
       }
     }
 
-    if (updateTravelDto.departureAirportId || updateTravelDto.arrivalAirportId) {
-      const departureAirportId = updateTravelDto.departureAirportId || travel.departureAirportId;
-      const arrivalAirportId = updateTravelDto.arrivalAirportId || travel.arrivalAirportId;
-      
-      // Check if departure and arrival airports are the same
-      if (departureAirportId === arrivalAirportId) {
-        throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
-      }
-      
-      const existingTravel = await this.travelRepository.findOne({
-        where: { 
-          departureAirportId, 
-          arrivalAirportId, 
-          userId: user.id, 
-          status: 'active'
-        }
+    if (routeOrDateChanged) {
+      const existingTravelByRoute = await this.findActiveTravelDuplicateByRoute({
+        userId: user.id,
+        departureAirportId: effectiveDepartureAirportId,
+        arrivalAirportId: effectiveArrivalAirportId,
+        departureDatetime: effectiveDepartureDatetime,
+        excludeTravelId: id,
       });
-      if (existingTravel && existingTravel.id !== id) {
-        throw new CustomBadRequestException('You have already published an active travel with the same departure and arrival airports', ErrorCode.TRAVEL_ALREADY_EXISTS);
+      if (existingTravelByRoute) {
+        throw new CustomBadRequestException(
+          'You have already published an active travel on the same route on this departure date',
+          ErrorCode.TRAVEL_ALREADY_EXISTS,
+        );
       }
     }
 
@@ -753,6 +784,62 @@ export class TravelService {
       
       throw new CustomBadRequestException(`Failed to update travel: ${error.message}`, ErrorCode.INTERNAL_ERROR);
     }
+  }
+
+  private async findActiveTravelDuplicateByFlight(params: {
+    userId: number;
+    flightNumber: string;
+    departureDatetime: Date;
+    excludeTravelId?: number;
+  }): Promise<TravelEntity | null> {
+    const queryBuilder = this.travelRepository
+      .createQueryBuilder('travel')
+      .where('travel.userId = :userId', { userId: params.userId })
+      .andWhere('travel.flightNumber = :flightNumber', {
+        flightNumber: params.flightNumber.trim(),
+      })
+      .andWhere('travel.status = :status', { status: 'active' })
+      .andWhere('DATE(travel.departureDatetime) = DATE(:departureDate)', {
+        departureDate: params.departureDatetime,
+      });
+
+    if (params.excludeTravelId !== undefined) {
+      queryBuilder.andWhere('travel.id != :excludeTravelId', {
+        excludeTravelId: params.excludeTravelId,
+      });
+    }
+
+    return queryBuilder.getOne();
+  }
+
+  private async findActiveTravelDuplicateByRoute(params: {
+    userId: number;
+    departureAirportId: number;
+    arrivalAirportId: number;
+    departureDatetime: Date;
+    excludeTravelId?: number;
+  }): Promise<TravelEntity | null> {
+    const queryBuilder = this.travelRepository
+      .createQueryBuilder('travel')
+      .where('travel.userId = :userId', { userId: params.userId })
+      .andWhere('travel.departureAirportId = :departureAirportId', {
+        departureAirportId: params.departureAirportId,
+      })
+      .andWhere('travel.arrivalAirportId = :arrivalAirportId', {
+        arrivalAirportId: params.arrivalAirportId,
+      })
+      .andWhere('travel.status = :status', { status: 'active' })
+      .andWhere('DATE(travel.departureDatetime) = DATE(:departureDate)', {
+        departureDate: params.departureDatetime,
+      });
+
+    if (params.excludeTravelId !== undefined) {
+      queryBuilder.andWhere('travel.id != :excludeTravelId', {
+        excludeTravelId: params.excludeTravelId,
+      });
+    }
+
+    return queryBuilder.getOne();
   }
 
   private buildRequestCountMap(rawRows: Record<string, unknown>[]): Map<number, number> {
