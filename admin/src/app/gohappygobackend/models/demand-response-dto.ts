@@ -29,7 +29,6 @@ export interface DemandResponseDto {
   id: number;
   images: Array<DemandListImageDto>;
   isDeactivated: boolean;
-  packageKind: 'FRAGILE' | 'URGENT' | 'STANDARD' | 'MORE_THAN_3000';
   pricePerKg: string;
   publicId: string;
   status: string;

@@ -147,7 +147,6 @@ export class DemandMapper {
             pricePerKg: demand.pricePerKg ? demand.pricePerKg.toString() : '0.00',
             currencyId: demand.currencyId,
             status: demand.status,
-            packageKind: demand.packageKind,
             departureAirport: departureAirport,
             arrivalAirport: arrivalAirport,
             user: user,
@@ -335,7 +334,6 @@ export class DemandMapper {
             travelDate: demand.travelDate ? new Date(demand.travelDate).toISOString().split('T')[0] : null,
 
             currencyId: demand.currencyId,
-            packageKind: demand.packageKind,
             requests: demand.requests || [],
         };
 

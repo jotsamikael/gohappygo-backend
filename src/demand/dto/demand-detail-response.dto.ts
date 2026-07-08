@@ -392,10 +392,6 @@ export class DemandDetailResponseDto{
         @Expose()
         currencyId: number | null;
 
-        @ApiProperty({ example: 'STANDARD' })
-        @Expose()
-        packageKind: string;
-
         @ApiProperty({ type: Array, example: [] })
         @Expose()
         requests: any[];

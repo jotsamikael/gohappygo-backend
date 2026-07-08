@@ -49,7 +49,6 @@ export class DemandsAndTravelsService extends BaseService {
    *         - minPricePerKg/maxPricePerKg: Filter by price range
    *         - weightAvailable: Search by available weight (travels only)
    *         - travelDate: Filter by delivery date
-   *         - packageKind: Filter by package kind
    *         Supports pagination and sorting by createdAt, travelDate, description, flightNumber, pricePerKg, and weight.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
@@ -79,7 +78,6 @@ export class DemandsAndTravelsService extends BaseService {
    *         - minPricePerKg/maxPricePerKg: Filter by price range
    *         - weightAvailable: Search by available weight (travels only)
    *         - travelDate: Filter by delivery date
-   *         - packageKind: Filter by package kind
    *         Supports pagination and sorting by createdAt, travelDate, description, flightNumber, pricePerKg, and weight.
    *
    * This method provides access only to the response body.

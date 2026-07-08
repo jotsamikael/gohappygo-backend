@@ -1,8 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional, IsNumber, IsEnum, IsDateString } from "class-validator";
+import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional, IsNumber, IsDateString } from "class-validator";
 import { Type } from "class-transformer";
 import { TransformLocaleDecimal } from 'src/common/transforms/parse-locale-decimal.util';
-import { PackageKind } from "../package-kind.enum";
 
 export class CreateDemandDto{
 
@@ -85,15 +84,6 @@ export class CreateDemandDto{
     @Type(() => Number)
     @IsNumber({}, { message: 'currencyId must be a number' })
     currencyId: number;
-
-    @ApiProperty({
-      description: 'Package kind',
-      example: 'FRAGILE',
-      enum: PackageKind
-    })
-    @IsNotEmpty({ message: 'packageKind can not be empty' })
-    @IsEnum(PackageKind, { message: 'packageKind must be a valid package kind' })
-    packageKind: PackageKind;
 
     @ApiProperty({
       type: 'string',

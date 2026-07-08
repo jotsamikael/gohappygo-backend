@@ -100,11 +100,6 @@ export interface DemandOrTravelResponseDto {
   isSharedWeight?: boolean;
 
   /**
-   * Package kind (demands only)
-   */
-  packageKind?: string;
-
-  /**
    * Price per kg (demands only)
    */
   pricePerKg?: number;

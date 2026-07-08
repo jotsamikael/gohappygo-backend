@@ -83,7 +83,6 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
       userId, 
       status, 
       travelDate, 
-      packageKind,
       orderBy = 'createdAt:desc' 
   } = query;
 
@@ -133,11 +132,6 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
   if (travelDate) {
       queryBuilder.andWhere('DATE(demand.travelDate) = DATE(:travelDate)', { travelDate });
       console.log('Added travelDate filter:', travelDate);
-  }
-
-  if (packageKind) {
-      queryBuilder.andWhere('demand.packageKind = :packageKind', { packageKind });
-      console.log('Added packageKind filter:', packageKind);
   }
 
   // Apply sorting
@@ -251,19 +245,31 @@ async publishDemand(
         throw new BadRequestException('Departure and arrival airports cannot be the same')
       }
 
-      //check if the user has a demand no yet expired with the same flight number
-      const existingDemand1 = await this.demandRepository.findOne({
-        where:{flightNumber:createDemandDto.flightNumber, userId:user.id, status:'active'}
-      })
-      if(existingDemand1){
-        throw new BadRequestException('You have already published a demand with the same flight number')
+      const travelDate = this.normalizeDemandTravelDate(createDemandDto.travelDate);
+
+      if (createDemandDto.flightNumber?.trim()) {
+        const existingDemandByFlight = await this.findActiveDemandDuplicateByFlight({
+          userId: user.id,
+          flightNumber: createDemandDto.flightNumber,
+          travelDate,
+        });
+        if (existingDemandByFlight) {
+          throw new BadRequestException(
+            'You have already published an active demand with the same flight number on this travel date',
+          );
+        }
       }
-      //check if the user has a demand no yet expired with the same departure and arrival airports
-      const existingDemand2 = await this.demandRepository.findOne({
-        where:{departureAirportId:createDemandDto.departureAirportId, arrivalAirportId:createDemandDto.arrivalAirportId, userId:user.id, status:'active'}
-      })
-      if(existingDemand2){
-        throw new BadRequestException('You have already published a demand with the same departure and arrival airports')
+
+      const existingDemandByRoute = await this.findActiveDemandDuplicateByRoute({
+        userId: user.id,
+        departureAirportId: createDemandDto.departureAirportId,
+        arrivalAirportId: createDemandDto.arrivalAirportId,
+        travelDate,
+      });
+      if (existingDemandByRoute) {
+        throw new BadRequestException(
+          'You have already published an active demand on the same route on this travel date',
+        );
       }
 
         // Get airline from flight number
@@ -280,10 +286,9 @@ async publishDemand(
           arrivalAirportId: createDemandDto.arrivalAirportId,
           currencyId: createDemandDto.currencyId,
            // Normalize travelDate to UTC midnight to avoid timezone issues
-          travelDate: new Date(createDemandDto.travelDate + 'T00:00:00.000Z'),
+          travelDate,
           weight: createDemandDto.weight,
           pricePerKg: createDemandDto.pricePerKg,
-          packageKind: createDemandDto.packageKind,
           airlineId: airlineId,
           createdBy: user.id,
           user: user
@@ -418,39 +423,62 @@ async publishDemand(
       }
     }
 
-    // 8. Check for duplicate active demands (if flight number or route is being updated)
-    if (updateDemandDto.flightNumber) {
-      const existingDemand = await this.demandRepository.findOne({
-        where: { 
-          flightNumber: updateDemandDto.flightNumber, 
-          userId: user.id, 
-          status: 'active'
-        }
+    const effectiveFlightNumber =
+      updateDemandDto.flightNumber !== undefined
+        ? updateDemandDto.flightNumber
+        : demand.flightNumber;
+    const effectiveDepartureAirportId =
+      updateDemandDto.departureAirportId ?? demand.departureAirportId;
+    const effectiveArrivalAirportId =
+      updateDemandDto.arrivalAirportId ?? demand.arrivalAirportId;
+    const effectiveTravelDate = updateDemandDto.travelDate
+      ? this.normalizeDemandTravelDate(updateDemandDto.travelDate)
+      : demand.travelDate;
+
+    if (effectiveDepartureAirportId === effectiveArrivalAirportId) {
+      throw new CustomBadRequestException(
+        'Departure and arrival airports cannot be the same',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
+
+    // 8. Check for duplicate active demands on the same trip instance (flight + date, or route + date)
+    const flightOrDateChanged =
+      updateDemandDto.flightNumber !== undefined ||
+      updateDemandDto.travelDate !== undefined;
+    const routeOrDateChanged =
+      updateDemandDto.departureAirportId !== undefined ||
+      updateDemandDto.arrivalAirportId !== undefined ||
+      updateDemandDto.travelDate !== undefined;
+
+    if (flightOrDateChanged && effectiveFlightNumber?.trim()) {
+      const existingDemandByFlight = await this.findActiveDemandDuplicateByFlight({
+        userId: user.id,
+        flightNumber: effectiveFlightNumber,
+        travelDate: effectiveTravelDate,
+        excludeDemandId: id,
       });
-      if (existingDemand && existingDemand.id !== id) {
-        throw new CustomBadRequestException('You have already published an active demand with the same flight number', ErrorCode.DEMAND_ALREADY_EXISTS);
+      if (existingDemandByFlight) {
+        throw new CustomBadRequestException(
+          'You have already published an active demand with the same flight number on this travel date',
+          ErrorCode.DEMAND_ALREADY_EXISTS,
+        );
       }
     }
 
-    if (updateDemandDto.departureAirportId || updateDemandDto.arrivalAirportId) {
-      const departureAirportId = updateDemandDto.departureAirportId || demand.departureAirportId;
-      const arrivalAirportId = updateDemandDto.arrivalAirportId || demand.arrivalAirportId;
-      
-      // Check if departure and arrival airports are the same
-      if (departureAirportId === arrivalAirportId) {
-        throw new CustomBadRequestException('Departure and arrival airports cannot be the same', ErrorCode.VALIDATION_ERROR);
-      }
-      
-      const existingDemand = await this.demandRepository.findOne({
-        where: { 
-          departureAirportId, 
-          arrivalAirportId, 
-          userId: user.id, 
-          status: 'active'
-        }
+    if (routeOrDateChanged) {
+      const existingDemandByRoute = await this.findActiveDemandDuplicateByRoute({
+        userId: user.id,
+        departureAirportId: effectiveDepartureAirportId,
+        arrivalAirportId: effectiveArrivalAirportId,
+        travelDate: effectiveTravelDate,
+        excludeDemandId: id,
       });
-      if (existingDemand && existingDemand.id !== id) {
-        throw new CustomBadRequestException('You have already published an active demand with the same departure and arrival airports', ErrorCode.DEMAND_ALREADY_EXISTS);
+      if (existingDemandByRoute) {
+        throw new CustomBadRequestException(
+          'You have already published an active demand on the same route on this travel date',
+          ErrorCode.DEMAND_ALREADY_EXISTS,
+        );
       }
     }
 
@@ -465,14 +493,13 @@ async publishDemand(
     const updateData: any = {};
     const allowedFields = [
       'description', 'flightNumber', 'departureAirportId', 'arrivalAirportId',
-      'travelDate', 'weight', 'pricePerKg', 'currencyId', 'packageKind', 'airlineId'
+      'travelDate', 'weight', 'pricePerKg', 'currencyId', 'airlineId'
     ];
 
     for (const field of allowedFields) {
       if (updateDemandDto[field] !== undefined) {
         if (field === 'travelDate') {
-          // Normalize travelDate to UTC midnight to avoid timezone issues
-          updateData[field] = new Date(`${updateDemandDto[field]}T00:00:00.000Z`);
+          updateData[field] = this.normalizeDemandTravelDate(updateDemandDto[field]);
         } else {
           updateData[field] = updateDemandDto[field];
         }
@@ -729,6 +756,71 @@ save(demand: DemandEntity): Promise<DemandEntity> {
   return this.demandRepository.save(demand);
 }
 
+private normalizeDemandTravelDate(value: string | Date): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const dateOnly = value.includes('T') ? value.split('T')[0] : value;
+  return new Date(`${dateOnly}T00:00:00.000Z`);
+}
+
+private async findActiveDemandDuplicateByFlight(params: {
+  userId: number;
+  flightNumber: string;
+  travelDate: Date;
+  excludeDemandId?: number;
+}): Promise<DemandEntity | null> {
+  const queryBuilder = this.demandRepository
+    .createQueryBuilder('demand')
+    .where('demand.userId = :userId', { userId: params.userId })
+    .andWhere('demand.flightNumber = :flightNumber', {
+      flightNumber: params.flightNumber.trim(),
+    })
+    .andWhere('demand.status = :status', { status: 'active' })
+    .andWhere('DATE(demand.travelDate) = DATE(:travelDate)', {
+      travelDate: params.travelDate,
+    });
+
+  if (params.excludeDemandId !== undefined) {
+    queryBuilder.andWhere('demand.id != :excludeDemandId', {
+      excludeDemandId: params.excludeDemandId,
+    });
+  }
+
+  return queryBuilder.getOne();
+}
+
+private async findActiveDemandDuplicateByRoute(params: {
+  userId: number;
+  departureAirportId: number;
+  arrivalAirportId: number;
+  travelDate: Date;
+  excludeDemandId?: number;
+}): Promise<DemandEntity | null> {
+  const queryBuilder = this.demandRepository
+    .createQueryBuilder('demand')
+    .where('demand.userId = :userId', { userId: params.userId })
+    .andWhere('demand.departureAirportId = :departureAirportId', {
+      departureAirportId: params.departureAirportId,
+    })
+    .andWhere('demand.arrivalAirportId = :arrivalAirportId', {
+      arrivalAirportId: params.arrivalAirportId,
+    })
+    .andWhere('demand.status = :status', { status: 'active' })
+    .andWhere('DATE(demand.travelDate) = DATE(:travelDate)', {
+      travelDate: params.travelDate,
+    });
+
+  if (params.excludeDemandId !== undefined) {
+    queryBuilder.andWhere('demand.id != :excludeDemandId', {
+      excludeDemandId: params.excludeDemandId,
+    });
+  }
+
+  return queryBuilder.getOne();
+}
+
 private generateDemandListCacheKey(query: FindDemandsQueryDto): string {
   const { 
       page = 1, 
@@ -741,11 +833,10 @@ private generateDemandListCacheKey(query: FindDemandsQueryDto): string {
       userId, 
       status, 
       travelDate, 
-      packageKind,
       orderBy = 'createdAt:desc' 
   } = query;
   
-  return `demands_list_page${page}_limit${limit}_description${description || 'all'}_flight${flightNumber || 'all'}_airline${airlineId || 'all'}_origin${departureAirportId || 'all'}_dest${arrivalAirportId || 'all'}_user${userId || 'all'}_status${status || 'all'}_date${travelDate || 'all'}_packageKind${packageKind || 'all'}_order${orderBy}`;
+  return `demands_list_page${page}_limit${limit}_description${description || 'all'}_flight${flightNumber || 'all'}_airline${airlineId || 'all'}_origin${departureAirportId || 'all'}_dest${arrivalAirportId || 'all'}_user${userId || 'all'}_status${status || 'all'}_date${travelDate || 'all'}_order${orderBy}`;
 }
 
 private async clearDemandListCache(): Promise<void> {

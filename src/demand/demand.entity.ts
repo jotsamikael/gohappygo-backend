@@ -6,7 +6,6 @@ import { UserEntity } from "src/user/user.entity";
 import { CurrencyEntity } from 'src/currency/entities/currency.entity';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from "typeorm";
 import { UploadedFileEntity } from "src/uploaded-file/uploaded-file.entity";
-import { PackageKind } from "./package-kind.enum";
 import { BookmarkEntity } from 'src/bookmark/entities/bookmark.entity';
 import { AirlineEntity } from "src/airline/entities/airline.entity";
 /*
@@ -50,9 +49,6 @@ export class DemandEntity extends PublicIdentifiableEntity {
 
   @Column({ type: 'enum', enum: ['active', 'expired', 'cancelled','resolved'] })
   status: string;
-  
-  @Column({ type: 'enum', enum: PackageKind })
-  packageKind: PackageKind;
 
  @ManyToOne(() => AirportEntity, { nullable: false })
  @JoinColumn({ name: 'departureAirportId' })

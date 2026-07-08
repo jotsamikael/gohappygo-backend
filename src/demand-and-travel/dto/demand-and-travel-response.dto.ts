@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-reponse.interfaces';
-import { PackageKind } from 'src/demand/package-kind.enum';
 
 export class UserNameResponseDto {
   
@@ -203,10 +202,6 @@ export class DemandOrTravelResponseDto {
   @ApiProperty({ description: 'Whether the item is deactivated' })
   @Expose()
   isDeactivated: boolean;
-  
-  @ApiProperty({ description: 'Package kind (demands only)', required: false })
-  @Expose()
-  packageKind?: PackageKind;
 
   // New attributes for travels
   @ApiProperty({ description: 'Whether weight is shared (travels only)', required: false })

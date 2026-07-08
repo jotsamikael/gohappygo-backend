@@ -1,6 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Expose, Type } from "class-transformer";
-import { PackageKind } from "../package-kind.enum";
 
 // Airport DTO for demand list response
 export class DemandListAirportDto {
@@ -266,10 +265,6 @@ export class DemandResponseDto {
   @ApiProperty({ example: "active" })
   @Expose()
   status: string;
-
-  @ApiProperty({ example: "FRAGILE", enum: PackageKind })
-  @Expose()
-  packageKind: PackageKind;
 
   @ApiProperty({ type: DemandListAirportDto })
   @Expose()

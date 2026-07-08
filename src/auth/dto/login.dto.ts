@@ -17,7 +17,7 @@ export class LoginDto {
         minLength: 6,
         maxLength: 16
     })
-    @IsNotEmpty({ message: 'Title is required' })
+    @IsNotEmpty({ message: 'Password is required' })
     @MinLength(6, { message: 'Must be atleast 3 characters long' })
     @MaxLength(16, { message: 'Can not be more than 50 characters long' })
     password: string

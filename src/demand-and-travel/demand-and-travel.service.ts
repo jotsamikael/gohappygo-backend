@@ -8,7 +8,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { FindDemandsAndTravelsQueryDto } from './dto/FindDemandsAndTravelsQuery.dto';
 import { DemandOrTravelResponseDto, PaginatedDemandsAndTravelsResponseDto } from './dto/demand-and-travel-response.dto';
-import { PackageKind } from 'src/demand/package-kind.enum';
 import { DemandTravelAirlineResponseDto } from './dto/airlineResponseDto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Like, Repository } from 'typeorm';

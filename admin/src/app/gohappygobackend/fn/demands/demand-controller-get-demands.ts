@@ -47,14 +47,9 @@ export interface DemandControllerGetDemands$Params {
  */
   arrivalAirportId?: number;
 
-/**
- * Filter by package kind
- */
-  packageKind?: 'FRAGILE' | 'URGENT' | 'STANDARD' | 'MORE_THAN_3000';
-
-/**
- * Filter by user ID (admin only)
- */
+  /**
+   * Filter by user ID (admin only)
+   */
   userId?: number;
 
 /**
@@ -83,7 +78,6 @@ export function demandControllerGetDemands(http: HttpClient, rootUrl: string, pa
     rb.query('airlineId', params.airlineId, {});
     rb.query('departureAirportId', params.departureAirportId, {});
     rb.query('arrivalAirportId', params.arrivalAirportId, {});
-    rb.query('packageKind', params.packageKind, {});
     rb.query('userId', params.userId, {});
     rb.query('status', params.status, {});
     rb.query('travelDate', params.travelDate, {});

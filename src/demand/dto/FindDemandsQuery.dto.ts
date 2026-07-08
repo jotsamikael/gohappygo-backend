@@ -2,7 +2,6 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsOptional, IsString, MaxLength, IsEnum, IsInt, Min, Max, IsISO8601 } from "class-validator";
 import { Type } from "class-transformer";
 import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
-import { PackageKind } from "../package-kind.enum";
 
 export class FindDemandsQueryDto extends PaginationQueryDto {
   @ApiProperty({
@@ -55,16 +54,6 @@ export class FindDemandsQueryDto extends PaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   arrivalAirportId?: number;
-
-  @ApiProperty({
-    description: 'Filter by package kind',
-    example: 'FRAGILE',
-    enum: PackageKind,
-    required: false
-  })
-  @IsOptional()
-  @IsEnum(PackageKind)
-  packageKind?: PackageKind;
 
   @ApiProperty({
     description: 'Filter by user ID (admin only)',

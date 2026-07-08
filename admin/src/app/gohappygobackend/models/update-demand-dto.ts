@@ -30,11 +30,6 @@ export interface UpdateDemandDto {
   flightNumber?: string;
 
   /**
-   * Package kind
-   */
-  packageKind?: 'FRAGILE' | 'URGENT' | 'STANDARD' | 'MORE_THAN_3000';
-
-  /**
    * Price per kg
    */
   pricePerKg?: number;

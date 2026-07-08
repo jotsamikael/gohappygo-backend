@@ -35,7 +35,6 @@ export class DemandAndTravelController {
         - minPricePerKg/maxPricePerKg: Filter by price range
         - weightAvailable: Search by available weight (travels only)
         - travelDate: Filter by delivery date
-        - packageKind: Filter by package kind
         Supports pagination and sorting by createdAt, travelDate, description, flightNumber, pricePerKg, and weight.
         `
     })

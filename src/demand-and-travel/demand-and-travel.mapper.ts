@@ -170,7 +170,6 @@ export class DemandAndTravelMapper {
       weight: typeof demand.weight === 'string' ? parseFloat(demand.weight) : demand.weight,
       pricePerKg: typeof demand.pricePerKg === 'string' ? parseFloat(demand.pricePerKg) : demand.pricePerKg,
       isDeactivated: demand.isDeactivated,
-      packageKind: demand.packageKind,
       departureAirport: demand.departureAirport 
         ? this.toAirportSimpleResponse(demand.departureAirport)
         : null,

@@ -72,17 +72,13 @@
       <div class="detail-section">
         <div class="section-title">Package Information</div>
         <div class="row g-2">
-          <div class="col-4">
+          <div class="col-6">
             <div class="detail-label">Weight</div>
             <div class="detail-value">{{ formatWeight(demandDetail.weight) }}</div>
           </div>
-          <div class="col-4">
+          <div class="col-6">
             <div class="detail-label">Price / kg</div>
             <div class="detail-value">{{ formatPrice(demandDetail.pricePerKg) }}</div>
-          </div>
-          <div class="col-4">
-            <div class="detail-label">Package Kind</div>
-            <div class="detail-value">{{ demandDetail.packageKind || '-' }}</div>
           </div>
         </div>
       </div>
