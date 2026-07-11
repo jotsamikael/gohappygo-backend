@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { roundRatingToTenth } from "src/common/transforms/round-rating-to-tenth.util";
 import { 
     TravelResponseDto, 
     TravelListAirportDto, 
@@ -236,7 +237,7 @@ export class TravelMapper {
             bio: travel.user.bio || null,
             isVerified: travel.user.isVerified,
             createdAt: travel.user.createdAt,
-            rating: travel.user.rating || null,
+            rating: roundRatingToTenth(travel.user.rating),
             numberOfReviews: travel.user.numberOfReviews || 0
         }, {
             excludeExtraneousValues: true,

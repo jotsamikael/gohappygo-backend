@@ -13,6 +13,7 @@ import { Injectable } from "@nestjs/common";
 import { DemandEntity } from "src/demand/demand.entity";
 import { TravelEntity } from "src/travel/travel.entity";
 import { CommonService } from "src/common/service/common.service";
+import { roundRatingToTenth } from "src/common/transforms/round-rating-to-tenth.util";
 
 @Injectable()
 export class DemandAndTravelMapper {
@@ -113,7 +114,7 @@ export class DemandAndTravelMapper {
       selfieImage: user.profilePictureUrl,
       createdAt: user.createdAt || new Date(),
       isVerified: user.isVerified || false,
-      rating: user.rating || null,
+      rating: roundRatingToTenth(user.rating),
       numberOfReviews: user.numberOfReviews || 0
     }, {
       excludeExtraneousValues: true,

@@ -1,4 +1,5 @@
 import { plainToInstance } from "class-transformer";
+import { roundRatingToTenth } from "src/common/transforms/round-rating-to-tenth.util";
 import { DemandEntity } from "./demand.entity";
 import {
     DemandDetailResponseDto,
@@ -228,7 +229,7 @@ export class DemandMapper {
             isPhoneVerified: demand.user.isPhoneVerified,
             isVerified: demand.user.isVerified,
             createdAt: demand.user.createdAt,
-            rating: demand.user.rating || null,
+            rating: roundRatingToTenth(demand.user.rating),
             numberOfReviews: demand.user.numberOfReviews || 0
         }, {
             excludeExtraneousValues: true,
