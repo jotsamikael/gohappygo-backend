@@ -24,10 +24,12 @@ export class FirebaseMessagingService {
     private readonly configService: ConfigService,
   ) {}
 
+  /** This method checks if FCM is enabled */
   isEnabled(): boolean {
     return this.configService.get<string>('FCM_ENABLED') === 'true';
   }
 
+  /** This method sends a message to a list of tokens */
   async sendToTokens(
     tokens: string[],
     message: Omit<admin.messaging.MulticastMessage, 'tokens'>,

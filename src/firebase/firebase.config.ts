@@ -10,6 +10,7 @@ export class FirebaseConfig {
     this.initializeFirebase();
   }
 
+  /** This method initializes the Firebase Admin SDK */
   private initializeFirebase() {
     try {
       // Use environment variables for production
@@ -32,14 +33,17 @@ export class FirebaseConfig {
     return this.firebaseApp;
   }
 
+  /** This method returns the Firebase Auth instance */
   getAuth(): admin.auth.Auth {
     return this.firebaseApp.auth();
   }
 
+  /** This method returns the Firebase Database instance */
   getDatabase(): admin.database.Database {
     return this.firebaseApp.database();
   }
 
+  /** This method returns the Firebase Messaging instance */
   getMessaging(): admin.messaging.Messaging {
     return this.firebaseApp.messaging();
   }
