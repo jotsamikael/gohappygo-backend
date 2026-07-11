@@ -45,24 +45,33 @@ export class NotificationEventsListener {
   @OnEvent('request.accepted')
   async handleRequestAccepted(event: RequestEvent) {
     try {
-      // Only create notification for the requester (isForOwner=true means this event is for the requester)
-      // The first emission (isForOwner=false) is for the owner's email only
-      if (!event.isForOwner) {
-        return; // Skip notification creation for owner's own action
+      // Two emissions per acceptance (owner email, then requester email).
+      // Notify each party once, matching request.completed handling.
+      if (event.isForOwner) {
+        await this.notificationService.create({
+          targetUserId: event.ownerId,
+          actorUserId: event.requesterId,
+          notificationType: NotificationType.REQUEST_ACCEPTED,
+          entityType: EntityType.REQUEST,
+          entityId: event.requestId,
+          title: 'You Accepted a Request',
+          priority: NotificationPriority.HIGH,
+        });
+      } else {
+        await this.notificationService.create({
+          targetUserId: event.requesterId,
+          actorUserId: event.ownerId,
+          notificationType: NotificationType.REQUEST_ACCEPTED,
+          entityType: EntityType.REQUEST,
+          entityId: event.requestId,
+          title: 'Request Accepted',
+          priority: NotificationPriority.HIGH,
+        });
       }
 
-      // Notify the requester that their request was accepted
-      await this.notificationService.create({
-        targetUserId: event.requesterId,
-        actorUserId: event.ownerId,
-        notificationType: NotificationType.REQUEST_ACCEPTED,
-        entityType: EntityType.REQUEST,
-        entityId: event.requestId,
-        title: 'Request Accepted',
-        priority: NotificationPriority.HIGH,
-      });
-
-      this.logger.log(`Notification created for request acceptance: Request ${event.requestId}`);
+      this.logger.log(
+        `Notification created for request acceptance: Request ${event.requestId} (${event.isForOwner ? 'owner' : 'requester'})`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create notification for request.accepted: ${error.message}`);
     }

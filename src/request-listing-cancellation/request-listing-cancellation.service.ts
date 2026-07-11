@@ -115,6 +115,10 @@ export class RequestListingCancellationService {
       );
       return;
     }
+    if (transaction.status === 'refunded') {
+      this.logger.debug(`Refund skipped for request ${requestId}: transaction already refunded`);
+      return;
+    }
     if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
       let travelerPaymentUSD: number;
       if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
@@ -131,6 +135,7 @@ export class RequestListingCancellationService {
       await this.stripeService.refundPaymentIntentPartial(
         transaction.stripePaymentIntentId,
         travelerPaymentUSD,
+        `refund-request-${requestId}-traveler`,
       );
       await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
     }

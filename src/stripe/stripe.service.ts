@@ -824,38 +824,60 @@ export class StripeService {
   }
 
   /**
-   * Refund a partial amount from a Payment Intent
-   * @param paymentIntentId - Stripe Payment Intent ID
-   * @param amountUSD - Amount to refund in USD (will be converted to cents)
-   * @returns Stripe Refund object
+   * Refund a partial amount from a Payment Intent (idempotent when idempotencyKey is provided).
+   * Caps the refund at the charge's remaining unrefunded amount.
+   * @returns Stripe Refund, or null if nothing remains to refund on the charge.
    */
-  async refundPaymentIntentPartial(paymentIntentId: string, amountUSD: number): Promise<Stripe.Refund> {
+  async refundPaymentIntentPartial(
+    paymentIntentId: string,
+    amountUSD: number,
+    idempotencyKey?: string,
+  ): Promise<Stripe.Refund | null> {
     try {
-      // Retrieve the Payment Intent to get the charge ID and verify currency
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ['latest_charge'],
+      });
+
       if (!paymentIntent.latest_charge) {
         throw new BadRequestException('Payment Intent has no charge to refund');
       }
 
-      // Convert amount to cents (Stripe uses smallest currency unit)
-      const amountInCents = Math.round(amountUSD * 100);
+      const charge =
+        typeof paymentIntent.latest_charge === 'string'
+          ? await this.stripe.charges.retrieve(paymentIntent.latest_charge)
+          : paymentIntent.latest_charge;
 
-      if (amountInCents <= 0) {
+      const remainingRefundableCents = charge.amount - charge.amount_refunded;
+      if (remainingRefundableCents <= 0) {
+        this.logger.log(
+          `Partial refund skipped for Payment Intent ${paymentIntentId}: charge already fully refunded`,
+        );
+        return null;
+      }
+
+      const requestedCents = Math.round(amountUSD * 100);
+      if (requestedCents <= 0) {
         throw new BadRequestException('Refund amount must be greater than zero');
       }
 
-      if (amountInCents > paymentIntent.amount) {
-        throw new BadRequestException('Refund amount cannot exceed the original payment amount');
+      const amountInCents = Math.min(requestedCents, remainingRefundableCents);
+      if (amountInCents < requestedCents) {
+        this.logger.warn(
+          `Partial refund capped for Payment Intent ${paymentIntentId}: requested ${requestedCents} cents, refunding ${amountInCents} cents (remaining on charge)`,
+        );
       }
 
-      // Create partial refund for the charge
-      const refund = await this.stripe.refunds.create({
-        payment_intent: paymentIntentId,
-        amount: amountInCents,
-      });
+      const refund = await this.stripe.refunds.create(
+        {
+          payment_intent: paymentIntentId,
+          amount: amountInCents,
+        },
+        idempotencyKey ? { idempotencyKey } : undefined,
+      );
 
-      this.logger.log(`Partial refund created successfully: ${refund.id} for Payment Intent ${paymentIntentId}, amount: ${amountUSD} USD (${amountInCents} cents)`);
+      this.logger.log(
+        `Partial refund created successfully: ${refund.id} for Payment Intent ${paymentIntentId}, amount: ${amountInCents / 100} USD (${amountInCents} cents)`,
+      );
       return refund;
     } catch (error) {
       this.logger.error(`Error partially refunding Payment Intent ${paymentIntentId}: ${error.message}`, error.stack);

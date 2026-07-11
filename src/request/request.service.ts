@@ -129,6 +129,10 @@ export class RequestService {
       );
       return;
     }
+    if (transaction.status === 'refunded') {
+      this.logger.debug(`Refund skipped for request ${requestId}: transaction already refunded`);
+      return;
+    }
     if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
       let travelerPaymentUSD: number;
       if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
@@ -145,9 +149,55 @@ export class RequestService {
       await this.stripeService.refundPaymentIntentPartial(
         transaction.stripePaymentIntentId,
         travelerPaymentUSD,
+        `refund-request-${requestId}-traveler`,
       );
       await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
     }
+  }
+
+  /**
+   * Lock the request row and ensure cancellation confirm can proceed (or is already done).
+   */
+  private async lockPendingCancellationForConfirm(
+    requestId: number,
+    pendingCancellationStatusId: number,
+    cancelledStatusId: number,
+  ): Promise<{ alreadyCompleted: true } | { alreadyCompleted: false }> {
+    const outcome = await this.requestRepository.manager.transaction(async (transactionalEntityManager) => {
+      const lockedRequest = await transactionalEntityManager.findOne(RequestEntity, {
+        where: { id: requestId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!lockedRequest) {
+        throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+      }
+
+      if (
+        lockedRequest.cancellationConfirmedAt ||
+        lockedRequest.currentStatusId === cancelledStatusId
+      ) {
+        return { alreadyCompleted: true as const };
+      }
+
+      if (lockedRequest.cancellationDisputedAt) {
+        throw new CustomBadRequestException(
+          'Cancellation has already been confirmed or disputed',
+          ErrorCode.REQUEST_NOT_FOUND,
+        );
+      }
+
+      if (lockedRequest.currentStatusId !== pendingCancellationStatusId) {
+        throw new CustomBadRequestException(
+          'Request is not pending cancellation confirmation',
+          ErrorCode.REQUEST_NOT_FOUND,
+        );
+      }
+
+      return { alreadyCompleted: false as const };
+    });
+
+    return outcome;
   }
 
   private async releaseFundsForRequest(requestId: number, actingUser: UserEntity): Promise<void> {
@@ -1186,38 +1236,18 @@ export class RequestService {
         if (!transaction) {
           // NEGOTIATING (no payment yet) or legacy accepted-without-transaction: cancel without refund.
         } else {
-          // Process refund (only travelerPayment, fee is kept)
-          if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
+          if (transaction.status === 'pending') {
+            await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
+          } else {
             try {
-              // Convert travelerPayment to USD (Payment Intent is in USD)
-              let travelerPaymentUSD: number;
-              if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-                travelerPaymentUSD = await this.stripeService.convertToUSD(
-                  transaction.travelerPayment,
-                  transaction.currencyCode || 'USD'
-                );
-              } else {
-                throw new CustomBadRequestException('Traveler payment amount not found in transaction', ErrorCode.INTERNAL_ERROR);
-              }
-
-              // Refund only the travelerPayment amount (partial refund)
-              await this.stripeService.refundPaymentIntentPartial(
-                transaction.stripePaymentIntentId,
-                travelerPaymentUSD
-              );
-
-              // Update transaction status to refunded
-              await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
+              await this.refundRequestTransaction(requestId);
             } catch (error) {
-              console.error(`Failed to refund transaction ${transaction.id}: ${error.message}`);
+              console.error(`Failed to refund transaction for request ${requestId}: ${error.message}`);
               throw new CustomBadRequestException(
                 `Failed to process refund: ${error.message}`,
-                ErrorCode.INTERNAL_ERROR
+                ErrorCode.INTERNAL_ERROR,
               );
             }
-          } else if (transaction.status === 'pending') {
-            // For pending transactions, just mark as cancelled (no refund needed)
-            await this.transactionService.updateTransactionStatus(transaction.id, 'cancelled');
           }
         }
       } else {
@@ -1334,23 +1364,23 @@ export class RequestService {
       throw new CustomNotFoundException('PENDING_CANCELLATION_CONFIRMATION status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
     }
 
-    if (request.currentStatusId !== pendingCancellationStatus.id) {
-      throw new CustomBadRequestException(
-        'Request is not pending cancellation confirmation',
-        ErrorCode.REQUEST_NOT_FOUND
-      );
-    }
-
-    if (request.cancellationConfirmedAt || request.cancellationDisputedAt) {
-      throw new CustomBadRequestException(
-        'Cancellation has already been confirmed or disputed',
-        ErrorCode.REQUEST_NOT_FOUND
-      );
-    }
-
     const cancelledStatus = await this.requestStatusService.getRequestByStatus('CANCELLED');
     if (!cancelledStatus) {
       throw new CustomNotFoundException('CANCELLED request status not found', ErrorCode.REQUEST_STATUS_NOT_FOUND);
+    }
+
+    const lockResult = await this.lockPendingCancellationForConfirm(
+      requestId,
+      pendingCancellationStatus.id,
+      cancelledStatus.id,
+    );
+
+    if (lockResult.alreadyCompleted) {
+      const existing = await this.getRequestById(requestId);
+      if (!existing) {
+        throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+      }
+      return existing;
     }
 
     try {
@@ -1375,6 +1405,23 @@ export class RequestService {
         throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
       }
 
+      if (lockedRequest.cancellationConfirmedAt || lockedRequest.currentStatusId === cancelledStatus.id) {
+        request.currentStatusId = lockedRequest.currentStatusId;
+        request.currentStatus = lockedRequest.currentStatus;
+        request.cancellationConfirmedAt = lockedRequest.cancellationConfirmedAt;
+        request.cancellationConfirmedBy = lockedRequest.cancellationConfirmedBy;
+        request.isWeightReserved = lockedRequest.isWeightReserved;
+        request.weightReleasedAt = lockedRequest.weightReleasedAt;
+        return;
+      }
+
+      if (lockedRequest.currentStatusId !== pendingCancellationStatus.id) {
+        throw new CustomBadRequestException(
+          'Request is not pending cancellation confirmation',
+          ErrorCode.REQUEST_NOT_FOUND,
+        );
+      }
+
       lockedRequest.currentStatusId = cancelledStatus.id;
       lockedRequest.currentStatus = cancelledStatus;
       lockedRequest.cancellationConfirmedAt = new Date();
@@ -1394,7 +1441,7 @@ export class RequestService {
     const requester = await this.userService.findOne({ id: request.requesterId });
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
 
-    if (requester && ownerId) {
+    if (requester && ownerId && request.cancellationConfirmedAt) {
       this.userEventService.emitCancellationConfirmed(requester, request, ownerId);
     }
 
