@@ -231,7 +231,7 @@ jobs:
 
           ln -sfn "${SHARED_DIR}/.env.production" "${RELEASE_DIR}/.env.production"
           echo "=== Boot smoke test (direct node, before PM2) ==="
-          SMOKE_LOG="/tmp/gohappygo-boot-smoke-${RELEASE_ID}.log"
+          SMOKE_LOG="${RELEASE_DIR}/.boot-smoke.log"
           cd "${RELEASE_DIR}"
           NODE_ENV=production node "${NEST_ENTRY}" > "${SMOKE_LOG}" 2>&1 &
           SMOKE_PID=$!
