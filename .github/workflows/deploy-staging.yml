@@ -185,12 +185,13 @@ jobs:
           write_ecosystem_file() {
             local release_dir="$1"
             local entry="$2"
+            local script_path="${release_dir}/${entry}"
             printf '%s\n' \
               'module.exports = {' \
               '  apps: [{' \
               "    name: '${PM2_APP_NAME}'," \
-              "    script: '${entry}'," \
-              "    cwd: '${APP_DIR}/current'," \
+              "    script: '${script_path}'," \
+              "    cwd: '${release_dir}'," \
               "    exec_mode: 'fork'," \
               '    instances: 1,' \
               '    autorestart: true,' \
@@ -208,8 +209,15 @@ jobs:
           activate_release() {
             local release_dir="$1"
             local entry="$2"
+            if [ -e "${CURRENT_LINK}" ] && [ ! -L "${CURRENT_LINK}" ]; then
+              rm -rf "${CURRENT_LINK}"
+            fi
             ln -sfn "${release_dir}" "${CURRENT_LINK}"
             ln -sfn "${SHARED_DIR}/.env.production" "${CURRENT_LINK}/.env.production"
+            if [ ! -f "${release_dir}/${entry}" ]; then
+              echo "ERROR: Nest entry not found at ${release_dir}/${entry}"
+              exit 1
+            fi
             write_ecosystem_file "${release_dir}" "${entry}"
             if pm2 describe "${PM2_APP_NAME}" >/dev/null 2>&1; then
               pm2 delete "${PM2_APP_NAME}" 2>/dev/null || true
