@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api.gohappygo.fr/api',
-  baseUrl: 'https://api.gohappygo.fr',
+  apiUrl: 'https://backend.gohappygo.fr/api',
+  baseUrl: 'https://backend.gohappygo.fr',
 };

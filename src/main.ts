@@ -35,7 +35,8 @@ async function bootstrap() {
   // Get environment-specific base URL
   const nodeEnv = configService.get<string>('NODE_ENV') || 'development';
   const port = configService.get<number>('PORT') || 3000;
-  const baseUrl = configService.get<string>('BASE_URL') || 
+  const baseUrl = configService.get<string>('BASE_URL') ||
+    configService.get<string>('BACKEND_URL') ||
     (nodeEnv === 'production' ? `https://api.gohappygo.fr` : `http://localhost:${port}`);
 
   // Enable CORS with HTTPS origins
@@ -43,14 +44,14 @@ async function bootstrap() {
     'http://localhost:4200', // Angular development server
     'http://localhost:3000', // React development server
     'https://gohappygo-back-office.vercel.app', //vercel back-office
-    'http://localhost:3000', // Backend server
     'http://127.0.0.1:4200', // Alternative localhost
     'http://127.0.0.1:3000', // Alternative backend
     'https://gohappygo.fr',
     'https://www.gohappygo.fr',
     'https://api.gohappygo.fr',
+    'https://backend.gohappygo.fr',
     'https://gohappygo.netlify.app',
-    'http://109.199.107.165:3000', // For colleague
+    'http://109.199.107.165:3000', // Staging direct access
   ];
 
   // Add production base URL to allowed origins if not already included
@@ -91,70 +92,74 @@ async function bootstrap() {
   )
 
   // Swagger configuration with HTTPS server URLs
-  const config = new DocumentBuilder()
-    .setTitle('GoHappyGo API')
-    .setDescription('API documentation for GoHappyGo platform - connecting travelers and package senders for collaborative deliveries')
-    .setVersion('1.0')
-    .addServer(baseUrl, nodeEnv === 'production' ? 'Production server' : 'Development server')
-    .addServer('http://localhost:3000', 'Local development')
-    .addServer('https://109.199.107.165', 'Production HTTPS server')
-    .addServer('http://109.199.107.165:3000', 'Production HTTP server')
-    .addTag('auth', 'Authentication endpoints')
-    .addTag('airlines', 'Airline management endpoints')
-    .addTag('airports', 'Airport management endpoints')
-    .addTag('users', 'User management endpoints')
-    .addTag('demands', 'Delivery demand endpoints')
-    .addTag('demandsAndTravels', 'Demands and travels search endpoints')
-    .addTag('travels', 'Travel declaration endpoints')
-    .addTag('requests', 'Request matching endpoints')
-    .addTag('reviews', 'Review system endpoints')
-    .addTag('messages', 'Messaging endpoints')
-    .addTag('transactions', 'Payment transaction endpoints')
-    .addTag('kyc', 'KYC endpoints')
-    .addTag('quotes', 'Quote endpoints')
-    .addTag('platform-pricing', 'Platform pricing endpoints')
-    .addTag('support', 'Support endpoints')
-    .addTag('Stripe', 'Stripe Connect endpoints')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
+  const enableSwagger = configService.get<string>('ENABLE_SWAGGER') !== 'false';
+
+  if (enableSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle('GoHappyGo API')
+      .setDescription('API documentation for GoHappyGo platform - connecting travelers and package senders for collaborative deliveries')
+      .setVersion('1.0')
+      .addServer(baseUrl, nodeEnv === 'production' ? 'Production server' : 'Development server')
+      .addServer('http://localhost:3000', 'Local development')
+      .addServer('https://109.199.107.165', 'Production HTTPS server')
+      .addServer('http://109.199.107.165:3000', 'Production HTTP server')
+      .addTag('auth', 'Authentication endpoints')
+      .addTag('airlines', 'Airline management endpoints')
+      .addTag('airports', 'Airport management endpoints')
+      .addTag('users', 'User management endpoints')
+      .addTag('demands', 'Delivery demand endpoints')
+      .addTag('demandsAndTravels', 'Demands and travels search endpoints')
+      .addTag('travels', 'Travel declaration endpoints')
+      .addTag('requests', 'Request matching endpoints')
+      .addTag('reviews', 'Review system endpoints')
+      .addTag('messages', 'Messaging endpoints')
+      .addTag('transactions', 'Payment transaction endpoints')
+      .addTag('kyc', 'KYC endpoints')
+      .addTag('quotes', 'Quote endpoints')
+      .addTag('platform-pricing', 'Platform pricing endpoints')
+      .addTag('support', 'Support endpoints')
+      .addTag('Stripe', 'Stripe Connect endpoints')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+          in: 'header',
+        },
+        'JWT-auth', // This name here is important for references
+      )
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config, {
+      extraModels: [UserEntity, AirlineEntity, TravelEntity, RequestEntity, ReviewEntity, MessageEntity, TransactionEntity, QuoteEntity, PlatformPricingEntity, SupportModule],
+    });
+
+    document.tags = document.tags || [];
+    if (!document.tags.find(t => t.name === 'stripe')) {
+      document.tags.push({ name: 'stripe', description: 'Stripe Connect endpoints' });
+    }
+
+    SwaggerModule.setup('api', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        defaultModelsExpandDepth: 1,
+        defaultModelExpandDepth: 1,
+        url: `${baseUrl}/api-json`,
       },
-      'JWT-auth', // This name here is important for references
-    )
-    .build();
-  
-  const document = SwaggerModule.createDocument(app, config,{
-    extraModels: [UserEntity, AirlineEntity, TravelEntity, RequestEntity, ReviewEntity, MessageEntity, TransactionEntity, QuoteEntity, PlatformPricingEntity, SupportModule], //add entities to swagger
-  });
-  
-  // Add Stripe tag to Swagger
-  document.tags = document.tags || [];
-  if (!document.tags.find(t => t.name === 'stripe')) {
-    document.tags.push({ name: 'stripe', description: 'Stripe Connect endpoints' });
+    });
   }
-  
-  SwaggerModule.setup('api', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      // Set the default server
-      defaultModelsExpandDepth: 1,
-      defaultModelExpandDepth: 1,
-      // You can also set the default server here
-      url: `${baseUrl}/api-json`, // This will be the default URL for the OpenAPI spec
-    },
-  });
 
   // Listen on all interfaces
   await app.listen(port, '0.0.0.0');
   logger.log(`Application is running on: ${baseUrl}`);
   logger.log(`HTTP access: http://109.199.107.165:${port}/api`);
-  logger.log(`HTTPS access: https://api.gohappygo.fr/api`);
-  logger.log(`Swagger (HTTPS): https://api.gohappygo.fr/api`);
-  logger.log(`Swagger (HTTP): http://109.199.107.165:${port}/api`);
+  logger.log(`HTTPS access: ${baseUrl}/api`);
+  if (enableSwagger) {
+    logger.log(`Swagger: ${baseUrl}/api`);
+  } else {
+    logger.log('Swagger disabled (ENABLE_SWAGGER=false)');
+  }
 }
 bootstrap();

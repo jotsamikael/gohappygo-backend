@@ -7,7 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "complete-build": "nest build && npm --prefix ./admin run build",
+    "complete-build": "nest build && npm --prefix ./admin run build:staging",
+    "complete-build:production": "nest build && npm --prefix ./admin run build:production",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

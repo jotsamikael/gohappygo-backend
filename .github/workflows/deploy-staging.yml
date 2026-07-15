@@ -1,28 +1,40 @@
 # Display name for this workflow in the GitHub Actions tab
-name: Deploy Production
+name: Deploy Staging
 
-# Manual promote only — no auto-deploy on push to main
+# Events that trigger this workflow
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'admin/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/deploy-staging.yml'
+
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy
+  group: staging-deploy
   cancel-in-progress: false
 
 env:
   NODE_VERSION: '20'
-  VPS_APP_DIR: htdocs/backend.gohappygo.fr
-  PM2_APP_NAME: gohappygo-api-prod
-  APP_PORT: '3008'
+  VPS_APP_DIR: htdocs/api.gohappygo.fr
+  PM2_APP_NAME: gohappygo-api
+  APP_PORT: '3000'
   RELEASES_TO_KEEP: 5
-  HEALTH_CHECK_URL: http://127.0.0.1:3008/api/airports?limit=1
+  HEALTH_CHECK_URL: http://127.0.0.1:3000/api/airports?limit=1
   HEALTH_CHECK_INTERVAL_SEC: 5
   HEALTH_CHECK_MAX_WAIT_SEC: 90
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: production
+    environment: staging
 
     steps:
       - name: Checkout repository
@@ -44,13 +56,13 @@ jobs:
         working-directory: admin
         run: npm ci
 
-      - name: Build backend and admin (production)
-        run: npm run complete-build:production
+      - name: Build backend and admin (staging)
+        run: npm run complete-build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: production-build
+          name: staging-build
           path: |
             dist
             admin/dist
@@ -61,13 +73,13 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment: production
+    environment: staging
 
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: production-build
+          name: staging-build
           path: .
 
       - name: Configure SSH

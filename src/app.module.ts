@@ -108,6 +108,8 @@ import { join } from 'path';
         DB_DATABASE: joi.string().required(),
         PORT: joi.number().default(3000),
         BASE_URL: joi.string().optional(),
+        ENABLE_SWAGGER: joi.string().valid('true', 'false').default('true'),
+        FCM_ENABLED: joi.string().valid('true', 'false').optional(),
         NODE_ENV: joi.string().valid('development', 'production', 'test').default('development'),
         STRIPE_SECRET_KEY: joi.string().optional(),
         STRIPE_PUBLISHABLE_KEY: joi.string().optional(),
