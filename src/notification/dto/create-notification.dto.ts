@@ -31,6 +31,15 @@ export class CreateNotificationDto {
   @MaxLength(255)
   title: string;
 
+  @ApiProperty({
+    description: 'Push notification body (FCM). When omitted, a generic fallback is used.',
+    required: false,
+    maxLength: 500,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  body?: string;
 
   @ApiProperty({ enum: NotificationPriority, description: 'Priority level', required: false, default: NotificationPriority.NORMAL })
   @IsOptional()

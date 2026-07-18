@@ -27,19 +27,20 @@ export class NotificationService {
     private deviceTokenService: DeviceTokenService,
     private fcmPushPayloadBuilder: FcmPushPayloadBuilder,
     private firebaseMessagingService: FirebaseMessagingService,
-  ) {}
+  ) {} 
 
   /**
    * Create a new notification
    */
   async create(createNotificationDto: CreateNotificationDto): Promise<NotificationEntity> {
-    const notification = this.notificationRepository.create(createNotificationDto);
+    const { body: pushBody, ...notificationFields } = createNotificationDto;
+    const notification = this.notificationRepository.create(notificationFields);
     const savedNotification = await this.notificationRepository.save(notification);
     
     // Clear cache for the target user
     await this.clearUserNotificationCache(createNotificationDto.targetUserId);
 
-    this.sendPushForNotification(savedNotification).catch((error) => {
+    this.sendPushForNotification(savedNotification, pushBody).catch((error) => {
       this.logger.error(
         `Failed to send FCM push for notification ${savedNotification.id}: ${error.message}`,
         error.stack,
@@ -49,13 +50,16 @@ export class NotificationService {
     return savedNotification;
   }
 
-  private async sendPushForNotification(notification: NotificationEntity): Promise<void> {
+  private async sendPushForNotification(
+    notification: NotificationEntity,
+    pushBody?: string,
+  ): Promise<void> {
     const tokens = await this.deviceTokenService.getTokensForUser(notification.targetUserId);
     if (tokens.length === 0) {
       return;
     }
 
-    const message = this.fcmPushPayloadBuilder.buildMessage(notification);
+    const message = this.fcmPushPayloadBuilder.buildMessage(notification, pushBody);
     const result = await this.firebaseMessagingService.sendToTokens(tokens, message);
 
     if (result.invalidTokens.length > 0) {

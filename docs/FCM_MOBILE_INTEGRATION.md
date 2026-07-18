@@ -56,10 +56,21 @@ Content-Type: application/json
 
 ### Display (`notification` — OS banner when backgrounded)
 
+Title and body are set together per recipient role (buyer vs seller). Example for the **buyer** after acceptance:
+
 ```json
 {
   "title": "Request Accepted",
-  "body": "Your request was accepted."
+  "body": "Your request was accepted by the seller."
+}
+```
+
+Example for the **seller** who accepted:
+
+```json
+{
+  "title": "You Accepted a Request",
+  "body": "You confirmed the booking."
 }
 ```
 

@@ -16,6 +16,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationType, EntityType, NotificationPriority } from 'src/notification/entities/notification.entity';
+import { NotificationPushMessages } from 'src/notification/notification-push-messages';
 import { CommonService } from 'src/common/service/common.service';
 import { CommonModule } from 'src/common/common.module';
 
@@ -105,13 +106,16 @@ export class AlertService {
 
     // Create notification for user
     try {
+      const copy = NotificationPushMessages.alertCreated;
+
       await this.notificationService.create({
         targetUserId: userId,
         actorUserId: userId,
         notificationType: NotificationType.SYSTEM_ANNOUNCEMENT,
         entityType: EntityType.USER,
         entityId: userId,
-        title: 'Alert Created Successfully',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.NORMAL,
       });
       this.logger.log(`Notification created for alert ${savedAlert.id} for user ${userId}`);

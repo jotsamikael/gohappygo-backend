@@ -54,10 +54,13 @@ export class FcmPushPayloadBuilder {
 
   buildMessage(
     notification: NotificationEntity,
+    pushBody?: string,
   ): Omit<admin.messaging.MulticastMessage, 'tokens'> {
     const data = this.buildDataPayload(notification);
     const body =
-      NOTIFICATION_BODY_MAP[notification.notificationType] ?? notification.title;
+      pushBody?.trim() ||
+      NOTIFICATION_BODY_MAP[notification.notificationType] ||
+      notification.title;
     const isHighPriority =
       notification.priority === NotificationPriority.HIGH ||
       notification.priority === NotificationPriority.URGENT;

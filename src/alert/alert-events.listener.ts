@@ -7,6 +7,7 @@ import { DemandEvent, TravelEvent } from 'src/events/user-events.service';
 import { AlertService } from './alert.service';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationType, EntityType, NotificationPriority } from 'src/notification/entities/notification.entity';
+import { NotificationPushMessages } from 'src/notification/notification-push-messages';
 import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { DemandEntity } from 'src/demand/demand.entity';
@@ -74,13 +75,16 @@ export class AlertEventsListener {
 
         try {
           // Create notification
+          const copy = NotificationPushMessages.demandMatched;
+
           await this.notificationService.create({
             targetUserId: alert.userId,
             actorUserId: event.userId,
             notificationType: NotificationType.DEMAND_MATCHED,
             entityType: EntityType.DEMAND,
             entityId: event.demandId,
-            title: 'New Demand Matches Your Alert',
+            title: copy.title,
+            body: copy.body,
             priority: NotificationPriority.HIGH,
           });
 
@@ -156,13 +160,16 @@ export class AlertEventsListener {
 
         try {
           // Create notification
+          const copy = NotificationPushMessages.travelMatched;
+
           await this.notificationService.create({
             targetUserId: alert.userId,
             actorUserId: event.userId,
             notificationType: NotificationType.TRAVEL_MATCHED,
             entityType: EntityType.TRAVEL,
             entityId: event.travelId,
-            title: 'New Travel Matches Your Alert',
+            title: copy.title,
+            body: copy.body,
             priority: NotificationPriority.HIGH,
           });
 

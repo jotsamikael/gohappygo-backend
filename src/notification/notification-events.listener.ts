@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from './notification.service';
 import { NotificationType, EntityType, NotificationPriority } from './entities/notification.entity';
+import { NotificationPushMessages } from './notification-push-messages';
 import { RequestEvent, DemandEvent, TravelEvent } from 'src/events/user-events.service';
 
 @Injectable()
@@ -19,17 +20,19 @@ export class NotificationEventsListener {
       // Only create notification for the owner (isForOwner=true)
       // The first emission (isForOwner=false) is for email purposes only
       if (!event.isForOwner) {
-        return; // Skip notification creation for requester's own action
+        return;
       }
 
-      // Notify the travel/demand owner that someone submitted a request
+      const copy = NotificationPushMessages.requestSubmittedForSeller;
+
       await this.notificationService.create({
         targetUserId: event.ownerId,
         actorUserId: event.requesterId,
         notificationType: NotificationType.REQUEST_SUBMITTED,
         entityType: EntityType.REQUEST,
         entityId: event.requestId,
-        title: 'New Request Received',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.HIGH,
       });
 
@@ -45,29 +48,20 @@ export class NotificationEventsListener {
   @OnEvent('request.accepted')
   async handleRequestAccepted(event: RequestEvent) {
     try {
-      // Two emissions per acceptance (owner email, then requester email).
-      // Notify each party once, matching request.completed handling.
-      if (event.isForOwner) {
-        await this.notificationService.create({
-          targetUserId: event.ownerId,
-          actorUserId: event.requesterId,
-          notificationType: NotificationType.REQUEST_ACCEPTED,
-          entityType: EntityType.REQUEST,
-          entityId: event.requestId,
-          title: 'You Accepted a Request',
-          priority: NotificationPriority.HIGH,
-        });
-      } else {
-        await this.notificationService.create({
-          targetUserId: event.requesterId,
-          actorUserId: event.ownerId,
-          notificationType: NotificationType.REQUEST_ACCEPTED,
-          entityType: EntityType.REQUEST,
-          entityId: event.requestId,
-          title: 'Request Accepted',
-          priority: NotificationPriority.HIGH,
-        });
-      }
+      const copy = event.isForOwner
+        ? NotificationPushMessages.requestAcceptedForSeller
+        : NotificationPushMessages.requestAcceptedForBuyer;
+
+      await this.notificationService.create({
+        targetUserId: event.isForOwner ? event.ownerId : event.requesterId,
+        actorUserId: event.isForOwner ? event.requesterId : event.ownerId,
+        notificationType: NotificationType.REQUEST_ACCEPTED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
 
       this.logger.log(
         `Notification created for request acceptance: Request ${event.requestId} (${event.isForOwner ? 'owner' : 'requester'})`,
@@ -83,23 +77,29 @@ export class NotificationEventsListener {
   @OnEvent('request.cancelled')
   async handleRequestCancelled(event: RequestEvent) {
     try {
-      // Only create notification for the requester (isForOwner=false means this is for the requester)
-      if (event.isForOwner) {
-        return; // Skip notification creation for owner's own action
-      }
+      const isPaymentFailure = Boolean(event.cancellationReason);
+      const copy = event.isForOwner
+        ? isPaymentFailure
+          ? NotificationPushMessages.requestCancelledPaymentFailureForSeller
+          : NotificationPushMessages.requestCancelledForSeller
+        : isPaymentFailure
+          ? NotificationPushMessages.requestCancelledPaymentFailureForBuyer
+          : NotificationPushMessages.requestCancelledForBuyer;
 
-      // Notify the requester that their request was cancelled
       await this.notificationService.create({
-        targetUserId: event.requesterId,
-        actorUserId: event.ownerId,
+        targetUserId: event.isForOwner ? event.ownerId : event.requesterId,
+        actorUserId: event.isForOwner ? event.requesterId : event.ownerId,
         notificationType: NotificationType.REQUEST_CANCELLED,
         entityType: EntityType.REQUEST,
         entityId: event.requestId,
-        title: 'Request Cancelled',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.HIGH,
       });
 
-      this.logger.log(`Notification created for request cancellation: Request ${event.requestId}`);
+      this.logger.log(
+        `Notification created for request cancellation: Request ${event.requestId} (${event.isForOwner ? 'owner' : 'requester'})`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create notification for request.cancelled: ${error.message}`);
     }
@@ -111,23 +111,24 @@ export class NotificationEventsListener {
   @OnEvent('request.rejected')
   async handleRequestRejected(event: RequestEvent) {
     try {
-      // Only create notification for the requester (isForOwner=false means this is for the requester)
-      if (event.isForOwner) {
-        return; // Skip notification creation for owner's own action
-      }
+      const copy = event.isForOwner
+        ? NotificationPushMessages.requestRejectedForSeller
+        : NotificationPushMessages.requestRejectedForBuyer;
 
-      // Notify the requester that their request was rejected
       await this.notificationService.create({
-        targetUserId: event.requesterId,
-        actorUserId: event.ownerId,
+        targetUserId: event.isForOwner ? event.ownerId : event.requesterId,
+        actorUserId: event.isForOwner ? event.requesterId : event.ownerId,
         notificationType: NotificationType.REQUEST_REJECTED,
         entityType: EntityType.REQUEST,
         entityId: event.requestId,
-        title: 'Request Rejected',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.HIGH,
       });
 
-      this.logger.log(`Notification created for request rejection: Request ${event.requestId}`);
+      this.logger.log(
+        `Notification created for request rejection: Request ${event.requestId} (${event.isForOwner ? 'owner' : 'requester'})`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create notification for request.rejected: ${error.message}`);
     }
@@ -139,33 +140,24 @@ export class NotificationEventsListener {
   @OnEvent('request.completed')
   async handleRequestCompleted(event: RequestEvent) {
     try {
-      // For request.completed, we want to notify based on isForOwner flag
-      // If isForOwner=true, notify the owner; if false, notify the requester
-      if (event.isForOwner) {
-        // Notify owner
-        await this.notificationService.create({
-          targetUserId: event.ownerId,
-          actorUserId: event.requesterId,
-          notificationType: NotificationType.REQUEST_COMPLETED,
-          entityType: EntityType.REQUEST,
-          entityId: event.requestId,
-          title: 'Request Completed',
-          priority: NotificationPriority.NORMAL,
-        });
-      } else {
-        // Notify requester
-        await this.notificationService.create({
-          targetUserId: event.requesterId,
-          actorUserId: event.ownerId,
-          notificationType: NotificationType.REQUEST_COMPLETED,
-          entityType: EntityType.REQUEST,
-          entityId: event.requestId,
-          title: 'Request Completed',
-          priority: NotificationPriority.NORMAL,
-        });
-      }
+      const copy = event.isForOwner
+        ? NotificationPushMessages.requestCompletedForSeller
+        : NotificationPushMessages.requestCompletedForBuyer;
 
-      this.logger.log(`Notification created for request completion: Request ${event.requestId}`);
+      await this.notificationService.create({
+        targetUserId: event.isForOwner ? event.ownerId : event.requesterId,
+        actorUserId: event.isForOwner ? event.requesterId : event.ownerId,
+        notificationType: NotificationType.REQUEST_COMPLETED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.NORMAL,
+      });
+
+      this.logger.log(
+        `Notification created for request completion: Request ${event.requestId} (${event.isForOwner ? 'owner' : 'requester'})`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create notifications for request.completed: ${error.message}`);
     }
@@ -177,13 +169,16 @@ export class NotificationEventsListener {
   @OnEvent('review.created')
   async handleReviewCreated(event: { reviewId: number; reviewerId: number; revieweeId: number; reviewerName: string; rating: number }) {
     try {
+      const copy = NotificationPushMessages.reviewReceived;
+
       await this.notificationService.create({
         targetUserId: event.revieweeId,
         actorUserId: event.reviewerId,
         notificationType: NotificationType.REVIEW_RECEIVED,
         entityType: EntityType.REVIEW,
         entityId: event.reviewId,
-        title: 'New Review Received',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.NORMAL,
       });
 
@@ -199,12 +194,15 @@ export class NotificationEventsListener {
   @OnEvent('demand.published')
   async handleDemandPublished(event: DemandEvent) {
     try {
+      const copy = NotificationPushMessages.demandPublished;
+
       await this.notificationService.create({
         targetUserId: event.userId,
         notificationType: NotificationType.DEMAND_PUBLISHED,
         entityType: EntityType.DEMAND,
         entityId: event.demandId,
-        title: 'Demand Published Successfully',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.NORMAL,
       });
 
@@ -220,12 +218,15 @@ export class NotificationEventsListener {
   @OnEvent('travel.published')
   async handleTravelPublished(event: TravelEvent) {
     try {
+      const copy = NotificationPushMessages.travelPublished;
+
       await this.notificationService.create({
         targetUserId: event.userId,
         notificationType: NotificationType.TRAVEL_PUBLISHED,
         entityType: EntityType.TRAVEL,
         entityId: event.travelId,
-        title: 'Travel Published Successfully',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.NORMAL,
       });
 
@@ -241,12 +242,15 @@ export class NotificationEventsListener {
   @OnEvent('user.verified')
   async handleAccountVerified(event: { userId: number; userName: string }) {
     try {
+      const copy = NotificationPushMessages.accountVerified;
+
       await this.notificationService.create({
         targetUserId: event.userId,
         notificationType: NotificationType.ACCOUNT_VERIFIED,
         entityType: EntityType.USER,
         entityId: event.userId,
-        title: 'Account Verified',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.HIGH,
       });
 
@@ -262,12 +266,15 @@ export class NotificationEventsListener {
   @OnEvent('user.documents.received')
   async handleVerificationDocumentsReceived(event: { userId: number; userName: string }) {
     try {
+      const copy = NotificationPushMessages.verificationDocumentsReceived;
+
       await this.notificationService.create({
         targetUserId: event.userId,
         notificationType: NotificationType.VERIFICATION_DOCUMENTS_RECEIVED,
         entityType: EntityType.USER,
         entityId: event.userId,
-        title: 'Verification Documents Received',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.NORMAL,
       });
 
@@ -283,12 +290,15 @@ export class NotificationEventsListener {
   @OnEvent('payment.received')
   async handlePaymentReceived(event: { userId: number; transactionId: number; amount: number; currency: string }) {
     try {
+      const copy = NotificationPushMessages.paymentReceived;
+
       await this.notificationService.create({
         targetUserId: event.userId,
         notificationType: NotificationType.PAYMENT_RECEIVED,
         entityType: EntityType.TRANSACTION,
         entityId: event.transactionId,
-        title: 'Payment Received',
+        title: copy.title,
+        body: copy.body,
         priority: NotificationPriority.HIGH,
       });
 
@@ -298,4 +308,3 @@ export class NotificationEventsListener {
     }
   }
 }
-
