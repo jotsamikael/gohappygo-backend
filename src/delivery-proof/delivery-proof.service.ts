@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { UserEventType } from 'src/events/event-types';
+import { UserEventsService } from 'src/events/user-events.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository, LessThanOrEqual } from 'typeorm';
@@ -34,7 +33,7 @@ export class DeliveryProofService {
     private readonly requestRepository: Repository<RequestEntity>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly configService: ConfigService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly userEventService: UserEventsService,
   ) {}
 
   private validateFile(file: Express.Multer.File): void {
@@ -151,11 +150,7 @@ export class DeliveryProofService {
       `Meeting proof uploaded for request ${requestId} by user ${user.id} (publicId=${publicId})`,
     );
 
-    this.eventEmitter.emit(UserEventType.MEETING_PROOF_UPLOADED, {
-      requestId,
-      uploadedByUserId: user.id,
-      timestamp: new Date(),
-    });
+    this.userEventService.emitMeetingProofUploaded(user, request);
 
     return {
       requestId,

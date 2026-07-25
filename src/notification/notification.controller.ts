@@ -78,6 +78,29 @@ export class NotificationController {
     return this.notificationService.markAsRead(id, user.id);
   }
 
+
+  @Delete('clear-read')
+  @ApiOperation({ 
+    summary: 'Clear all read notifications',
+    description: 'Delete all read notifications for the authenticated user'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Read notifications cleared',
+    schema: {
+      type: 'object',
+      properties: {
+        affected: { type: 'number', description: 'Number of notifications cleared' }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async clearReadNotifications(
+    @CurrentUser() user: any
+  ): Promise<{ affected: number }> {
+    return this.notificationService.clearReadNotifications(user.id);
+  }
+
   @Patch('mark-all-read')
   @ApiOperation({ 
     summary: 'Mark all notifications as read',
@@ -118,27 +141,7 @@ export class NotificationController {
     return this.notificationService.deleteNotification(id, user.id);
   }
 
-  @Delete('clear-read')
-  @ApiOperation({ 
-    summary: 'Clear all read notifications',
-    description: 'Delete all read notifications for the authenticated user'
-  })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Read notifications cleared',
-    schema: {
-      type: 'object',
-      properties: {
-        affected: { type: 'number', description: 'Number of notifications cleared' }
-      }
-    }
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async clearReadNotifications(
-    @CurrentUser() user: any
-  ): Promise<{ affected: number }> {
-    return this.notificationService.clearReadNotifications(user.id);
-  }
+  
 
   @Put('device-token')
   @ApiOperation({

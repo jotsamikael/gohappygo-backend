@@ -283,9 +283,9 @@ export class AllEventsListener {
   }
 
   @OnEvent(UserEventType.MEETING_PROOF_UPLOADED)
-  async handleMeetingProofUploaded(event: { requestId: number; uploadedByUserId: number }): Promise<void> {
+  async handleMeetingProofUploaded(event: RequestEvent): Promise<void> {
     this.logger.log(
-      `Meeting proof uploaded for request ${event.requestId} by user ${event.uploadedByUserId}`,
+      `Meeting proof uploaded for request ${event.requestId} by user ${event.userId}`,
     );
   }
 

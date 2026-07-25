@@ -39,7 +39,36 @@ export class MessageService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
+  /**
+   * Ensures the user is the buyer (requester) or seller (travel/demand owner) for this request.
+   */
+  async assertUserCanAccessRequestThread(requestId: number, userId: number): Promise<RequestEntity> {
+    const request = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['travel', 'demand'],
+    });
+
+    if (!request) {
+      throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
+    }
+
+    const isRequester = request.requesterId === userId;
+    const isTravelOwner = Boolean(request.travelId && request.travel?.userId === userId);
+    const isDemandOwner = Boolean(request.demandId && request.demand?.userId === userId);
+
+    if (!isRequester && !isTravelOwner && !isDemandOwner) {
+      throw new CustomForbiddenException(
+        'You are not authorized to access this request',
+        ErrorCode.REQUEST_UNAUTHORIZED,
+      );
+    }
+
+    return request;
+  }
+
   async sendMessage(sender: UserEntity, dto: SendMessageDto): Promise<MessageEntity> {
+    await this.assertUserCanAccessRequestThread(dto.requestId, sender.id);
+
     // Load request with all necessary relations to determine the receiver
     const request = await this.requestRepository.findOne({
       where: { id: dto.requestId },
@@ -102,6 +131,8 @@ export class MessageService {
     user: UserEntity,
     query: FindThreadQueryDto,
   ): Promise<{ items: MessageEntity[]; total: number }> {
+    await this.assertUserCanAccessRequestThread(requestId, user.id);
+
     // Generate cache key
     const cacheKey = this.generateThreadCacheKey(requestId, user.id, query);
     
@@ -203,6 +234,8 @@ export class MessageService {
   }
 
   async markThreadAsRead(requestId: number, user: UserEntity) {
+    await this.assertUserCanAccessRequestThread(requestId, user.id);
+
     // Use QueryBuilder for complex WHERE conditions
     await this.messageRepository
       .createQueryBuilder()

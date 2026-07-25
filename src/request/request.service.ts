@@ -2037,6 +2037,14 @@ export class RequestService {
 
   // Enhanced cache clearing method with selective invalidation
   // Clears cache for specific affected users and tracked keys
+  async invalidateRequestListCacheForUserIds(affectedUserIds: number[]): Promise<void> {
+    const uniqueUserIds = [...new Set(affectedUserIds.filter((id) => id > 0))];
+    if (uniqueUserIds.length === 0) {
+      return;
+    }
+    await this.clearRequestListCacheForUsers(uniqueUserIds);
+  }
+
   private async clearRequestListCacheForUsers(affectedUserIds: number[]): Promise<void> {
     const cacheKeysToDelete: string[] = [];
 

@@ -22,6 +22,7 @@ import {
 } from "./dto/travel-detail.response.dto";
 import { ReviewEntity } from "src/review/review.entity";
 import { CommonService } from "src/common/service/common.service";
+import { formatFlightNumberForResponse } from "src/common/transforms/format-flight-number.util";
 
 @Injectable()
 export class TravelMapper {
@@ -137,7 +138,7 @@ export class TravelMapper {
             isDeactivated: travel.isDeactivated,
             userId: travel.userId,
             description: travel.description,
-            flightNumber: travel.flightNumber,
+            flightNumber: formatFlightNumberForResponse(travel.flightNumber),
             isSharedWeight: travel.isSharedWeight,
             isInstant: travel.isInstant,
             isAllowExtraWeight: travel.isAllowExtraWeight,
@@ -315,7 +316,7 @@ export class TravelMapper {
             id: travel.id,
             publicId: travel.publicId,
             description: travel.description,
-            flightNumber: travel.flightNumber,
+            flightNumber: formatFlightNumberForResponse(travel.flightNumber),
             isSharedWeight: travel.isSharedWeight,
             isInstant: travel.isInstant,
             isAllowExtraWeight: travel.isAllowExtraWeight,

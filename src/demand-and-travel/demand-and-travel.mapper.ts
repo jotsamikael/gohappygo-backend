@@ -14,6 +14,7 @@ import { DemandEntity } from "src/demand/demand.entity";
 import { TravelEntity } from "src/travel/travel.entity";
 import { CommonService } from "src/common/service/common.service";
 import { roundRatingToTenth } from "src/common/transforms/round-rating-to-tenth.util";
+import { formatFlightNumberForResponse } from "src/common/transforms/format-flight-number.util";
 
 @Injectable()
 export class DemandAndTravelMapper {
@@ -160,7 +161,7 @@ export class DemandAndTravelMapper {
       type: 'demand' as const,
       title: demand.description,
       description: demand.description,
-      flightNumber: demand.flightNumber,
+      flightNumber: formatFlightNumberForResponse(demand.flightNumber),
       departureAirportId: demand.departureAirportId,
       arrivalAirportId: demand.arrivalAirportId,
       userId: demand.userId,
@@ -229,7 +230,7 @@ export class DemandAndTravelMapper {
       type: 'travel' as const,
       title: travel.description,
       description: travel.description,
-      flightNumber: travel.flightNumber,
+      flightNumber: formatFlightNumberForResponse(travel.flightNumber),
       departureAirportId: travel.departureAirportId,
       arrivalAirportId: travel.arrivalAirportId,
       userId: travel.userId,

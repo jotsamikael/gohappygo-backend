@@ -695,4 +695,25 @@ export class UserEventsService {
     };
     this.eventEmitter.emit(UserEventType.REQUEST_AUTO_COMPLETED, event);
   }
+
+  emitMeetingProofUploaded(uploader: UserEntity, requestData: RequestEntity): void {
+    const ownerId = requestData.travel?.userId ?? requestData.demand?.userId ?? 0;
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
+    const isForOwner = uploader.id !== requestData.requesterId;
+
+    const event: RequestEvent = {
+      userId: uploader.id,
+      userFirstName: this.commonService.userGreetingName(uploader),
+      userEmail: uploader.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName,
+      ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner,
+    };
+    this.eventEmitter.emit(UserEventType.MEETING_PROOF_UPLOADED, event);
+  }
 }

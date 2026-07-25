@@ -189,6 +189,14 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
         client.emit('error', { message: 'Invalid requestId' });
         return;
       }
+
+      try {
+        await this.messageService.assertUserCanAccessRequestThread(requestId, user.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Not authorized to join this thread';
+        client.emit('error', { message, code: 'REQUEST_UNAUTHORIZED' });
+        return;
+      }
       
       console.log('🔥 Parsed requestId:', requestId);
       
@@ -269,6 +277,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
     @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
     @OnEvent(UserEventType.CANCELLATION_DISPUTED)
     @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)
+    @OnEvent(UserEventType.MEETING_PROOF_UPLOADED)
     handleRequestUpdateEvent(event: RequestEvent) {
       const payload = {
         requestId: event.requestId,

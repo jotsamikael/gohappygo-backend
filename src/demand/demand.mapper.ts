@@ -22,6 +22,7 @@ import {
 import { ReviewEntity } from "src/review/review.entity";
 import { Injectable } from "@nestjs/common";
 import { CommonService } from "src/common/service/common.service";
+import { formatFlightNumberForResponse } from "src/common/transforms/format-flight-number.util";
 
 @Injectable()
 export class DemandMapper {
@@ -139,7 +140,7 @@ export class DemandMapper {
             userId: demand.userId,
             airlineId: demand.airlineId,
             description: demand.description,
-            flightNumber: demand.flightNumber,
+            flightNumber: formatFlightNumberForResponse(demand.flightNumber),
             departureAirportId: demand.departureAirportId,
             arrivalAirportId: demand.arrivalAirportId,
             // Format travelDate as date-only (YYYY-MM-DD) to avoid timezone issues
@@ -310,7 +311,7 @@ export class DemandMapper {
             id: demand.id,
             publicId: demand.publicId,
             description: demand.description,
-            flightNumber: demand.flightNumber,
+            flightNumber: formatFlightNumberForResponse(demand.flightNumber),
             departureAirport: departureAirport,
             arrivalAirport: arrivalAirport,
             weight: demand.weight ? demand.weight.toString() : '0.00',

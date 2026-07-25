@@ -15,6 +15,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { EventsModule } from 'src/events/events.module';
 import { UserModule } from 'src/user/user.module';
 import { RequestMapper } from './request.mapper';
+import { RequestCacheListener } from './request-cache.listener';
 import { AirlineModule } from 'src/airline/airline.module';
 import { AirportModule } from 'src/airport/airport.module';
 import { PlatformPricingModule } from 'src/platform-pricing/platform-pricing.module';
@@ -47,7 +48,7 @@ import { memoryStorage } from 'multer';
     EmailModule
   ],
   controllers: [RequestController],
-  providers: [RequestService, RequestMapper],
+  providers: [RequestService, RequestMapper, RequestCacheListener],
   exports: [RequestService, DeliveryProofModule],
 })
 export class RequestModule {}

@@ -2,11 +2,12 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import * as admin from 'firebase-admin';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { DeepPartial } from 'typeorm';
+import { DeepPartial, FindOptionsWhere } from 'typeorm';
 import { FirebaseConfig } from './firebase.config';
 import { UserEntity } from '../user/user.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { RoleService } from '../role/role.service';
 
 export interface FirebaseUser {
   uid: string;
@@ -24,6 +25,7 @@ export class FirebaseAuthService {
   constructor(
     private firebaseConfig: FirebaseConfig,
     @InjectRepository(UserEntity) private usersRepository: Repository<UserEntity>,
+    private roleService: RoleService,
   ) {
     this.auth = this.firebaseConfig.getAuth();
   }
@@ -34,7 +36,7 @@ export class FirebaseAuthService {
   async verifyIdToken(idToken: string): Promise<FirebaseUser> {
     try {
       const decodedToken = await this.auth.verifyIdToken(idToken);
-      
+
       return {
         uid: decodedToken.uid,
         email: decodedToken.email || '',
@@ -52,41 +54,44 @@ export class FirebaseAuthService {
    * Create or update user from Firebase authentication
    */
   async createOrUpdateUser(firebaseUser: FirebaseUser): Promise<UserEntity> {
-    // Check if user already exists by Firebase UID or email
+    const normalizedEmail = firebaseUser.email?.trim() ?? '';
+
+    const lookupConditions: FindOptionsWhere<UserEntity>[] = [{ firebaseUid: firebaseUser.uid }];
+    if (normalizedEmail) {
+      lookupConditions.push({ email: normalizedEmail });
+    }
+
     let user = await this.usersRepository.findOne({
-      where: [
-        { firebaseUid: firebaseUser.uid },
-        { email: firebaseUser.email }
-      ]
+      where: lookupConditions,
     });
 
     if (user) {
-      // Update existing user
       user.firebaseUid = firebaseUser.uid;
-      user.email = firebaseUser.email;
+      if (normalizedEmail) {
+        user.email = normalizedEmail;
+      }
       user.isEmailVerified = firebaseUser.emailVerified;
-      //user.profilePictureUrl = firebaseUser.photoURL;
       user.firstName = firebaseUser.displayName?.split(' ')[0] || user.firstName;
       user.lastName = firebaseUser.displayName?.split(' ').slice(1).join(' ') || user.lastName;
-      
+
       await this.usersRepository.save(user);
     } else {
-      // Create new user (social sign-in - Google/Facebook)
-      // Phone: use unique placeholder until user completes registration (phone has unique constraint)
-      // Password: store random bcrypt hash (social users never log in with password)
-      // stripeCountryCode: null - set when user completes auth/complete-registration
+      const userRole = await this.roleService.getUserRoleIdByCode('USER');
+      if (!userRole) {
+        throw new BadRequestException('Default USER role is not configured');
+      }
       const passwordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
       const newUserData: DeepPartial<UserEntity> = {
         firebaseUid: firebaseUser.uid,
-        email: firebaseUser.email,
+        email: normalizedEmail,
         isEmailVerified: firebaseUser.emailVerified,
         profilePictureUrl: firebaseUser.photoURL || undefined,
         firstName: firebaseUser.displayName?.split(' ')[0] || 'User',
         lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
-        username: firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.slice(0, 8)}`,
+        username: normalizedEmail?.split('@')[0] || `user_${firebaseUser.uid.slice(0, 8)}`,
         phone: `social_${firebaseUser.uid}`,
         password: passwordPlaceholder,
-        roleId: 1,
+        roleId: userRole.id,
         kycStatus: 'uninitiated',
         kycProvider: null,
         kycReference: null,
@@ -108,7 +113,7 @@ export class FirebaseAuthService {
    */
   async getUserByFirebaseUid(uid: string): Promise<UserEntity | null> {
     return await this.usersRepository.findOne({
-      where: { firebaseUid: uid }
+      where: { firebaseUid: uid },
     });
   }
 
