@@ -14,12 +14,14 @@ import { TravelEntity } from 'src/travel/travel.entity';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { EmailModule } from 'src/email/email.module';
 import { CommonModule } from 'src/common/common.module';
+import { EventsModule } from 'src/events/events.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MessageEntity, RequestEntity, TravelEntity, DemandEntity]),
     UserModule,
     RequestModule,
+    EventsModule,
     EmailModule,
     CommonModule,
     CacheModule.register(),

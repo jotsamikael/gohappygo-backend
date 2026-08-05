@@ -14,6 +14,9 @@ export enum NotificationType {
   
   // Review notifications
   REVIEW_RECEIVED = 'REVIEW_RECEIVED',
+
+  // Chat notifications
+  MESSAGE_RECEIVED = 'MESSAGE_RECEIVED',
   
   // Travel/Demand notifications
   TRAVEL_PUBLISHED = 'TRAVEL_PUBLISHED',

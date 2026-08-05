@@ -95,6 +95,7 @@ Empty optional fields are sent as `""`.
 | `notificationType` | Navigate to |
 |--------------------|-------------|
 | `REQUEST_*` | Request detail (`entityId` = requestId) |
+| `MESSAGE_RECEIVED` | Request chat thread (`entityType` = `REQUEST`, `entityId` = requestId) |
 | `REVIEW_RECEIVED` | Reviews / profile |
 | `TRAVEL_PUBLISHED`, `TRAVEL_MATCHED` | Travel detail (`entityId` = travelId) |
 | `DEMAND_PUBLISHED`, `DEMAND_MATCHED` | Demand detail (`entityId` = demandId) |

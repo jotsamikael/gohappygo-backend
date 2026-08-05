@@ -19,6 +19,7 @@ import { ErrorCode } from 'src/common/exception/error-codes';
 import { ContactAnnouncerDto, AnnouncementType, isValidAnnouncementPublicId } from './dto/contact-announcer.dto';
 import { CommonService } from 'src/common/service/common.service';
 import { ConfigService } from '@nestjs/config';
+import { UserEventsService } from 'src/events/user-events.service';
 
 @Injectable()
 export class MessageService {
@@ -36,6 +37,7 @@ export class MessageService {
     private emailTemplatesService: EmailTemplatesService,
     private commonService: CommonService,
     private configService: ConfigService,
+    private userEventsService: UserEventsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -122,6 +124,13 @@ export class MessageService {
     
     // Clear thread cache for this request (affects both sender and receiver)
     await this.clearThreadCache(dto.requestId);
+
+    this.userEventsService.emitMessageSent(sender, {
+      id: savedMessage.id,
+      receiverId: receiver.id,
+      requestId: dto.requestId,
+      content: dto.content,
+    });
     
     return savedMessage;
   }

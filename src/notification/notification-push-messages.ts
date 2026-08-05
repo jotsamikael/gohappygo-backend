@@ -85,4 +85,8 @@ export const NotificationPushMessages = {
     title: 'Alert Created Successfully',
     body: 'Your alert was created successfully.',
   },
+  messageReceived: {
+    title: 'New Message',
+    body: 'You have a new message about your booking.',
+  },
 } as const satisfies Record<string, NotificationPushCopy>;

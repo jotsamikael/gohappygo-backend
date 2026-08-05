@@ -25,6 +25,7 @@ const NOTIFICATION_BODY_MAP: Partial<Record<NotificationType, string>> = {
   [NotificationType.REQUEST_COMPLETED]: 'Your request was completed.',
   [NotificationType.REQUEST_DELIVERED]: 'Your request was delivered.',
   [NotificationType.REVIEW_RECEIVED]: 'You received a new review.',
+  [NotificationType.MESSAGE_RECEIVED]: 'You have a new message about your booking.',
   [NotificationType.TRAVEL_PUBLISHED]: 'Your travel was published.',
   [NotificationType.DEMAND_PUBLISHED]: 'Your demand was published.',
   [NotificationType.TRAVEL_MATCHED]: 'A new travel matches your alert.',

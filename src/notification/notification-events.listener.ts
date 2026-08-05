@@ -3,7 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from './notification.service';
 import { NotificationType, EntityType, NotificationPriority } from './entities/notification.entity';
 import { NotificationPushMessages } from './notification-push-messages';
-import { RequestEvent, DemandEvent, TravelEvent } from 'src/events/user-events.service';
+import { RequestEvent, DemandEvent, TravelEvent, MessageEvent } from 'src/events/user-events.service';
+import { UserEventType } from 'src/events/event-types';
 
 @Injectable()
 export class NotificationEventsListener {
@@ -282,6 +283,51 @@ export class NotificationEventsListener {
     } catch (error) {
       this.logger.error(`Failed to create notification for user.documents.received: ${error.message}`);
     }
+  }
+
+  /**
+   * Handle chat message sent — FCM + in-app notification for the receiver.
+   */
+  @OnEvent(UserEventType.MESSAGE_SENT)
+  async handleMessageSent(event: MessageEvent) {
+    try {
+      if (event.receiverId === event.userId) {
+        return;
+      }
+
+      const copy = NotificationPushMessages.messageReceived;
+      const senderLabel = event.userFirstName?.trim() || 'Someone';
+      const preview = this.truncateChatPreview(event.content);
+      const body = preview ? `${senderLabel}: ${preview}` : copy.body;
+
+      await this.notificationService.create({
+        targetUserId: event.receiverId,
+        actorUserId: event.userId,
+        notificationType: NotificationType.MESSAGE_RECEIVED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body,
+        priority: NotificationPriority.NORMAL,
+      });
+
+      this.logger.log(
+        `Notification created for chat message: message ${event.messageId}, request ${event.requestId} → user ${event.receiverId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create notification for message.sent: ${error.message}`);
+    }
+  }
+
+  private truncateChatPreview(content: string, maxLength = 120): string {
+    const normalized = (content ?? '').trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+    return `${normalized.slice(0, maxLength - 1)}…`;
   }
 
   /**

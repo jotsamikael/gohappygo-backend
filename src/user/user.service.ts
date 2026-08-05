@@ -19,6 +19,8 @@ import { UpdateProfileDto } from './dto/request/update-profile.dto';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { FilePurpose } from 'src/uploaded-file/uploaded-file-purpose.enum';
 import { CommonService } from 'src/common/service/common.service';
+import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
 export class UserService implements OnModuleInit {
@@ -464,6 +466,31 @@ async updateUserProfile(
   profilePicture?: Express.Multer.File
 ) {
   const currentUser = await this.getUserById(user.id);
+
+  if (currentUser.isVerified) {
+    const currentFirst = (currentUser.firstName ?? '').trim();
+    const currentLast = (currentUser.lastName ?? '').trim();
+
+    if (
+      updateProfileDto.firstName !== undefined &&
+      updateProfileDto.firstName.trim() !== currentFirst
+    ) {
+      throw new CustomBadRequestException(
+        'First name cannot be changed after identity verification',
+        ErrorCode.USER_PROFILE_NAME_LOCKED_AFTER_VERIFICATION,
+      );
+    }
+
+    if (
+      updateProfileDto.lastName !== undefined &&
+      updateProfileDto.lastName.trim() !== currentLast
+    ) {
+      throw new CustomBadRequestException(
+        'Last name cannot be changed after identity verification',
+        ErrorCode.USER_PROFILE_NAME_LOCKED_AFTER_VERIFICATION,
+      );
+    }
+  }
 
   // Update firstName if provided
   if (updateProfileDto.firstName) {

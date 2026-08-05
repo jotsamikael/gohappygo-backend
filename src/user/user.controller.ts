@@ -218,7 +218,7 @@ export class UserController {
     description: 'Profile updated successfully',
     type: UserResponseDto
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed or name change blocked after KYC verification' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   updateProfile(
     @CurrentUser() user: any, 

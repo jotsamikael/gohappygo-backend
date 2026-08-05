@@ -9,7 +9,8 @@ import {
 
 export class UpdateProfileDto {
   @ApiProperty({
-    description: 'First name',
+    description:
+      'First name. Cannot be changed after Didit KYC verification (isVerified=true).',
     example: 'John',
     minLength: 2,
     maxLength: 40,
@@ -22,7 +23,8 @@ export class UpdateProfileDto {
   firstName?: string;
 
   @ApiProperty({
-    description: 'Last name',
+    description:
+      'Last name. Cannot be changed after Didit KYC verification (isVerified=true).',
     example: 'Doe',
     minLength: 2,
     maxLength: 40,
