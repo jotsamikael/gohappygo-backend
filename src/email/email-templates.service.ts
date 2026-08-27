@@ -27,9 +27,13 @@ export class EmailTemplatesService {
       process.env.FRONTEND_URL ||
       'http://localhost:3000';
     this.logoUrl =
+      this.configService.get<string>('emailLogoUrl') ||
       this.configService.get<string>('EMAIL_LOGO_URL') ||
       process.env.EMAIL_LOGO_URL ||
-      '';
+      'https://res.cloudinary.com/dgdy4huuc/image/upload/v1787821581/gohappygo/gohappygo_cnmtop.png';
+    if (!this.logoUrl) {
+      this.logger.warn('EMAIL_LOGO_URL is not set — emails will show a text logo fallback');
+    }
   }
 
   private wrapEmail(options: WrapEmailLayoutOptions): string {
@@ -116,7 +120,7 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/profile/reservations`,
       footerNote: "If you didn't create this account, please ignore this email.",
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Welcome to GoHappyGo! Your account has been successfully created.</p>
         <p>We're excited to have you join our community of travelers.</p>
         <p>To get started:</p>
@@ -164,7 +168,7 @@ export class EmailTemplatesService {
       ctaLabel: 'Start Using GoHappyGo',
       ctaUrl: `${this.baseUrl}/profile/reservations`,
       bodyHtml: `
-        ${emailHeading(`Congratulations ${userName}!`, EMAIL_BRAND.green)}
+        ${emailHeading(`Congratulations ${userName}!`, EMAIL_BRAND.headerText)}
         <p>Your account has been successfully verified. You can now:</p>
         <ul>
           <li>Post travel declarations</li>
@@ -185,7 +189,7 @@ export class EmailTemplatesService {
       bodyHtml: `
         ${emailHeading(`Hello ${userName},`)}
         <p>We regret to inform you that your verification documents could not be approved at this time.</p>
-        ${emailPanel(`<strong>Reason:</strong> ${reason}`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`<strong>Reason:</strong> ${reason}`)}
         <p>Please review the reason above and submit new documents that meet our requirements.</p>`,
     });
   }
@@ -226,7 +230,7 @@ export class EmailTemplatesService {
       headerTitle: 'Travel Published Successfully!',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Your travel has been successfully published and is now visible to travelers.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Travel Details:</h3>
@@ -235,7 +239,7 @@ export class EmailTemplatesService {
           <p><strong>To:</strong> ${arrivalAirport}</p>
           <p><strong>Date:</strong> ${departureDate}</p>
           <p><strong>Available Weight:</strong> ${weightAvailable}kg</p>
-          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`)}
         <p>You will be notified when someone makes a request for your travel.</p>`,
     });
   }
@@ -275,7 +279,7 @@ export class EmailTemplatesService {
           <p><strong>To:</strong> ${destinationAirport}</p>
           <p><strong>Travel Date:</strong> ${formattedDate}</p>
           <p><strong>Weight:</strong> ${weight}kg</p>
-          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`)}
         <p>You will be notified when someone offers to help with your delivery.</p>`,
     });
   }
@@ -288,18 +292,18 @@ export class EmailTemplatesService {
       ctaLabel: 'View Request Details',
       ctaUrl: `${this.baseUrl}/profile/travel-requests`,
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         ${requestData.isInstant
           ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The travel process can now begin.</p>`
           : `<p>Great news! Your travel request has been accepted and is ready to proceed.</p>`}
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
-          <p>Your request is now confirmed and the delivery process can begin.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p>Your request is now confirmed and the delivery process can begin.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestData.requestId}</p>
           <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}`)}
         <p><strong>What happens next?</strong></p>
         <ul>
           <li>You can now communicate with the traveler through the platform</li>
@@ -325,13 +329,13 @@ export class EmailTemplatesService {
           : `<p>You have successfully accepted a delivery request. The requester has been notified.</p>`}
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
-          <p>This request is now active and ready for coordination.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p>This request is now active and ready for coordination.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestData.requestId}</p>
           <p><strong>Weight:</strong> ${requestData.weight}kg</p>
           ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
-          <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>`)}
         <p><strong>Next Steps:</strong></p>
         <ul>
           <li>Contact the requester to arrange package pickup</li>
@@ -349,13 +353,13 @@ export class EmailTemplatesService {
       headerTitle: 'Transaction Completed!',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Your transaction has been successfully completed.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Transaction Details:</h3>
           <p><strong>Amount:</strong> $${transactionData.amount}</p>
           <p><strong>Status:</strong> ${transactionData.status}</p>
-          <p><strong>Payment Method:</strong> ${transactionData.paymentMethod}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Payment Method:</strong> ${transactionData.paymentMethod}</p>`)}
         <p>Thank you for using GoHappyGo!</p>`,
     });
   }
@@ -363,33 +367,26 @@ export class EmailTemplatesService {
   getEmailVerificationTemplate(userName: string, verificationCode: string): string {
     return this.wrapEmail({
       title: 'Welcome to GoHappyGo - Email Verification',
-      headerTitle: '🎉 Welcome to GoHappyGo!',
-      headerSubtitle: 'Your journey to seamless package delivery starts here',
-      headerVariant: 'success',
+      headerTitle: 'Welcome to GoHappyGo',
+      headerSubtitle: 'Verify your email to complete registration',
       footerNote: 'This email was sent to you because you registered for a GoHappyGo account. If you have any questions, please contact our support team.',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName}! 👋`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName}`, EMAIL_BRAND.headerText)}
+        <p>Please verify your email address using the code below:</p>
+        ${emailCodeBlock(verificationCode)}
         ${emailPanel(`
-          <h3 style="margin:0 0 12px;color:${EMAIL_BRAND.green};">📧 Verify Your Email Address</h3>
-          <p>To complete your registration and start using GoHappyGo, please verify your email address using the code below:</p>
-          ${emailCodeBlock(verificationCode)}
-          ${emailPanel(`
-            <h4 style="margin:0 0 8px;">🔐 How to verify:</h4>
-            <ul style="margin:0;padding-left:20px;">
-              <li>Copy the verification code above</li>
-              <li>Return to the GoHappyGo app or website</li>
-              <li>Paste the code in the verification field</li>
-              <li>Click "Verify Email" to complete your registration</li>
-            </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
-          ${emailPanel(`<strong>⏰ Important:</strong> This verification code will expire in 10 minutes for security reasons.`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
-        <p style="text-align:center;color:${EMAIL_BRAND.muted};font-size:14px;">
-          If you didn't create an account with GoHappyGo, please ignore this email.
-          Your account will not be activated without email verification.
+          <h4 style="margin:0 0 8px;color:${EMAIL_BRAND.headerText};">How to verify</h4>
+          <ol style="margin:0;padding-left:20px;">
+            <li>Copy the verification code above</li>
+            <li>Return to the GoHappyGo app or website</li>
+            <li>Paste the code in the verification field</li>
+            <li>Click "Verify Email" to complete your registration</li>
+          </ol>`)}
+        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
+          <strong>Important:</strong> This code expires in 10 minutes.
         </p>
-        <p style="text-align:center;margin-top:16px;">
-          <a href="${this.baseUrl}/download-app" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">Download App</a>
-          <a href="${this.baseUrl}" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">🌐 Visit Website</a>
-          <a href="${this.baseUrl}/support" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">📞 Support</a>
+        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
+          If you didn't create an account with GoHappyGo, please ignore this email.
         </p>`,
     });
   }
@@ -410,7 +407,7 @@ export class EmailTemplatesService {
           <li>Please upload new, clear verification documents</li>
           <li>Ensure all documents are valid and clearly visible</li>
           <li>You can resubmit your verification at any time</li>
-        </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        </ul>`)}
       ${emailPanel(`
         <h4 style="margin:0 0 8px;">How to resubmit:</h4>
         <ol style="margin:0;padding-left:20px;">
@@ -418,7 +415,7 @@ export class EmailTemplatesService {
           <li>Go to your profile settings</li>
           <li>Upload new verification documents (Selfie, ID Front, ID Back)</li>
           <li>Submit for review</li>
-        </ol>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`;
+        </ol>`)}`;
 
     return this.wrapEmail({
       title: `Account Verification ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}`,
@@ -428,7 +425,7 @@ export class EmailTemplatesService {
         <p>Dear ${firstName},</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Your account verification has been <strong>${statusText}</strong></h3>
-          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}`, isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink, isApproved ? EMAIL_BRAND.successBg : EMAIL_BRAND.dangerBg)}
+          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}`)}
         ${isApproved
           ? `<p>🎉 Congratulations! Your account has been successfully verified. You can now access all features of GoHappyGo.</p>
              <p>If you have any questions, please don't hesitate to contact our support team.</p>`
@@ -443,13 +440,13 @@ export class EmailTemplatesService {
       headerTitle: 'Request Submitted Successfully!',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
         <p>Your delivery request has been successfully submitted and is now being reviewed.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Type:</strong> ${event.requestType}</p>
-          <p><strong>Weight:</strong> ${event.weight}kg</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Weight:</strong> ${event.weight}kg</p>`)}
         <p><strong>What happens next?</strong></p>
         <ul>
           <li>The travel/demand owner will review your request</li>
@@ -468,18 +465,18 @@ export class EmailTemplatesService {
       ctaLabel: 'View Request in Dashboard',
       ctaUrl: `${this.baseUrl}/profile/reservations`,
       bodyHtml: `
-        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.orange)}
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
         <p>You have received a new delivery request for your travel/demand.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Requester Information:</h3>
           <p><strong>Name:</strong> ${event.userFirstName}</p>
-          <p><strong>Email:</strong> ${event.userEmail}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Email:</strong> ${event.userEmail}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
-          <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         <p><strong>Next Steps:</strong></p>
         <ul>
           <li>Review the request details carefully</li>
@@ -497,21 +494,21 @@ export class EmailTemplatesService {
       headerTitle: 'Delivery Completed!',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
         <p>Excellent news! Your delivery request has been successfully completed.</p>
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
-          <p>Your package has been delivered as requested.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>Your package has been delivered as requested.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Delivery Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
-          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;text-align:center;">⭐ Rate Your Experience</h3>
           <p style="text-align:center;">Help us improve our service by rating your delivery experience.</p>
-          ${emailButton(`${this.baseUrl}/profile/reviews`, 'Rate Delivery', EMAIL_BRAND.blue)}`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          ${emailButton(`${this.baseUrl}/profile/reviews`, 'Rate Delivery', EMAIL_BRAND.blue)}`)}
         <p><strong>What's next?</strong></p>
         <ul>
           <li>Review and rate the delivery service</li>
@@ -519,7 +516,7 @@ export class EmailTemplatesService {
           <li>Share your experience with other users</li>
           <li>Book your next delivery with GoHappyGo</li>
         </ul>
-        ${emailButton(`${this.baseUrl}/profile/reservations`, 'View Delivery Summary', EMAIL_BRAND.green)}
+        ${emailButton(`${this.baseUrl}/profile/reservations`, 'View Delivery Summary', EMAIL_BRAND.blue)}
         <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>`,
     });
   }
@@ -542,11 +539,11 @@ export class EmailTemplatesService {
           <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
           <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
-          <p>You can continue to receive other requests for your travel/demand.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>You can continue to receive other requests for your travel/demand.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
           <li>Check your travel/demand status and available weight</li>
@@ -572,11 +569,11 @@ export class EmailTemplatesService {
           <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">💰 Refund Information</h3>
           <p>If you had made a payment for this request, a full refund has been processed and will be credited back to your original payment method within 5-10 business days.</p>
-          <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
           <li>Browse other available travels or demands</li>
@@ -612,12 +609,12 @@ export class EmailTemplatesService {
         <p>We were unable to complete your delivery request because we could not process the payment when the traveler tried to accept it.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Details</h3>
-          <p>${safeMessage}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>${safeMessage}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request</h3>
           <p><strong>Request ID:</strong> #${safeRequestId}</p>
           <p><strong>Type:</strong> ${safeRequestType}</p>
-          <p><strong>Weight:</strong> ${safeWeight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Weight:</strong> ${safeWeight}</p>`)}
         <p><strong>Next steps</strong></p>
         <ul>
           <li>Update your payment method (for example, use a different card or ensure sufficient funds)</li>
@@ -635,15 +632,11 @@ export class EmailTemplatesService {
       fundStatus === 'pending_funds'
         ? emailPanel(
             `<p style="margin:0;"><strong>⏳ Payment Pending:</strong> Your payment is pending. Funds will be released once they become available in our Stripe account (typically within 1-2 business days). You will receive a notification email when the funds are released.</p>`,
-            EMAIL_BRAND.orange,
-            EMAIL_BRAND.warningBg,
           )
         : fundStatus === 'pending_onboarding'
           ? emailPanel(
               `<p style="margin:0;"><strong>📋 Onboarding Required:</strong> Your payment is pending. Please complete your Stripe onboarding to receive funds. Once you complete the onboarding process, your funds will be automatically released.</p>
                <p style="margin:10px 0 0 0;"><a href="${this.baseUrl}/stripe/onboarding" style="color:${EMAIL_BRAND.blue};text-decoration:underline;">Complete Stripe Onboarding →</a></p>`,
-              EMAIL_BRAND.blue,
-              EMAIL_BRAND.infoBg,
             )
           : `<p>Your earnings will be processed according to our payment schedule.</p>`;
 
@@ -658,20 +651,20 @@ export class EmailTemplatesService {
         <p>Congratulations! You have successfully completed a delivery request.</p>
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
-          <p>Great job on completing this delivery successfully!</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>Great job on completing this delivery successfully!</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Client Information:</h3>
           <p><strong>Name:</strong> ${event.userFirstName}</p>
-          <p><strong>Email:</strong> ${event.userEmail}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Email:</strong> ${event.userEmail}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Delivery Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
-          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;text-align:center;">Earnings Summary</h3>
-          ${fundStatusPanel}`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          ${fundStatusPanel}`)}
         <p><strong>What's next?</strong></p>
         <ul>
           ${fundStatus === 'pending_funds' || fundStatus === 'pending_onboarding'
@@ -703,7 +696,7 @@ export class EmailTemplatesService {
             <li>You'll need to provide a valid ID document and take a selfie</li>
             <li>The process usually takes 2-5 minutes to complete</li>
             <li>You'll receive an email notification once verification is complete</li>
-          </ul>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          </ul>`)}
         <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
         <p>If you have any questions or need assistance, please contact our support team.</p>
         <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
@@ -729,12 +722,12 @@ export class EmailTemplatesService {
         <p>${isApproved
           ? 'Congratulations! Your identity has been successfully verified.'
           : 'Unfortunately, your identity verification was not approved.'}</p>
-        <p style="text-align:center;">${emailBadge(status.toUpperCase(), isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink)}</p>
+        <p style="text-align:center;">${emailBadge(status.toUpperCase(), EMAIL_BRAND.blue)}</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Next Steps:</h3>
           <p>${isApproved
             ? 'You can now enjoy all features of the GoHappyGo platform, including creating travel announcements and delivery requests.'
-            : 'Please contact our support team for assistance or try the verification process again.'}</p>`, isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink, isApproved ? EMAIL_BRAND.successBg : EMAIL_BRAND.dangerBg)}
+            : 'Please contact our support team for assistance or try the verification process again.'}</p>`)}
         ${!isApproved ? emailPanel(`
           <h3 style="margin:0 0 8px;">Common reasons for rejection:</h3>
           <ul style="margin:0;padding-left:20px;">
@@ -742,7 +735,7 @@ export class EmailTemplatesService {
             <li>Document is expired or invalid</li>
             <li>Face doesn't match the document photo</li>
             <li>Document type is not supported</li>
-          </ul>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg) : ''}
+          </ul>`) : ''}
         <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
         <p>If you have any questions or need assistance, please contact our support team.</p>
         <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
@@ -767,10 +760,10 @@ export class EmailTemplatesService {
           <p><strong>Request ID:</strong> #${supportData.requestId}</p>
           <p><strong>From:</strong> ${supportData.email}</p>
           <p><strong>Requester Type:</strong> ${supportData.requesterType}</p>
-          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p><strong>Category:</strong> ${supportData.category}</p>`)}
         ${emailPanel(`
           <p><strong>Message:</strong></p>
-          <p>${supportData.message}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p>${supportData.message}</p>`)}
         <p>Please log into the admin panel to respond to this request.</p>`,
     });
   }
@@ -791,7 +784,7 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <p><strong>Request ID:</strong> #${supportData.requestId}</p>
           <p><strong>Email:</strong> ${supportData.email}</p>
-          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Category:</strong> ${supportData.category}</p>`)}
         <p>You will receive a response via email as soon as one of our support team members reviews your request.</p>
         <p>For urgent matters, please contact us directly.</p>
         <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
@@ -816,10 +809,10 @@ export class EmailTemplatesService {
         <p>Our support team has responded to your request:</p>
         ${emailPanel(`
           <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Category:</strong> ${supportData.category}</p>`)}
         ${emailPanel(`
           <p><strong>Response from our team:</strong></p>
-          <p>${supportData.message}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>${supportData.message}</p>`)}
         <p>If you need further assistance, you can reply to this support request by logging into your account.</p>
         <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
     });
@@ -841,10 +834,10 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <p><strong>Request ID:</strong> #${supportData.requestId}</p>
           <p><strong>From:</strong> ${supportData.email}</p>
-          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p><strong>Category:</strong> ${supportData.category}</p>`)}
         ${emailPanel(`
           <p><strong>User's reply:</strong></p>
-          <p>${supportData.message}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p>${supportData.message}</p>`)}
         <p>Please log into the admin panel to respond.</p>`,
     });
   }
@@ -867,7 +860,7 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <p><strong>Request ID:</strong> #${supportData.requestId}</p>
           <p><strong>Category:</strong> ${supportData.category}</p>
-          <p><strong>Status:</strong> CLOSED</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Status:</strong> CLOSED</p>`)}
         <p>If you need further assistance, please feel free to submit a new support request.</p>
         <p>Thank you for using GoHappyGo!</p>
         <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
@@ -895,16 +888,16 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/annonces`,
       footerNote: 'This is an automated notification from GoHappyGo. If you have any questions, please contact our support team.',
       bodyHtml: `
-        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.orange)}
+        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.headerText)}
         <p>Great news! A new <strong>${data.alertType}</strong> has been published that matches your alert criteria.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Matched ${data.alertType} Details:</h3>
           <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
           <p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>
-          <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`)}
         ${emailPanel(`
           <p><strong>✨ This ${data.alertType.toLowerCase()} matches your alert preferences!</strong></p>
-          <p>Don't miss out - check it out now and see if it meets your needs.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p>Don't miss out - check it out now and see if it meets your needs.</p>`)}
         <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
           If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
         </p>`,
@@ -944,15 +937,15 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/profile/favorites`,
       footerNote: 'This is an automated confirmation from GoHappyGo. If you have any questions, please contact our support team.',
       bodyHtml: `
-        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.headerText)}
         <p>Your alert has been created successfully. We'll notify you when a matching ${data.alertType.toLowerCase()} is published.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Alert Details:</h3>
           ${alertDetails.join('')}
-          <p><strong>Alert ID:</strong> #${data.alertId}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Alert ID:</strong> #${data.alertId}</p>`)}
         ${emailPanel(`
           <p><strong>📧 What happens next?</strong></p>
-          <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>`)}
         <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
           You can manage or delete your alerts anytime from your account settings.
         </p>`,
@@ -975,11 +968,11 @@ export class EmailTemplatesService {
           <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
           <p>The travel/demand owner has decided not to accept your request at this time. This could be due to various reasons such as capacity constraints, scheduling conflicts, or other considerations.</p>
-          <p><strong>Note:</strong> No payment was processed for this request, so no refund is necessary.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          <p><strong>Note:</strong> No payment was processed for this request, so no refund is necessary.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
           <li>Browse other available travels or demands</li>
@@ -1008,11 +1001,11 @@ export class EmailTemplatesService {
           <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
           <p>You have successfully rejected this request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
-          <p>You can continue to receive other requests for your travel/demand.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>You can continue to receive other requests for your travel/demand.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
           <li>Check your travel/demand status and available weight</li>
@@ -1054,12 +1047,12 @@ export class EmailTemplatesService {
         <p>A GoHappyGo member sent you a message about your ${announcementLabel.toLowerCase()} listing.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Message</h3>
-          <p style="margin:0;">${safeMessage}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p style="margin:0;">${safeMessage}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">${announcementType === 'travel' ? 'Travel' : 'Demand'} details</h3>
           <p><strong>Departure airport:</strong> ${this.escapeHtml(departureAirportName)}</p>
           <p><strong>Arrival airport:</strong> ${this.escapeHtml(arrivalAirportName)}</p>
-          <p><strong>Travel date:</strong> ${this.escapeHtml(formattedTravelDate)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Travel date:</strong> ${this.escapeHtml(formattedTravelDate)}</p>`)}
         <p>You can reply to this member from your GoHappyGo account.</p>`,
     });
   }
@@ -1087,10 +1080,10 @@ export class EmailTemplatesService {
           <p><strong>Departure:</strong> ${departureAirport}</p>
           <p><strong>Arrival:</strong> ${arrivalAirport}</p>
           ${flightNumber ? `<p><strong>Flight Number:</strong> ${String(flightNumber).toUpperCase()}</p>` : ''}
-          ${pricePerKilo ? `<p><strong>Price per Kilo:</strong> ${pricePerKilo}</p>` : ''}`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          ${pricePerKilo ? `<p><strong>Price per Kilo:</strong> ${pricePerKilo}</p>` : ''}`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">💬 Message:</h3>
-          <p>${message.replace(/\n/g, '<br>')}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p>${message.replace(/\n/g, '<br>')}</p>`)}
         <p><strong>What's next?</strong></p>
         <ul>
           <li>Review the message and details above</li>
@@ -1111,11 +1104,11 @@ export class EmailTemplatesService {
       ctaLabel: 'Reset Password',
       ctaUrl: resetUrl,
       bodyHtml: `
-        ${emailHeading(`Hello ${userName}! 👋`, EMAIL_BRAND.pink)}
+        ${emailHeading(`Hello ${userName}! 👋`, EMAIL_BRAND.headerText)}
         <p>We received a request to reset your password. Click the button below to create a new password.</p>
         ${emailPanel(`
           <p style="text-align:center;margin-bottom:16px;color:${EMAIL_BRAND.muted};">Or copy and paste this link into your browser:</p>
-          <p style="word-break:break-all;text-align:center;color:${EMAIL_BRAND.muted};">${resetUrl}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          <p style="word-break:break-all;text-align:center;color:${EMAIL_BRAND.muted};">${resetUrl}</p>`)}
         ${emailPanel(`
           <h4 style="margin:0 0 8px;">📋 How to reset your password:</h4>
           <ul style="margin:0;padding-left:20px;">
@@ -1123,9 +1116,9 @@ export class EmailTemplatesService {
             <li>You'll be redirected to the password reset page</li>
             <li>Enter your new password</li>
             <li>Click "Reset Password" to complete the process</li>
-          </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
-        ${emailPanel(`<strong>⏰ Important:</strong> This password reset link will expire in 10 minutes for security reasons.`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
-        ${emailPanel(`<strong>🔒 Security Notice:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this link with anyone.`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+          </ul>`)}
+        ${emailPanel(`<strong>⏰ Important:</strong> This password reset link will expire in 10 minutes for security reasons.`)}
+        ${emailPanel(`<strong>🔒 Security Notice:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this link with anyone.`)}
         <p style="text-align:center;color:${EMAIL_BRAND.muted};font-size:14px;">
           If you have any questions or need assistance, please contact our support team.
         </p>`,
@@ -1147,16 +1140,16 @@ export class EmailTemplatesService {
       headerTitle: '💰 Funds Released!',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Great news! Your funds have been successfully released and transferred to your Stripe account.</p>
-        ${emailPanel(`<p style="margin:0;"><strong>✅ Payment Status:</strong> Funds Released</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`<p style="margin:0;"><strong>✅ Payment Status:</strong> Funds Released</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Transaction Details:</h3>
           <p><strong>Transaction ID:</strong> #${data.transactionId}</p>
           <p><strong>Request ID:</strong> #${data.requestId}</p>
           <p><strong>Amount:</strong> ${data.amount} ${data.currency.toUpperCase()}</p>
           <p><strong>Transfer ID:</strong> ${data.transferId}</p>
-          <p><strong>Released:</strong> ${this.formatEmailDateTime(new Date())}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          <p><strong>Released:</strong> ${this.formatEmailDateTime(new Date())}</p>`)}
         <p><strong>What's next?</strong></p>
         <ul>
           <li>Funds are now available in your Stripe Connect account</li>
@@ -1182,22 +1175,22 @@ export class EmailTemplatesService {
       headerTitle: `${isReminder ? '⏰ Reminder: ' : ''}Cancellation Confirmation Required`,
       headerVariant: 'warning',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.orange)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         ${isReminder ? '<p><strong>This is a reminder.</strong> Please respond to the cancellation request below.</p>' : ''}
         <p>${requesterName} has requested to cancel their delivery request. Since the travel date has passed, we need your confirmation to proceed.</p>
-        ${emailPanel(`<p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`<p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>
           <p><strong>Type:</strong> ${requestType}</p>
-          <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Weight:</strong> ${weight}</p>`)}
         <p><strong>What happens next?</strong></p>
         <ul>
           <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
           <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
         </ul>
         ${emailButton(`${baseUrl}/requests/${requestId}/confirm-cancellation`, 'Confirm Cancellation', EMAIL_BRAND.blue)}
-        ${emailButton(`${baseUrl}/requests/${requestId}/dispute-cancellation`, 'Dispute (Service Fulfilled)', EMAIL_BRAND.pink)}
+        ${emailButton(`${baseUrl}/requests/${requestId}/dispute-cancellation`, 'Dispute (Service Fulfilled)', EMAIL_BRAND.blue)}
         <p><em>You have ${process.env.CANCELLATION_CONFIRMATION_DAYS || 7} days to respond. If no response is received, our admin team will be notified.</em></p>`,
     });
   }
@@ -1216,12 +1209,12 @@ export class EmailTemplatesService {
       ctaLabel: 'View Requests',
       ctaUrl: `${baseUrl}/profile/travel-requests`,
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>The seller has confirmed the cancellation of your request.</p>
-        ${emailPanel(`<p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`<p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
-          <p><strong>Request ID:</strong> #${requestId}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Request ID:</strong> #${requestId}</p>`)}
         <p>You can create a new request when you're ready to try again.</p>`,
     });
   }
@@ -1240,12 +1233,12 @@ export class EmailTemplatesService {
       ctaLabel: 'Contact Support',
       ctaUrl: `${baseUrl}/support`,
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.orange)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>The seller has disputed your cancellation request, claiming that the service was fulfilled.</p>
-        ${emailPanel(`<p><strong>Admin Review:</strong> Our admin team will review this dispute and contact you within 2-3 business days.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`<p><strong>Admin Review:</strong> Our admin team will review this dispute and contact you within 2-3 business days.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
-          <p><strong>Request ID:</strong> #${requestId}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Request ID:</strong> #${requestId}</p>`)}
         <p>If you have any evidence or additional information, please contact our support team.</p>`,
     });
   }
@@ -1282,7 +1275,7 @@ export class EmailTemplatesService {
       bodyHtml: `
         ${emailHeading(`Hello ${adminName},`)}
         <p>There are <strong>${requests.length}</strong> request(s) waiting for the seller to confirm or dispute a post-travel cancellation. Unresponsive sellers are auto-cancelled in favour of the buyer after <strong>${process.env.CANCELLATION_CONFIRMATION_DAYS || 7}</strong> days.</p>
-        ${emailPanel(`<p><strong>Note:</strong> Review as needed; this email is sent once per day only when at least one request is still in this state.</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`<p><strong>Note:</strong> Review as needed; this email is sent once per day only when at least one request is still in this state.</p>`)}
         <h3>Pending requests:</h3>
         <ul>${requestsList}</ul>`,
     });
@@ -1307,14 +1300,14 @@ export class EmailTemplatesService {
       ctaLabel: 'Review Request',
       ctaUrl: `${baseUrl}/admin/requests/${requestId}`,
       bodyHtml: `
-        ${emailHeading(`Hello ${adminName},`, EMAIL_BRAND.orange)}
+        ${emailHeading(`Hello ${adminName},`, EMAIL_BRAND.headerText)}
         <p>A seller has disputed a cancellation request, claiming the service was fulfilled.</p>
-        ${emailPanel(`<p><strong>Review Required:</strong> Please investigate this dispute and make a decision.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`<p><strong>Review Required:</strong> Please investigate this dispute and make a decision.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>
           <p><strong>Requester:</strong> ${requesterName}</p>
-          <p><strong>Seller:</strong> ${sellerName}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`,
+          <p><strong>Seller:</strong> ${sellerName}</p>`)}`,
     });
   }
 
@@ -1333,14 +1326,14 @@ export class EmailTemplatesService {
         headerTitle: '✅ Request Auto-Completed',
         headerVariant: 'success',
         bodyHtml: `
-          ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+          ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
           <p>The request has been automatically completed by the system.</p>
-          ${emailPanel(`<p><strong>Funds Released:</strong> Payment has been released to your Stripe Connect account.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          ${emailPanel(`<p><strong>Funds Released:</strong> Payment has been released to your Stripe Connect account.</p>`)}
           ${emailPanel(`
             <h3 style="margin:0 0 8px;">Request Details:</h3>
             <p><strong>Request ID:</strong> #${requestId}</p>
             <p><strong>Type:</strong> ${requestType}</p>
-            <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+            <p><strong>Weight:</strong> ${weight}</p>`)}
           <p><em>The request was auto-completed because the buyer did not complete it within ${autoCompleteDays} days after the travel date.</em></p>`,
       });
     }
@@ -1350,14 +1343,14 @@ export class EmailTemplatesService {
       headerTitle: '✅ Request Auto-Completed',
       headerVariant: 'success',
       bodyHtml: `
-        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Your request has been automatically completed by the system.</p>
-        ${emailPanel(`<p><strong>Note:</strong> Since you did not complete the request within ${autoCompleteDays} days after the travel date, the system has automatically marked it as completed.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`<p><strong>Note:</strong> Since you did not complete the request within ${autoCompleteDays} days after the travel date, the system has automatically marked it as completed.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>
           <p><strong>Type:</strong> ${requestType}</p>
-          <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><strong>Weight:</strong> ${weight}</p>`)}
         <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>`,
     });
   }
