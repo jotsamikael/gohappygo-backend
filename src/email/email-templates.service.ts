@@ -445,7 +445,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>`)}
         <p><strong>What happens next?</strong></p>
         <ul>
@@ -474,7 +473,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
           <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         <p><strong>Next Steps:</strong></p>
@@ -502,7 +500,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Delivery Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
           <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         ${emailPanel(`
@@ -535,7 +532,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
@@ -566,7 +562,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
           <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
@@ -613,7 +608,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request</h3>
           <p><strong>Request ID:</strong> #${safeRequestId}</p>
-          <p><strong>Type:</strong> ${safeRequestType}</p>
           <p><strong>Weight:</strong> ${safeWeight}</p>`)}
         <p><strong>Next steps</strong></p>
         <ul>
@@ -659,7 +653,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Delivery Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
           <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         ${emailPanel(`
@@ -965,7 +958,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
           <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.blue)}</p>`)}
@@ -997,7 +989,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
-          <p><strong>Type:</strong> ${event.requestType}</p>
           <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
           <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
           <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
@@ -1182,7 +1173,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>
-          <p><strong>Type:</strong> ${requestType}</p>
           <p><strong>Weight:</strong> ${weight}</p>`)}
         <p><strong>What happens next?</strong></p>
         <ul>
@@ -1332,7 +1322,6 @@ export class EmailTemplatesService {
           ${emailPanel(`
             <h3 style="margin:0 0 8px;">Request Details:</h3>
             <p><strong>Request ID:</strong> #${requestId}</p>
-            <p><strong>Type:</strong> ${requestType}</p>
             <p><strong>Weight:</strong> ${weight}</p>`)}
           <p><em>The request was auto-completed because the buyer did not complete it within ${autoCompleteDays} days after the travel date.</em></p>`,
       });
@@ -1349,7 +1338,6 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>
-          <p><strong>Type:</strong> ${requestType}</p>
           <p><strong>Weight:</strong> ${weight}</p>`)}
         <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>`,
     });
