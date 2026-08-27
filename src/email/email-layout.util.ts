@@ -133,7 +133,7 @@ export function wrapEmailLayout(
             <td style="padding:20px 28px 28px;border-top:1px solid ${EMAIL_BRAND.border};text-align:center;background-color:${EMAIL_BRAND.white};">
               <p style="margin:0 0 8px;font-size:13px;color:${EMAIL_BRAND.muted};">
                 <a href="${ctx.baseUrl}" style="color:${EMAIL_BRAND.blue};text-decoration:none;font-weight:bold;">GoHappyGo</a>
-                &mdash; Connecting travelers and senders worldwide
+                &mdash; Share your journey, multiply joy
               </p>
               <p style="margin:0 0 8px;font-size:12px;color:${EMAIL_BRAND.lightMuted};">
                 &copy; ${year} GoHappyGo. All rights reserved.
