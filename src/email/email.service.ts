@@ -400,7 +400,7 @@ export class EmailService {
     const html = this.emailTemplatesService.getRequestCompletedTemplate(userFirstName, event);
     return this.sendEmail({
       to: userEmail,
-      subject: 'Delivery Completed Successfully - GoHappyGo',
+      subject: 'Request Completed Successfully - GoHappyGo',
       html,
     });
   }
@@ -481,7 +481,7 @@ export class EmailService {
     const html = this.emailTemplatesService.getRequestCompletedForOwnerTemplate(userFirstName, event, fundStatus);
     return this.sendEmail({
       to: userEmail,
-      subject: 'Delivery Successfully Completed - GoHappyGo',
+      subject: 'Request Completed Successfully - GoHappyGo',
       html,
     });
   }

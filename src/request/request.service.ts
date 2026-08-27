@@ -348,7 +348,10 @@ export class RequestService {
         }
       }
     } else {
-      this.userEventService.emitRequestCompleted(completingUser, updatedRequest, false);
+      const requester = await this.userService.findOne({ id: updatedRequest.requesterId });
+      if (requester) {
+        await this.userEventService.emitRequestCompleted(requester, updatedRequest, false);
+      }
       if (ownerId) {
         const owner = await this.userService.findOne({ id: ownerId });
         if (owner) {
