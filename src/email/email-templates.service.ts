@@ -1354,4 +1354,28 @@ export class EmailTemplatesService {
         <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>`,
     });
   }
+
+  getAccountDeletionConfirmationTemplate(user: {
+    firstName?: string | null;
+    lastName?: string | null;
+    username?: string | null;
+    fullName?: string | null;
+  }): string {
+    const userName = this.resolveUserDisplayName(user, null, 'there');
+
+    return this.wrapEmail({
+      title: 'Account Deleted - GoHappyGo',
+      headerTitle: 'Account deleted',
+      headerVariant: 'info',
+      bodyHtml: `
+        ${emailHeading(`Hello ${this.escapeHtml(userName)},`, EMAIL_BRAND.headerText)}
+        <p>Your GoHappyGo account has been deleted and your personal data has been anonymized.</p>
+        ${emailPanel(`
+          <p><strong>What was removed:</strong> profile details, contact information, verification documents, device tokens, alerts, and bookmarks.</p>
+          <p><strong>What we kept:</strong> transaction records, completed marketplace activity, and published listings (shown as belonging to a deleted user) as required for legal, accounting, and dispute resolution purposes.</p>
+        `)}
+        <p>If you did not request this deletion, please contact our support team immediately.</p>
+        <p>Thank you for being part of GoHappyGo.</p>`,
+    });
+  }
 }

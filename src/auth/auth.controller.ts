@@ -27,6 +27,8 @@ import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { StripeRequirementsResponseDto } from 'src/stripe/dto/stripe-requirements-response.dto';
+import { DeleteAccountDto } from 'src/account-deletion/dto/delete-account.dto';
+import { DeleteAccountResponseDto } from 'src/account-deletion/dto/delete-account-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SocialSignInDto } from './dto/social-sign-in.dto';
@@ -501,13 +503,41 @@ async getUserVerificationFiles(@Param('userId') userId: number): Promise<any> {
   @Delete('delete')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
-    summary: 'Delete current user account',
-    description: 'Soft delete the authenticated user account. Sets deleted_at so the user can no longer log in.'
+  @ApiOperation({
+    summary: 'Delete current user account (GDPR anonymization)',
+    description:
+      'Anonymizes personal data, revokes access, and soft-deletes the account while retaining marketplace records required for legal and operational integrity.',
   })
-  @ApiResponse({ status: 200, description: 'Account deleted successfully', schema: { type: 'object', properties: { message: { type: 'string', example: 'Account deleted successfully' } } } })
+  @ApiBody({ type: DeleteAccountDto, required: false })
+  @ApiResponse({ status: 200, description: 'Account deleted and anonymized', type: DeleteAccountResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async deleteAccount(@CurrentUser() user: UserEntity) {
-    return this.authService.deleteAccount(user);
+  async deleteAccount(
+    @CurrentUser() user: UserEntity,
+    @Body() body: DeleteAccountDto,
+    @Req() req: Request,
+  ) {
+    return this.authService.deleteAccount(user, {
+      reason: body?.reason,
+      confirmEmail: body?.confirmEmail,
+      requestIp: req.ip,
+      appVersion: req.headers['x-app-version'] as string | undefined,
+    });
+  }
+
+  @Delete('user')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Delete current user account (alias)',
+    description: 'Alias for DELETE /api/auth/delete.',
+  })
+  @ApiBody({ type: DeleteAccountDto, required: false })
+  @ApiResponse({ status: 200, description: 'Account deleted and anonymized', type: DeleteAccountResponseDto })
+  async deleteAccountAlias(
+    @CurrentUser() user: UserEntity,
+    @Body() body: DeleteAccountDto,
+    @Req() req: Request,
+  ) {
+    return this.deleteAccount(user, body, req);
   }
 }

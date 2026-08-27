@@ -68,4 +68,8 @@ export class DeviceTokenService {
       .where('fcmToken IN (:...tokens)', { tokens })
       .execute();
   }
+
+  async deleteAllForUser(userId: number): Promise<void> {
+    await this.deviceTokenRepository.delete({ userId });
+  }
 }

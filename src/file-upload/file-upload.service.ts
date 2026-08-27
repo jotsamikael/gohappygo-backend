@@ -132,6 +132,40 @@ export class FileUploadService {
         }));
     }
 
+    async deleteUserVerificationFiles(userId: number): Promise<void> {
+        const verificationFiles = await this.uploadedFileRepository.find({
+            where: {
+                user: { id: userId },
+                purpose: In([FilePurpose.SELFIE, FilePurpose.ID_FRONT, FilePurpose.ID_BACK]),
+            },
+        });
+
+        for (const file of verificationFiles) {
+            try {
+                await this.remove(file.id);
+            } catch (error) {
+                console.error(`Error deleting verification file ${file.id} for user ${userId}:`, error);
+            }
+        }
+    }
+
+    async deleteUserProfilePicture(userId: number): Promise<void> {
+        const profileFiles = await this.uploadedFileRepository.find({
+            where: {
+                user: { id: userId },
+                purpose: FilePurpose.PROFILE_PICTURE,
+            },
+        });
+
+        for (const file of profileFiles) {
+            try {
+                await this.remove(file.id);
+            } catch (error) {
+                console.error(`Error deleting profile picture ${file.id} for user ${userId}:`, error);
+            }
+        }
+    }
+
     async getDemandImages(demandId: number): Promise<UploadedFileEntity[]> {
         return this.uploadedFileRepository.find({
             where: {

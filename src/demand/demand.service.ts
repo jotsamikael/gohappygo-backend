@@ -181,6 +181,7 @@ async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandRe
       .leftJoinAndSelect('demand.images', 'images');
 
   const items = await queryBuilder.getMany();
+  await this.userService.hydrateListingOwners(items);
   
   // Debug currency in entities before mapping
   if (items.length > 0) {
@@ -733,6 +734,8 @@ async getDemandById(id: number): Promise<DemandDetailResponseDto>  {
     throw new CustomNotFoundException(`demand with ${id} not found`, ErrorCode.DEMAND_NOT_FOUND);
   }
 
+  await this.userService.hydrateListingOwners([demand]);
+
   // Fetch the 3 most recent reviews received by the travel's user
   const reviews = await this.reviewRepository.find({
     where: { revieweeId: demand.userId },
@@ -740,6 +743,7 @@ async getDemandById(id: number): Promise<DemandDetailResponseDto>  {
     order: { createdAt: 'DESC' },
     take: 3,
   });
+  await this.userService.hydrateReviewUsers(reviews);
 
   const response = this.demandMapper.toDemandDetailResponse(demand, reviews);
   return response;

@@ -26,11 +26,11 @@ export class ReviewMapper {
         }
         
         if (reviewer && reviewer.id) {
-            reviewerDto = this.mapUserToDto(reviewer);
+            reviewerDto = this.mapUserToDto(reviewer, review.reviewerId);
         }
         
         if (reviewee && reviewee.id) {
-            revieweeDto = this.mapUserToDto(reviewee);
+            revieweeDto = this.mapUserToDto(reviewee, review.revieweeId);
         }
         
         // Build the complete mapped data - include all fields
@@ -61,14 +61,13 @@ export class ReviewMapper {
         return result;
     }
 
-    mapUserToDto(user: any): ReviewUserDto {
+    mapUserToDto(user: any, userId?: number): ReviewUserDto {
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(user, userId)!;
+
         return plainToInstance(ReviewUserDto, {
-            id: user.id,
-            publicId: user?.publicId ?? '',
-            createdAt: user.createdAt,
-            fullName: this.commonService.userFullName(user),
-            email: user.email,
-            profilePictureUrl: user.profilePictureUrl || null,
+            ...publicUser,
+            createdAt: user?.createdAt,
+            email: this.commonService.isAnonymizedUser(user) ? null : user?.email,
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true

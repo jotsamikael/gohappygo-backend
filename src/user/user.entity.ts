@@ -12,6 +12,7 @@ import { UploadedFileEntity } from 'src/uploaded-file/uploaded-file.entity';
 import { UserVerificationAuditEntity } from 'src/user-verification-audit-entity/user-verification-audit.entity';
 import { CurrencyEntity } from 'src/currency/entities/currency.entity';
 import { BookmarkEntity } from 'src/bookmark/entities/bookmark.entity';
+import { AccountStatus } from 'src/account-deletion/account-deletion.types';
 import {
   Column,
   Entity,
@@ -151,4 +152,20 @@ kycUpdatedAt?: Date | null;
 
   @Column({ type: 'varchar', length: 2, nullable: true })
   stripeCountryCode: string; // ISO 3166-1 alpha-2 country code for Stripe Connect account
+
+  @Column({
+    type: 'enum',
+    enum: AccountStatus,
+    default: AccountStatus.ACTIVE,
+  })
+  accountStatus: AccountStatus;
+
+  @Column({ type: 'timestamp', nullable: true })
+  anonymizedAt?: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletionRequestedAt?: Date | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  originalEmailHash?: string | null;
 }

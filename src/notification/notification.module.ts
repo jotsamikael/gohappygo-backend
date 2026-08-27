@@ -25,6 +25,6 @@ import { FirebaseModule } from 'src/firebase/firebase.module';
     DeviceTokenService,
     FcmPushPayloadBuilder,
   ],
-  exports: [NotificationService],
+  exports: [NotificationService, DeviceTokenService],
 })
 export class NotificationModule {}

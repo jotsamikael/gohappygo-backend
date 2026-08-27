@@ -77,6 +77,7 @@ import { StripeWebhookEventEntity } from './stripe/entities/stripe-webhook-event
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { AlertModule } from './alert/alert.module';
 import { AlertEntity } from './alert/entities/alert.entity';
+import { AccountDeletionAuditEntity } from './account-deletion/account-deletion-audit.entity';
 import { RequestSchedulerModule } from './request/request-scheduler.module';
 import { PasswordResetEntity } from './password-reset/password-reset.entity';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -195,7 +196,8 @@ import { join } from 'path';
           PlatformPricingEntity,
           StripeWebhookEventEntity,
           PasswordResetEntity,
-          AlertEntity
+          AlertEntity,
+          AccountDeletionAuditEntity
         ],
         synchronize: configService.get<string>('NODE_ENV') === 'development', // Only in dev mode
         logging: configService.get<string>('NODE_ENV') === 'development',

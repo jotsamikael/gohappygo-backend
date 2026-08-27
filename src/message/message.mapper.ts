@@ -11,15 +11,11 @@ export class MessageMapper {
   /**
    * Map UserEntity to ThreadMessageUserDto
    */
-  toThreadMessageUserDto(user: any): ThreadMessageUserDto | null {
-    if (!user) return null;
+  toThreadMessageUserDto(user: any, userId?: number): ThreadMessageUserDto | null {
+    const publicUser = this.commonService.publicUserOrDeletedPlaceholder(user, userId);
+    if (!publicUser) return null;
     
-    return plainToInstance(ThreadMessageUserDto, {
-      id: user.id,
-      publicId: user?.publicId ?? '',
-      fullName: this.commonService.userFullName(user),
-      profilePictureUrl: user.profilePictureUrl || null,
-    }, {
+    return plainToInstance(ThreadMessageUserDto, publicUser, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true,
     });
@@ -29,8 +25,8 @@ export class MessageMapper {
    * Map MessageEntity to ThreadMessageResponseDto
    */
   toThreadMessageResponseDto(message: MessageEntity): ThreadMessageResponseDto {
-    const sender = this.toThreadMessageUserDto(message.sender);
-    const receiver = this.toThreadMessageUserDto(message.receiver);
+    const sender = this.toThreadMessageUserDto(message.sender, (message as any).senderId);
+    const receiver = this.toThreadMessageUserDto(message.receiver, (message as any).receiverId);
 
     const mapped = {
       id: message.id,

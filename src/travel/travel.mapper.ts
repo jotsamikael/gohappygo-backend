@@ -67,21 +67,8 @@ export class TravelMapper {
         }) : null;
 
         // Transform user
-        const user = travel.user ? plainToInstance(TravelListUserDto, {
-            id: travel.user.id,
-            publicId: travel.user?.publicId ?? '',
-            createdAt: travel.user.createdAt,
-            updatedAt: travel.user.updatedAt,
-            isDeactivated: travel.user.isDeactivated,
-            bio: travel.user.bio || '',
-            fullName: this.commonService.userFullName(travel.user),
-            profilePictureUrl: travel.user.profilePictureUrl || '',
-            isVerified: travel.user.isVerified,
-            rating: travel.user.rating ? travel.user.rating.toString() : null,
-            numberOfReviews: travel.user.numberOfReviews || 0,
-            stripeAccountStatus: travel.user.stripeAccountStatus || 'uninitiated',
-            stripeCountryCode: travel.user.stripeCountryCode || null,
-        }, {
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(travel.user, travel.userId);
+        const user = publicUser ? plainToInstance(TravelListUserDto, publicUser, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
         }) : null;
@@ -228,18 +215,12 @@ export class TravelMapper {
         }) : null;
 
         // Transform user
-        const user = travel.user ? plainToInstance(TravelDetailUserDto, {
-            id: travel.user.id,
-            publicId: travel.user?.publicId ?? '',
-            fullName: this.commonService.userFullName(travel.user),
-            phone: travel.user.phone,
-            username: travel.user.username || null,
-            profilePictureUrl: travel.user.profilePictureUrl || null,
-            bio: travel.user.bio || null,
-            isVerified: travel.user.isVerified,
-            createdAt: travel.user.createdAt,
-            rating: roundRatingToTenth(travel.user.rating),
-            numberOfReviews: travel.user.numberOfReviews || 0
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(travel.user, travel.userId);
+        const user = publicUser ? plainToInstance(TravelDetailUserDto, {
+            ...publicUser,
+            phone: this.commonService.isAnonymizedUser(travel.user) ? null : travel.user?.phone,
+            username: this.commonService.isAnonymizedUser(travel.user) ? null : (travel.user?.username || null),
+            rating: roundRatingToTenth(travel.user?.rating ?? null),
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
@@ -284,12 +265,8 @@ export class TravelMapper {
 
         // Transform reviews
         const transformedReviews = reviews.map(review => {
-            const reviewer = review.reviewer ? plainToInstance(TravelDetailReviewerDto, {
-                id: review.reviewer.id,
-                publicId: review.reviewer?.publicId ?? '',
-                fullName: this.commonService.userFullName(review.reviewer),
-                profilePictureUrl: review.reviewer.profilePictureUrl || null,
-            }, {
+            const reviewerPublic = this.commonService.publicUserOrDeletedPlaceholder(review.reviewer, review.reviewerId);
+            const reviewer = reviewerPublic ? plainToInstance(TravelDetailReviewerDto, reviewerPublic, {
                 excludeExtraneousValues: true,
                 enableImplicitConversion: true
             }) : null;

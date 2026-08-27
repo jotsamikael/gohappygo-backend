@@ -32,6 +32,7 @@ import { DemandModule } from 'src/demand/demand.module';
 import { TravelModule } from 'src/travel/travel.module';
 import { StripeModule } from 'src/stripe/stripe.module';
 import { MessageModule } from 'src/message/message.module';
+import { AccountDeletionModule } from 'src/account-deletion/account-deletion.module';
 import { PasswordResetModule } from 'src/password-reset/password-reset.module';
 
 @Module({
@@ -70,6 +71,7 @@ import { PasswordResetModule } from 'src/password-reset/password-reset.module';
     PhoneVerificationModule,
     StripeModule,
     MessageModule,
+    AccountDeletionModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard], //jwt strategy, roles guard

@@ -57,6 +57,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { FirebaseAuthService } from 'src/firebase/firebase-auth.service';
 import { CompleteSocialRegistrationDto } from './dto/complete-social-registration.dto';
 import { ConfigService } from '@nestjs/config';
+import { AccountDeletionService } from 'src/account-deletion/account-deletion.service';
+import { DeleteAccountOptions, DeletionResult } from 'src/account-deletion/account-deletion.types';
 
 @Injectable()
 export class AuthService {
@@ -100,6 +102,7 @@ export class AuthService {
     private messageService: MessageService,
     private firebaseAuthService: FirebaseAuthService,
     private configService: ConfigService,
+    private accountDeletionService: AccountDeletionService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     //bcrypt.hash('123456789',10).then(console.log) //this function allows you to generate the password for a user
@@ -147,27 +150,6 @@ export class AuthService {
       registerDto.phoneNumber,
       true,
     );
-
-    // Check for soft-deleted email match → restore
-    if (existingEmailUser?.deletedAt) {
-      await this.userService.restoreUserAccount(existingEmailUser.id);
-      // Optionally reset password, send welcome-back email, etc.
-      const { password, ...r } = existingEmailUser as any;
-      return {
-        user: this.buildPublicUser(r),
-        message: 'Welcome back! Your account has been restored.',
-      };
-    }
-
-    // Check for soft-deleted phone match → restore
-    if (existingPhoneUser?.deletedAt) {
-      await this.userService.restoreUserAccount(existingPhoneUser.id);
-      const { password, ...r } = existingPhoneUser as any;
-      return {
-        user: this.buildPublicUser(r),
-        message: 'Welcome back! Your account has been restored.',
-      };
-    }
 
     // If either already exists and is NOT deleted → reject registration
     if (existingEmailUser || existingPhoneUser) {
@@ -233,13 +215,6 @@ export class AuthService {
     const userRole = await this.roleService.getUserRoleIdByCode('USER');
 
     const existingEmailUser = await this.userService.findByField('email', dto.email, true);
-    if (existingEmailUser?.deletedAt) {
-      await this.userService.restoreUserAccount(existingEmailUser.id);
-      const tokens = this.generateToken(existingEmailUser);
-      const { password, ...result } = existingEmailUser;
-      const needsRegistrationCompletion = !existingEmailUser.stripeAccountId;
-      return { user: this.buildPublicUser(result as any), ...tokens, needsRegistrationCompletion };
-    }
     if (existingEmailUser) {
       throw new CustomConflictException('Email is already in use.', ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS);
     }
@@ -548,7 +523,7 @@ private mapToUploadedFileResponse(fileEntity: any): UploadedFileResponseDto {
       await this.userService.save(user);
       
       // Delete verification files
-      await this.deleteUserVerificationFiles(user.id);
+      await this.fileUploadService.deleteUserVerificationFiles(user.id);
     }
 
     // Emit event and record audit
@@ -1061,74 +1036,8 @@ private async sendVerificationStatusEmail(user: UserEntity, verificationData: Ve
   }
 }
 
-// Add method to delete only verification files
-private async deleteUserVerificationFiles(userId: number): Promise<void> {
-  try {
-    // Get only verification files (SELFIE, ID_FRONT, ID_BACK)
-    const verificationFiles = await this.fileUploadService.getUserVerificationFiles(userId);
-    
-    console.log(`Found ${verificationFiles.length} verification files to delete for user ${userId}`);
-    
-    // Delete each verification file
-    for (const file of verificationFiles) {
-      try {
-        await this.fileUploadService.remove(file.id);
-        console.log(`Deleted verification file: ${file.originalName} (${file.purpose})`);
-      } catch (fileError) {
-        console.error(`Error deleting file ${file.id}:`, fileError);
-        // Continue with other files even if one fails
-      }
-    }
-    
-    console.log(`Successfully deleted ${verificationFiles.length} verification files for user ${userId}`);
-  } catch (error) {
-    console.error(`Error in deleteUserVerificationFiles for user ${userId}:`, error);
-    // Don't throw error to avoid breaking the verification process
-  }
-}
-
-  async deleteAccount(user: UserEntity): Promise<{ message: string }> {
-    // 1) Prevent deletion if the user is involved in active requests
-    const blockedStatuses = ['ACCEPTED', 'NEGOCIATING'];
-    const activeReqCount = await this.requestRepository
-      .createQueryBuilder('r')
-      .leftJoin('r.currentStatus', 'status')
-      .leftJoin('r.travel', 'travel')
-      .leftJoin('travel.user', 'travelUser')
-      .leftJoin('r.demand', 'demand')
-      .leftJoin('demand.user', 'demandUser')
-      .where('r.requesterId = :uid OR travelUser.id = :uid OR demandUser.id = :uid', { uid: user.id })
-      .andWhere('status.status IN (:...blocked)', { blocked: blockedStatuses })
-      .getCount();
-
-    if (activeReqCount > 0) {
-      throw new CustomBadRequestException('Account cannot be deleted while a request is in ACCEPTED or NEGOCIATING status.', ErrorCode.REQUEST_IN_ACCEPTED_OR_NEGOCIATING_STATUS);
-    }
-
-    // 2) Soft delete future demands and travels (>= today)
-    const now = new Date();
-
-    const futureDemands = await this.demandRepository
-      .createQueryBuilder('d')
-      .where('d.userId = :uid', { uid: user.id })
-      .andWhere('DATE(d.travelDate) >= DATE(:today)', { today: now })
-      .getMany();
-    for (const d of futureDemands) {
-      await this.demandService.cancelDemand(d.id);
-    }
-
-    const futureTravels = await this.travelRepository
-      .createQueryBuilder('t')
-      .where('t.userId = :uid', { uid: user.id })
-      .andWhere('(t.travelDate >= :now OR (t.travelDate IS NULL AND t.departureDatetime >= :now))', { now })
-      .getMany();
-    for (const t of futureTravels) {
-      await this.travelService.cancelTravel(t.id);
-    }
-
-    // 3) Soft delete the user (sets deleted_at)
-    await this.usersRepository.softDelete(user.id);
-    return { message: 'Account deleted successfully' };
+  async deleteAccount(user: UserEntity, options: DeleteAccountOptions = {}): Promise<DeletionResult> {
+    return this.accountDeletionService.anonymizeAndCloseAccount(user, options);
   }
 
   /**

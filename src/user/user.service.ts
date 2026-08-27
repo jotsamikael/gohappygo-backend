@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from './user.entity';
-import { FindOptionsWhere, Repository, UpdateResult } from 'typeorm';
+import { FindOptionsWhere, In, Repository, UpdateResult } from 'typeorm';
 import { CreateUserDto } from './dto/request/createUser.dto';
 import { RoleService } from 'src/role/role.service';
 import * as bcrypt from 'bcrypt';
@@ -400,6 +400,69 @@ async updatePassword(id: number, changePasswordDto: ChangePasswordDto) {
   async restoreUserAccount(id: number): Promise<UpdateResult> {
     const user = await this.userRepository.restore(id);
     return user;
+  }
+
+  async findByIdsIncludingDeleted(ids: number[]): Promise<UserEntity[]> {
+    if (!ids.length) {
+      return [];
+    }
+    return this.userRepository.find({
+      where: { id: In(ids) },
+      withDeleted: true,
+    });
+  }
+
+  async hydrateListingOwners<T extends { userId?: number; user?: UserEntity | null }>(
+    items: T[],
+  ): Promise<void> {
+    const missingUserIds = [
+      ...new Set(items.filter((item) => item.userId && !item.user).map((item) => item.userId!)),
+    ];
+    if (!missingUserIds.length) {
+      return;
+    }
+
+    const deletedUsers = await this.findByIdsIncludingDeleted(missingUserIds);
+    const userMap = new Map(deletedUsers.map((user) => [user.id, user]));
+
+    for (const item of items) {
+      if (!item.user && item.userId) {
+        item.user = userMap.get(item.userId);
+      }
+    }
+  }
+
+  async hydrateReviewUsers(reviews: Array<{
+    reviewer?: UserEntity | null;
+    reviewee?: UserEntity | null;
+    reviewerId?: number;
+    revieweeId?: number;
+  }>): Promise<void> {
+    const missingIds = new Set<number>();
+    for (const review of reviews) {
+      if (review.reviewerId && !review.reviewer) {
+        missingIds.add(review.reviewerId);
+      }
+      if (review.revieweeId && !review.reviewee) {
+        missingIds.add(review.revieweeId);
+      }
+    }
+
+    if (!missingIds.size) {
+      return;
+    }
+
+    const users = await this.findByIdsIncludingDeleted([...missingIds]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    for (const review of reviews) {
+      if (!review.reviewer && review.reviewerId) {
+        review.reviewer = userMap.get(review.reviewerId);
+      }
+      if (!review.reviewee && review.revieweeId) {
+        review.reviewee = userMap.get(review.revieweeId);
+      }
+    }
   }
 
   // Add this method to src/user/user.service.ts after the existing getUserProfile method

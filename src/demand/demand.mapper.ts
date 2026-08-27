@@ -67,21 +67,8 @@ export class DemandMapper {
         }) : null;
 
         // Transform user
-        const user = demand.user ? plainToInstance(DemandListUserDto, {
-            id: demand.user.id,
-            publicId: demand.user?.publicId ?? '',
-            createdAt: demand.user.createdAt,
-            updatedAt: demand.user.updatedAt,
-            isDeactivated: demand.user.isDeactivated,
-            bio: demand.user.bio || '',
-            fullName: this.commonService.userFullName(demand.user),
-            profilePictureUrl: demand.user.profilePictureUrl || '',
-            isVerified: demand.user.isVerified,
-            rating: demand.user.rating ? demand.user.rating.toString() : null,
-            numberOfReviews: demand.user.numberOfReviews || 0,
-            stripeAccountStatus: demand.user.stripeAccountStatus || 'uninitiated',
-            stripeCountryCode: demand.user.stripeCountryCode || null,
-        }, {
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(demand.user, demand.userId);
+        const user = publicUser ? plainToInstance(DemandListUserDto, publicUser, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
         }) : null;
@@ -218,20 +205,13 @@ export class DemandMapper {
         }) : null;
 
         // Transform user
-        const user = demand.user ? plainToInstance(DemandDetailUserDto, {
-            id: demand.user.id,
-            publicId: demand.user?.publicId ?? '',
-            fullName: this.commonService.userFullName(demand.user),
-            phone: demand.user.phone,
-            username: demand.user.username || null,
-            profilePictureUrl: demand.user.profilePictureUrl || null,
-            bio: demand.user.bio || null,
-            isDeactivated: demand.user.isDeactivated,
-            isPhoneVerified: demand.user.isPhoneVerified,
-            isVerified: demand.user.isVerified,
-            createdAt: demand.user.createdAt,
-            rating: roundRatingToTenth(demand.user.rating),
-            numberOfReviews: demand.user.numberOfReviews || 0
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(demand.user, demand.userId);
+        const user = publicUser ? plainToInstance(DemandDetailUserDto, {
+            ...publicUser,
+            phone: this.commonService.isAnonymizedUser(demand.user) ? null : demand.user?.phone,
+            username: this.commonService.isAnonymizedUser(demand.user) ? null : (demand.user?.username || null),
+            isPhoneVerified: demand.user?.isPhoneVerified ?? false,
+            rating: roundRatingToTenth(demand.user?.rating ?? null),
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
@@ -279,12 +259,8 @@ export class DemandMapper {
 
         // Transform reviews
         const transformedReviews = reviews.map(review => {
-            const reviewer = review.reviewer ? plainToInstance(DemandDetailReviewerDto, {
-                id: review.reviewer.id,
-                publicId: review.reviewer?.publicId ?? '',
-                fullName: this.commonService.userFullName(review.reviewer),
-                profilePictureUrl: review.reviewer.profilePictureUrl || null,
-            }, {
+            const reviewerPublic = this.commonService.publicUserOrDeletedPlaceholder(review.reviewer, review.reviewerId);
+            const reviewer = reviewerPublic ? plainToInstance(DemandDetailReviewerDto, reviewerPublic, {
                 excludeExtraneousValues: true,
                 enableImplicitConversion: true
             }) : null;

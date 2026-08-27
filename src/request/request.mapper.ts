@@ -13,19 +13,13 @@ export class RequestMapper {
     /**
      * Map UserEntity to UserResponseDto
      */
-    toUserResponseDto(user: UserEntity | null): UserResponseDto | null {
-        if (!user) {
+    toUserResponseDto(user: UserEntity | null, userId?: number): UserResponseDto | null {
+        const publicUser = this.commonService.publicUserOrDeletedPlaceholder(user, userId);
+        if (!publicUser) {
             return null;
         }
 
-        const fullName = this.commonService.userFullName(user);
-
-        return plainToInstance(UserResponseDto, {
-            id: user.id,
-            publicId: user.publicId,
-            fullName: fullName,
-            profilePictureUrl: user.profilePictureUrl || null
-        }, {
+        return plainToInstance(UserResponseDto, publicUser, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
         });
@@ -57,16 +51,17 @@ export class RequestMapper {
             pricePerKg: request.travel.pricePerKg ? request.travel.pricePerKg.toString() : '0.00',
             currencyId: request.travel.currencyId,
             status: request.travel.status,
-            user: request.travel.user ? plainToInstance(RequestUserDto, {
-                id: request.travel.user.id,
-                publicId: request.travel.user?.publicId ?? '',
-                createdAt: request.travel.user.createdAt,
-                isDeactivated: request.travel.user.isDeactivated,
-                phone: request.travel.user.phone,
-                fullName: this.commonService.userFullName(request.travel.user),
-                profilePictureUrl: request.travel.user.profilePictureUrl || '',
-                currencyId: request.travel.user.currencyId,
-            }, {
+            user: request.travel.user || request.travel.userId
+              ? plainToInstance(RequestUserDto, {
+                  ...this.commonService.publicUserOrDeletedPlaceholder(
+                    request.travel.user,
+                    request.travel.userId,
+                  )!,
+                  phone: this.commonService.isAnonymizedUser(request.travel.user)
+                    ? null
+                    : request.travel.user?.phone,
+                  currencyId: request.travel.user?.currencyId,
+                }, {
                 excludeExtraneousValues: true,
                 enableImplicitConversion: true
             }) : null,

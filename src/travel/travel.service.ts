@@ -252,6 +252,7 @@ export class TravelService {
 
     // Use getRawAndEntities to get both entities and raw data (including requestCount)
     const { entities, raw } = await queryBuilder.getRawAndEntities();
+    await this.userService.hydrateListingOwners(entities);
     console.log('🔍 Debug - Final items found:', entities.length);
 
     // Debug currency in entities before mapping
@@ -533,6 +534,8 @@ export class TravelService {
       throw new CustomNotFoundException(`travel with ${id} not found`, ErrorCode.TRAVEL_NOT_FOUND);
     }
 
+    await this.userService.hydrateListingOwners([travel]);
+
     // Fetch the 3 most recent reviews received by the travel's user
     const reviews = await this.reviewRepository.find({
       where: { revieweeId: travel.userId },
@@ -540,6 +543,7 @@ export class TravelService {
       order: { createdAt: 'DESC' },
       take: 3,
     });
+    await this.userService.hydrateReviewUsers(reviews);
 
     const response = this.travelMapper.toDetailResponseDto(travel, reviews);
     return response;

@@ -1,4 +1,25 @@
 import { Injectable } from "@nestjs/common";
+import { AccountStatus, DELETED_USER_DISPLAY_NAME } from "src/account-deletion/account-deletion.types";
+import { UserEntity } from "src/user/user.entity";
+
+export interface PublicUserDisplay {
+    id: number;
+    publicId?: string;
+    fullName: string;
+    profilePictureUrl: string | null;
+    bio?: string | null;
+    isVerified: boolean;
+    isDeactivated?: boolean;
+    rating?: string | number | null;
+    numberOfReviews?: number;
+    stripeAccountStatus?: string;
+    stripeCountryCode?: string | null;
+    username?: string | null;
+    phone?: string | null;
+    isPhoneVerified?: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
 
 @Injectable()
 export class CommonService {
@@ -52,5 +73,72 @@ export class CommonService {
         fallback = 'there',
     ): string {
         return this.userFullName(user) || fallback;
+    }
+
+    isAnonymizedUser(
+        user:
+            | (Pick<UserEntity, 'accountStatus' | 'deletedAt'> & Partial<UserEntity>)
+            | null
+            | undefined,
+    ): boolean {
+        if (!user) {
+            return false;
+        }
+        return user.accountStatus === AccountStatus.ANONYMIZED || !!user.deletedAt;
+    }
+
+    /** Stable public profile for anonymized/deleted owners — never exposes email or phone. */
+    publicUserOrDeletedPlaceholder(
+        user: UserEntity | null | undefined,
+        userId?: number,
+    ): PublicUserDisplay | null {
+        if (!user && !userId) {
+            return null;
+        }
+
+        if (!user && userId) {
+            return {
+                id: userId,
+                fullName: DELETED_USER_DISPLAY_NAME,
+                profilePictureUrl: null,
+                isVerified: false,
+            };
+        }
+
+        if (this.isAnonymizedUser(user)) {
+            return {
+                id: user!.id,
+                publicId: user!.publicId,
+                fullName: DELETED_USER_DISPLAY_NAME,
+                profilePictureUrl: null,
+                bio: null,
+                isVerified: false,
+                isDeactivated: user!.isDeactivated,
+                rating: user!.rating ? user!.rating.toString() : null,
+                numberOfReviews: user!.numberOfReviews ?? 0,
+                stripeAccountStatus: user!.stripeAccountStatus ?? 'uninitiated',
+                stripeCountryCode: user!.stripeCountryCode ?? null,
+                username: null,
+                createdAt: user!.createdAt,
+                updatedAt: user!.updatedAt,
+            };
+        }
+
+        return {
+            id: user!.id,
+            publicId: user!.publicId,
+            fullName: this.userFullName(user!),
+            profilePictureUrl: user!.profilePictureUrl || null,
+            bio: user!.bio || null,
+            isVerified: user!.isVerified,
+            isDeactivated: user!.isDeactivated,
+            rating: user!.rating ? user!.rating.toString() : null,
+            numberOfReviews: user!.numberOfReviews ?? 0,
+            stripeAccountStatus: user!.stripeAccountStatus ?? 'uninitiated',
+            stripeCountryCode: user!.stripeCountryCode ?? null,
+            username: user!.username || null,
+            createdAt: user!.createdAt,
+            updatedAt: user!.updatedAt,
+        };
     }
 }
