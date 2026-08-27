@@ -1,13 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RequestEvent } from 'src/events/user-events.service';
 import { CommonService } from 'src/common/service/common.service';
+import { EMAIL_BRAND, WrapEmailLayoutOptions } from './email-brand.constants';
+import {
+  wrapEmailLayout,
+  emailButton,
+  emailPanel,
+  emailHeading,
+  emailCodeBlock,
+  emailBadge,
+} from './email-layout.util';
 
 @Injectable()
 export class EmailTemplatesService {
   private readonly logger = new Logger(EmailTemplatesService.name);
-  private readonly baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  private readonly baseUrl: string;
+  private readonly logoUrl: string;
 
-  constructor(private readonly commonService: CommonService) {}
+  constructor(
+    private readonly commonService: CommonService,
+    private readonly configService: ConfigService,
+  ) {
+    this.baseUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:3000';
+    this.logoUrl =
+      this.configService.get<string>('EMAIL_LOGO_URL') ||
+      process.env.EMAIL_LOGO_URL ||
+      '';
+  }
+
+  private wrapEmail(options: WrapEmailLayoutOptions): string {
+    return wrapEmailLayout(
+      { logoUrl: this.logoUrl, baseUrl: this.baseUrl },
+      options,
+    );
+  }
 
   /** Resolve display name from public user, entity, or precomputed event field. */
   private resolveUserDisplayName(
@@ -78,230 +108,106 @@ export class EmailTemplatesService {
   }
 
   getWelcomeTemplate(userName: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Welcome to GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .button { display: inline-block; padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Welcome to GoHappyGo!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Welcome to GoHappyGo! Your account has been successfully created.</p>
-            <p>We're excited to have you join our community of travelers.</p>
-            <p>To get started:</p>
-            <ul>
-              <li>Complete your profile</li>
-              <li>Verify your phone number</li>
-              <li>Upload verification documents</li>
-              <li>Start posting travels or demands</li>
-            </ul>
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/reservations" class="button">Go to Dashboard</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-            <p>If you didn't create this account, please ignore this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Welcome to GoHappyGo',
+      headerTitle: 'Welcome to GoHappyGo!',
+      headerVariant: 'success',
+      ctaLabel: 'Go to Dashboard',
+      ctaUrl: `${this.baseUrl}/profile/reservations`,
+      footerNote: "If you didn't create this account, please ignore this email.",
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>Welcome to GoHappyGo! Your account has been successfully created.</p>
+        <p>We're excited to have you join our community of travelers.</p>
+        <p>To get started:</p>
+        <ul>
+          <li>Complete your profile</li>
+          <li>Verify your phone number</li>
+          <li>Upload verification documents</li>
+          <li>Start posting travels or demands</li>
+        </ul>`,
+    });
   }
 
   getPhoneVerificationTemplate(userName: string, verificationCode: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Phone Verification - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .verification-code { font-size: 24px; font-weight: bold; text-align: center; padding: 20px; background: #e3f2fd; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Phone Verification</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Please use the following verification code to verify your phone number:</p>
-            <div class="verification-code">${verificationCode}</div>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you didn't request this verification, please ignore this email.</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Phone Verification - GoHappyGo',
+      headerTitle: 'Phone Verification',
+      headerVariant: 'info',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        <p>Please use the following verification code to verify your phone number:</p>
+        ${emailCodeBlock(verificationCode)}
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you didn't request this verification, please ignore this email.</p>`,
+    });
   }
 
   getVerificationDocumentsReceivedTemplate(userName: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Documents Received - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Documents Received</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>We have received your verification documents and they are now under review.</p>
-            <p>Our team will review your documents within 24-48 hours and you will receive an email notification once the review is complete.</p>
-            <p>Thank you for your patience!</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Documents Received - GoHappyGo',
+      headerTitle: 'Documents Received',
+      headerVariant: 'warning',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        <p>We have received your verification documents and they are now under review.</p>
+        <p>Our team will review your documents within 24-48 hours and you will receive an email notification once the review is complete.</p>
+        <p>Thank you for your patience!</p>`,
+    });
   }
 
   getVerificationApprovedTemplate(userName: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Account Verified - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .button { display: inline-block; padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Account Verified!</h1>
-          </div>
-          <div class="content">
-            <h2>Congratulations ${userName}!</h2>
-            <p>Your account has been successfully verified. You can now:</p>
-            <ul>
-              <li>Post travel declarations</li>
-              <li>Publish delivery demands</li>
-              <li>Make requests to other users</li>
-              <li>Complete transactions</li>
-            </ul>
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/reservations" class="button">Start Using GoHappyGo</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Account Verified - GoHappyGo',
+      headerTitle: 'Account Verified!',
+      headerVariant: 'success',
+      ctaLabel: 'Start Using GoHappyGo',
+      ctaUrl: `${this.baseUrl}/profile/reservations`,
+      bodyHtml: `
+        ${emailHeading(`Congratulations ${userName}!`, EMAIL_BRAND.green)}
+        <p>Your account has been successfully verified. You can now:</p>
+        <ul>
+          <li>Post travel declarations</li>
+          <li>Publish delivery demands</li>
+          <li>Make requests to other users</li>
+          <li>Complete transactions</li>
+        </ul>`,
+    });
   }
 
   getVerificationRejectedTemplate(userName: string, reason: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Verification Update - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f44336; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .reason { background: #ffebee; padding: 15px; border-left: 4px solid #f44336; margin: 20px 0; }
-          .button { display: inline-block; padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Verification Update</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>We regret to inform you that your verification documents could not be approved at this time.</p>
-            <div class="reason">
-              <strong>Reason:</strong> ${reason}
-            </div>
-            <p>Please review the reason above and submit new documents that meet our requirements.</p>
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/verification" class="button">Resubmit Documents</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Verification Update - GoHappyGo',
+      headerTitle: 'Verification Update',
+      headerVariant: 'danger',
+      ctaLabel: 'Resubmit Documents',
+      ctaUrl: `${this.baseUrl}/verification`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        <p>We regret to inform you that your verification documents could not be approved at this time.</p>
+        ${emailPanel(`<strong>Reason:</strong> ${reason}`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        <p>Please review the reason above and submit new documents that meet our requirements.</p>`,
+    });
   }
 
   getTravelPublishedTemplate(userName: string, travelData: any): string {
-    // Safely extract airport names
-    // The event passes strings directly, but also handle if objects are passed
-    const departureAirport = typeof travelData.departureAirport === 'string' 
+    const departureAirport = typeof travelData.departureAirport === 'string'
       ? travelData.departureAirport
-      : (travelData.departureAirport?.airportName || 
-         travelData.departureAirport?.name || 
+      : (travelData.departureAirport?.airportName ||
+         travelData.departureAirport?.name ||
          'Unknown');
     const arrivalAirport = typeof travelData.arrivalAirport === 'string'
       ? travelData.arrivalAirport
-      : (travelData.arrivalAirport?.airportName || 
-         travelData.arrivalAirport?.name || 
+      : (travelData.arrivalAirport?.airportName ||
+         travelData.arrivalAirport?.name ||
          'Unknown');
-    
-    // Flight: compute outside the HTML template (avoids any chance of ".toUpperCase()" appearing as text)
+
     const flightRaw =
       travelData.flightNumber != null && travelData.flightNumber !== ''
         ? String(travelData.flightNumber).trim()
         : '';
     const flightDisplay = flightRaw.length > 0 ? flightRaw.toUpperCase() : 'Unknown';
 
-    // Date: day/month/year — prefer DB columns in order (entity + TravelEvent payload)
     const travelDtRaw =
       travelData.departureDatetime ??
       travelData.travelDate ??
@@ -310,903 +216,375 @@ export class EmailTemplatesService {
       travelDtRaw != null && travelDtRaw !== ''
         ? this.formatEmailDate(travelDtRaw) || 'Unknown'
         : 'Unknown';
-    
-    // Safely get weight available and price
+
     const weightAvailable = travelData.weightAvailable || 0;
     const pricePerKg = travelData.pricePerKg || 0;
-    // Get currency symbol from travelData, default to $ if not available
     const currencySymbol = travelData.currencySymbol || travelData.currency?.symbol || '$';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Travel Published - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .travel-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Travel Published Successfully!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Your travel has been successfully published and is now visible to  HappyTravellers.</p>
-            <div class="travel-details">
-              <h3>Travel Details:</h3>
-              <p><strong>Flight:</strong> ${flightDisplay}</p>
-              <p><strong>From:</strong> ${departureAirport}</p>
-              <p><strong>To:</strong> ${arrivalAirport}</p>
-              <p><strong>Date:</strong> ${departureDate}</p>
-              <p><strong>Available Weight:</strong> ${weightAvailable}kg</p>
-              <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>
-            </div>
-            <p>You will be notified when someone makes a request for your travel.</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Travel Published - GoHappyGo',
+      headerTitle: 'Travel Published Successfully!',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>Your travel has been successfully published and is now visible to travelers.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Travel Details:</h3>
+          <p><strong>Flight:</strong> ${flightDisplay}</p>
+          <p><strong>From:</strong> ${departureAirport}</p>
+          <p><strong>To:</strong> ${arrivalAirport}</p>
+          <p><strong>Date:</strong> ${departureDate}</p>
+          <p><strong>Available Weight:</strong> ${weightAvailable}kg</p>
+          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p>You will be notified when someone makes a request for your travel.</p>`,
+    });
   }
 
   getDemandPublishedTemplate(userName: string, demandData: any): string {
-    // Safely extract airport names
-    // The event passes departureAirport and arrivalAirport as strings (airport names)
-    // But we also support the case where they might be objects with .name property
-    const originAirport = typeof demandData.departureAirport === 'string' 
-                         ? demandData.departureAirport
-                         : (demandData.departureAirport?.name || 
-                            demandData.departureAirport?.airportName || 
-                            demandData.originAirport || 
-                            'Unknown');
+    const originAirport = typeof demandData.departureAirport === 'string'
+      ? demandData.departureAirport
+      : (demandData.departureAirport?.name ||
+         demandData.departureAirport?.airportName ||
+         demandData.originAirport ||
+         'Unknown');
     const destinationAirport = typeof demandData.arrivalAirport === 'string'
-                              ? demandData.arrivalAirport
-                              : (demandData.arrivalAirport?.name || 
-                                 demandData.arrivalAirport?.airportName || 
-                                 demandData.destinationAirport || 
-                                 'Unknown');
-    
-    // Safely format the date (day/month/year)
+      ? demandData.arrivalAirport
+      : (demandData.arrivalAirport?.name ||
+         demandData.arrivalAirport?.airportName ||
+         demandData.destinationAirport ||
+         'Unknown');
+
     const deliveryDate = demandData.deliveryDate || demandData.travelDate;
     const formattedDate = deliveryDate ? (this.formatEmailDate(deliveryDate) || 'Unknown') : 'Unknown';
-    
-    // Safely get weight and price
+
     const weight = demandData.weight || 0;
     const pricePerKg = demandData.pricePerKg || 0;
-    // Get currency symbol from demandData, default to $ if not available
     const currencySymbol = demandData.currencySymbol || demandData.currency?.symbol || '$';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Demand Published - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .demand-details { background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Demand Published Successfully!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Your delivery demand has been successfully published and is now visible to potential travelers.</p>
-            <div class="demand-details">
-              <h3>Demand Details:</h3>
-              <p><strong>Description:</strong> ${demandData.title || demandData.description || 'Unknown'}</p>
-              <p><strong>From:</strong> ${originAirport}</p>
-              <p><strong>To:</strong> ${destinationAirport}</p>
-              <p><strong>Travel Date:</strong> ${formattedDate}</p>
-              <p><strong>Weight:</strong> ${weight}kg</p>
-              <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>
-            </div>
-            <p>You will be notified when someone offers to help with your delivery.</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Demand Published - GoHappyGo',
+      headerTitle: 'Demand Published Successfully!',
+      headerVariant: 'info',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        <p>Your delivery demand has been successfully published and is now visible to potential travelers.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Demand Details:</h3>
+          <p><strong>Description:</strong> ${demandData.title || demandData.description || 'Unknown'}</p>
+          <p><strong>From:</strong> ${originAirport}</p>
+          <p><strong>To:</strong> ${destinationAirport}</p>
+          <p><strong>Travel Date:</strong> ${formattedDate}</p>
+          <p><strong>Weight:</strong> ${weight}kg</p>
+          <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>You will be notified when someone offers to help with your delivery.</p>`,
+    });
   }
 
   getRequestAcceptedTemplate(userName: string, requestData: any): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Accepted - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .success-badge { background: #4CAF50; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .action-button { background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Request Accepted!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The travel process can now begin.</p>` : `<p>Great news! Your travel request has been accepted and is ready to proceed.</p>`}
-            
-            <div class="highlight">
-              <p><strong>✅ Status:</strong> <span class="success-badge">ACCEPTED</span></p>
-              <p>Your request is now confirmed and the delivery process can begin.</p>
-            </div>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestData.requestId}</p>
-              <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
-            </div>
-            
-            <p><strong>What happens next?</strong></p>
-            <ul>
-              <li>You can now communicate with the traveler through the platform</li>
-              <li>Arrange the package handover details</li>
-              <li>Track the delivery progress in your dashboard</li>
-              <li>Complete payment once delivery is confirmed</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/travel-requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Request Details</a>
-            </p>
-            
-            <p><em>Please keep in touch with the traveler to ensure smooth delivery coordination.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Accepted - GoHappyGo',
+      headerTitle: '🎉 Request Accepted!',
+      headerVariant: 'success',
+      ctaLabel: 'View Request Details',
+      ctaUrl: `${this.baseUrl}/profile/travel-requests`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        ${requestData.isInstant
+          ? `<p><strong>⚡ Instant Travel Purchase Confirmed!</strong></p><p>Your request for ${requestData.weight}kg has been automatically accepted and purchased in an instant travel. The travel process can now begin.</p>`
+          : `<p>Great news! Your travel request has been accepted and is ready to proceed.</p>`}
+        ${emailPanel(`
+          <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
+          <p>Your request is now confirmed and the delivery process can begin.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestData.requestId}</p>
+          <p><strong>Weight:</strong> ${requestData.weight}kg</p>
+          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p><strong>What happens next?</strong></p>
+        <ul>
+          <li>You can now communicate with the traveler through the platform</li>
+          <li>Arrange the package handover details</li>
+          <li>Track the delivery progress in your dashboard</li>
+          <li>Complete payment once delivery is confirmed</li>
+        </ul>
+        <p><em>Please keep in touch with the traveler to ensure smooth delivery coordination.</em></p>`,
+    });
   }
 
   getRequestAcceptedForOwnerTemplate(userName: string, requestData: any): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Confirmation - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .requester-info { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .success-badge { background: #4CAF50; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .action-button { background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #d4edda; padding: 10px; border-radius: 5px; border-left: 4px solid #28a745; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Request Confirmed</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            ${requestData.isInstant ? `<p><strong>⚡ Instant Travel Purchase!</strong></p><p>${requestData.requesterName || 'A requester'} has purchased ${requestData.weight}kg in your instant travel. The request has been automatically accepted.</p>` : `<p>You have successfully accepted a delivery request. The requester has been notified.</p>`}
-            
-            <div class="highlight">
-              <p><strong>✅ Status:</strong> <span class="success-badge">ACCEPTED</span></p>
-              <p>This request is now active and ready for coordination.</p>
-            </div>
-            
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestData.requestId}</p>
-              <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-              ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
-              <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>
-            </div>
-            
-            <p><strong>Next Steps:</strong></p>
-            <ul>
-              <li>Contact the requester to arrange package pickup</li>
-              <li>Confirm delivery details and timeline</li>
-              <li>Coordinate the handover process</li>
-              <li>Update delivery status as you progress</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/travel-requests" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Manage Request</a>
-            </p>
-            
-            <p><em>Remember to maintain good communication with the requester throughout the delivery process.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Confirmation - GoHappyGo',
+      headerTitle: '✅ Request Confirmed',
+      headerVariant: 'info',
+      ctaLabel: 'Manage Request',
+      ctaUrl: `${this.baseUrl}/profile/travel-requests`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        ${requestData.isInstant
+          ? `<p><strong>⚡ Instant Travel Purchase!</strong></p><p>${requestData.requesterName || 'A requester'} has purchased ${requestData.weight}kg in your instant travel. The request has been automatically accepted.</p>`
+          : `<p>You have successfully accepted a delivery request. The requester has been notified.</p>`}
+        ${emailPanel(`
+          <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
+          <p>This request is now active and ready for coordination.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestData.requestId}</p>
+          <p><strong>Weight:</strong> ${requestData.weight}kg</p>
+          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
+          <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>Next Steps:</strong></p>
+        <ul>
+          <li>Contact the requester to arrange package pickup</li>
+          <li>Confirm delivery details and timeline</li>
+          <li>Coordinate the handover process</li>
+          <li>Update delivery status as you progress</li>
+        </ul>
+        <p><em>Remember to maintain good communication with the requester throughout the delivery process.</em></p>`,
+    });
   }
 
   getTransactionCompletedTemplate(userName: string, transactionData: any): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Transaction Completed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .transaction-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Transaction Completed!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Your transaction has been successfully completed.</p>
-            <div class="transaction-details">
-              <h3>Transaction Details:</h3>
-              <p><strong>Amount:</strong> $${transactionData.amount}</p>
-              <p><strong>Status:</strong> ${transactionData.status}</p>
-              <p><strong>Payment Method:</strong> ${transactionData.paymentMethod}</p>
-            </div>
-            <p>Thank you for using GoHappyGo!</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Transaction Completed - GoHappyGo',
+      headerTitle: 'Transaction Completed!',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>Your transaction has been successfully completed.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Transaction Details:</h3>
+          <p><strong>Amount:</strong> $${transactionData.amount}</p>
+          <p><strong>Status:</strong> ${transactionData.status}</p>
+          <p><strong>Payment Method:</strong> ${transactionData.paymentMethod}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p>Thank you for using GoHappyGo!</p>`,
+    });
   }
 
   getEmailVerificationTemplate(userName: string, verificationCode: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Welcome to GoHappyGo - Email Verification</title>
-        <style>
-          body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            line-height: 1.6; 
-            color: #333; 
-            margin: 0; 
-            padding: 0; 
-            background-color: #f4f4f4;
-          }
-          .container { 
-            max-width: 600px; 
-            margin: 20px auto; 
-            background: white; 
-            border-radius: 10px; 
-            overflow: hidden; 
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header { 
-            background: linear-gradient(135deg, #4CAF50, #45a049); 
-            color: white; 
-            padding: 30px 20px; 
-            text-align: center; 
-          }
-          .header h1 { 
-            margin: 0; 
-            font-size: 28px; 
-            font-weight: 300;
-          }
-          .header p { 
-            margin: 10px 0 0 0; 
-            font-size: 16px; 
-            opacity: 0.9;
-          }
-          .content { 
-            padding: 40px 30px; 
-            background: white;
-          }
-          .welcome-section {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .welcome-section h2 {
-            color: #4CAF50;
-            font-size: 24px;
-            margin-bottom: 10px;
-          }
-          .welcome-section p {
-            font-size: 16px;
-            color: #666;
-            margin-bottom: 20px;
-          }
-          .verification-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 8px;
-            border-left: 4px solid #4CAF50;
-            margin: 25px 0;
-          }
-          .verification-code { 
-            font-size: 32px; 
-            font-weight: bold; 
-            text-align: center; 
-            padding: 20px; 
-            background: #e8f5e8; 
-            margin: 20px 0; 
-            border-radius: 8px;
-            letter-spacing: 3px;
-            color: #2e7d32;
-            border: 2px dashed #4CAF50;
-          }
-          .instructions {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-          }
-          .instructions h4 {
-            margin: 0 0 10px 0;
-            color: #856404;
-          }
-          .instructions ul {
-            margin: 0;
-            padding-left: 20px;
-          }
-          .instructions li {
-            margin-bottom: 5px;
-            color: #856404;
-          }
-          .cta-button {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: bold;
-            margin: 20px 0;
-            transition: background-color 0.3s;
-          }
-          .cta-button:hover {
-            background: #45a049;
-          }
-          .footer { 
-            text-align: center; 
-            padding: 30px 20px; 
-            background: #f8f9fa;
-            color: #666; 
-            font-size: 14px;
-            border-top: 1px solid #e9ecef;
-          }
-          .social-links {
-            margin: 20px 0;
-          }
-          .social-links a {
-            color: #4CAF50;
-            text-decoration: none;
-            margin: 0 10px;
-          }
-          .expiry-notice {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #0c5460;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Welcome to GoHappyGo!</h1>
-            <p>Your journey to seamless package delivery starts here</p>
-          </div>
-          
-          <div class="content">
-            <div class="welcome-section">
-              <h2>Hello ${userName}! 👋</h2>
-              <p>We're thrilled to have you join the GoHappyGo community! You're just one step away from connecting with travelers and senders worldwide.</p>
-            </div>
-
-            <div class="verification-section">
-              <h3 style="color: #4CAF50; margin-top: 0;">📧 Verify Your Email Address</h3>
-              <p>To complete your registration and start using GoHappyGo, please verify your email address using the code below:</p>
-              
-            <div class="verification-code">${verificationCode}</div>
-              
-              <div class="instructions">
-                <h4>🔐 How to verify:</h4>
-                <ul>
-                  <li>Copy the verification code above</li>
-                  <li>Return to the GoHappyGo app or website</li>
-                  <li>Paste the code in the verification field</li>
-                  <li>Click "Verify Email" to complete your registration</li>
-                </ul>
-              </div>
-
-              <div class="expiry-notice">
-                <strong>⏰ Important:</strong> This verification code will expire in 10 minutes for security reasons.
-              </div>
-            </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <h3 style="color: #4CAF50;">What's Next?</h3>
-              <p>Once verified, you'll be able to:</p>
-              <ul style="text-align: left; display: inline-block; color: #666;">
-                <li>📦 Post delivery requests for your packages</li>
-                <li>✈️ Offer extra luggage space for travelers</li>
-                <li>🤝 Connect with trusted community members</li>
-                <li>💰 Earn money by helping others with deliveries</li>
-              </ul>
-            </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <p style="color: #666; font-size: 14px;">
-                If you didn't create an account with GoHappyGo, please ignore this email. 
-                Your account will not be activated without email verification.
-              </p>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <div class="social-links">
-              <a href="${this.baseUrl}/download-app"> Download App</a>
-              <a href="${this.baseUrl}">🌐 Visit Website</a>
-              <a href="${this.baseUrl}/support">📞 Support</a>
-            </div>
-            <p><strong>GoHappyGo</strong> - Connecting travelers and senders worldwide</p>
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-            <p style="font-size: 12px; color: #999;">
-              This email was sent to you because you registered for a GoHappyGo account. 
-              If you have any questions, please contact our support team.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Welcome to GoHappyGo - Email Verification',
+      headerTitle: '🎉 Welcome to GoHappyGo!',
+      headerSubtitle: 'Your journey to seamless package delivery starts here',
+      headerVariant: 'success',
+      footerNote: 'This email was sent to you because you registered for a GoHappyGo account. If you have any questions, please contact our support team.',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName}! 👋`, EMAIL_BRAND.green)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 12px;color:${EMAIL_BRAND.green};">📧 Verify Your Email Address</h3>
+          <p>To complete your registration and start using GoHappyGo, please verify your email address using the code below:</p>
+          ${emailCodeBlock(verificationCode)}
+          ${emailPanel(`
+            <h4 style="margin:0 0 8px;">🔐 How to verify:</h4>
+            <ul style="margin:0;padding-left:20px;">
+              <li>Copy the verification code above</li>
+              <li>Return to the GoHappyGo app or website</li>
+              <li>Paste the code in the verification field</li>
+              <li>Click "Verify Email" to complete your registration</li>
+            </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+          ${emailPanel(`<strong>⏰ Important:</strong> This verification code will expire in 10 minutes for security reasons.`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p style="text-align:center;color:${EMAIL_BRAND.muted};font-size:14px;">
+          If you didn't create an account with GoHappyGo, please ignore this email.
+          Your account will not be activated without email verification.
+        </p>
+        <p style="text-align:center;margin-top:16px;">
+          <a href="${this.baseUrl}/download-app" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">Download App</a>
+          <a href="${this.baseUrl}" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">🌐 Visit Website</a>
+          <a href="${this.baseUrl}/support" style="color:${EMAIL_BRAND.green};text-decoration:none;margin:0 8px;">📞 Support</a>
+        </p>`,
+    });
   }
 
-  // Add this method to generate verification status email templates
   getVerificationStatusTemplate(
-    firstName: string, 
-    isApproved: boolean, 
-    reason?: string
+    firstName: string,
+    isApproved: boolean,
+    reason?: string,
   ): string {
     const statusText = isApproved ? 'approved' : 'rejected';
-    const statusColor = isApproved ? '#28a745' : '#dc3545';
     const statusIcon = isApproved ? '✅' : '❌';
 
     const rejectionContent = `
-      <div class="alert alert-warning">
-        <h4>What happens next?</h4>
-        <ul>
+      ${emailPanel(`
+        <h4 style="margin:0 0 8px;">What happens next?</h4>
+        <ul style="margin:0;padding-left:20px;">
           <li>Your previous verification documents have been removed</li>
           <li>Please upload new, clear verification documents</li>
           <li>Ensure all documents are valid and clearly visible</li>
           <li>You can resubmit your verification at any time</li>
-        </ul>
-      </div>
-      
-      <div class="alert alert-info">
-        <h4>How to resubmit:</h4>
-        <ol>
+        </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+      ${emailPanel(`
+        <h4 style="margin:0 0 8px;">How to resubmit:</h4>
+        <ol style="margin:0;padding-left:20px;">
           <li>Log into your GoHappyGo account</li>
           <li>Go to your profile settings</li>
           <li>Upload new verification documents (Selfie, ID Front, ID Back)</li>
           <li>Submit for review</li>
-        </ol>
-      </div>
-    `;
+        </ol>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Account Verification ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: ${statusColor}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
-          .status-box { background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor}; }
-          .footer { text-align: center; margin-top: 30px; color: #6c757d; font-size: 14px; }
-          .alert { padding: 15px; margin: 15px 0; border-radius: 4px; }
-          .alert-warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
-          .alert-info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>${statusIcon} Account Verification ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}</h1>
-          </div>
-          
-          <div class="content">
-            <p>Dear ${firstName},</p>
-            
-            <div class="status-box">
-              <h3>Your account verification has been <strong>${statusText}</strong></h3>
-              ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-            </div>
-            
-            ${isApproved ? `
-              <p>🎉 Congratulations! Your account has been successfully verified. You can now access all features of GoHappyGo.</p>
-              <p>If you have any questions, please don't hesitate to contact our support team.</p>
-            ` : rejectionContent}
-            
-            <p>Thank you for choosing GoHappyGo!</p>
-          </div>
-          
-          <div class="footer">
-            <p>This is an automated message from GoHappyGo. Please do not reply to this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: `Account Verification ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}`,
+      headerTitle: `${statusIcon} Account Verification ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}`,
+      headerVariant: isApproved ? 'success' : 'danger',
+      bodyHtml: `
+        <p>Dear ${firstName},</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Your account verification has been <strong>${statusText}</strong></h3>
+          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}`, isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink, isApproved ? EMAIL_BRAND.successBg : EMAIL_BRAND.dangerBg)}
+        ${isApproved
+          ? `<p>🎉 Congratulations! Your account has been successfully verified. You can now access all features of GoHappyGo.</p>
+             <p>If you have any questions, please don't hesitate to contact our support team.</p>`
+          : rejectionContent}
+        <p>Thank you for choosing GoHappyGo!</p>`,
+    });
   }
 
   getRequestCreatedTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Created - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Request Submitted Successfully!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>Your delivery request has been successfully submitted and is now being reviewed.</p>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-                      <p><strong>Weight:</strong> ${event.weight}kg</p>
-
-            </div>
-            
-            <p><strong>What happens next?</strong></p>
-            <ul>
-              <li>The travel/demand owner will review your request</li>
-              <li>You'll receive a notification when they respond</li>
-              <li>You can track your request status in your dashboard</li>
-            </ul>
-            
-            <p>We'll keep you updated on any changes to your request status.</p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Created - GoHappyGo',
+      headerTitle: 'Request Submitted Successfully!',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.green)}
+        <p>Your delivery request has been successfully submitted and is now being reviewed.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight}kg</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p><strong>What happens next?</strong></p>
+        <ul>
+          <li>The travel/demand owner will review your request</li>
+          <li>You'll receive a notification when they respond</li>
+          <li>You can track your request status in your dashboard</li>
+        </ul>
+        <p>We'll keep you updated on any changes to your request status.</p>`,
+    });
   }
 
   getRequestCreatedForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>New Request Received - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .requester-info { background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .action-button { background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>New Request Received!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>You have received a new delivery request for your travel/demand.</p>
-            
-            <div class="requester-info">
-              <h3>Requester Information:</h3>
-              <p><strong>Name:</strong> ${event.userFirstName}</p>
-              <p><strong>Email:</strong> ${event.userEmail}</p>
-            </div>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Weight:</strong> ${event.weight}kg</p>
-
-              <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-            </div>
-            
-            <p><strong>Next Steps:</strong></p>
-            <ul>
-              <li>Review the request details carefully</li>
-              <li>Check if you can accommodate the package</li>
-              <li>Respond to the requester through your dashboard</li>
-              <li>Accept or decline the request</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;" href="${this.baseUrl}/profile/reservations" class="action-button">View Request in Dashboard</a>
-            </p>
-            
-            <p><em>Please respond to this request as soon as possible to maintain good service quality.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'New Request Received - GoHappyGo',
+      headerTitle: 'New Request Received!',
+      headerVariant: 'warning',
+      ctaLabel: 'View Request in Dashboard',
+      ctaUrl: `${this.baseUrl}/profile/reservations`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.orange)}
+        <p>You have received a new delivery request for your travel/demand.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Requester Information:</h3>
+          <p><strong>Name:</strong> ${event.userFirstName}</p>
+          <p><strong>Email:</strong> ${event.userEmail}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight}kg</p>
+          <p><strong>Submitted:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p><strong>Next Steps:</strong></p>
+        <ul>
+          <li>Review the request details carefully</li>
+          <li>Check if you can accommodate the package</li>
+          <li>Respond to the requester through your dashboard</li>
+          <li>Accept or decline the request</li>
+        </ul>
+        <p><em>Please respond to this request as soon as possible to maintain good service quality.</em></p>`,
+    });
   }
 
   getRequestCompletedTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Delivery Completed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #28a745; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .completed-badge { background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #d1ecf1; padding: 10px; border-radius: 5px; border-left: 4px solid #17a2b8; }
-          .rating-section { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1> Delivery Completed!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>Excellent news! Your delivery request has been successfully completed.</p>
-            
-            <div class="highlight">
-              <p><strong>✅ Status:</strong> <span class="completed-badge">COMPLETED</span></p>
-              <p>Your package has been delivered as requested.</p>
-            </div>
-            
-            <div class="request-details">
-              <h3>Delivery Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Weight:</strong> ${event.weight}kg</p>
-
-              <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-            </div>
-            
-            <div class="rating-section">
-              <h3>⭐ Rate Your Experience</h3>
-              <p>Help us improve our service by rating your delivery experience.</p>
-              <p style="text-align: center;">
-                <a href="${this.baseUrl}/profile/reviews" class="action-button">Rate Delivery</a>
-              </p>
-            </div>
-            
-            <p><strong>What's next?</strong></p>
-            <ul>
-              <li>Review and rate the delivery service</li>
-              <li>Complete any final payments if needed</li>
-              <li>Share your experience with other users</li>
-              <li>Book your next delivery with GoHappyGo</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/reservations" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Delivery Summary</a>
-            </p>
-            
-            <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Delivery Completed - GoHappyGo',
+      headerTitle: 'Delivery Completed!',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.green)}
+        <p>Excellent news! Your delivery request has been successfully completed.</p>
+        ${emailPanel(`
+          <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
+          <p>Your package has been delivered as requested.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Delivery Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight}kg</p>
+          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;text-align:center;">⭐ Rate Your Experience</h3>
+          <p style="text-align:center;">Help us improve our service by rating your delivery experience.</p>
+          ${emailButton(`${this.baseUrl}/profile/reviews`, 'Rate Delivery', EMAIL_BRAND.blue)}`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p><strong>What's next?</strong></p>
+        <ul>
+          <li>Review and rate the delivery service</li>
+          <li>Complete any final payments if needed</li>
+          <li>Share your experience with other users</li>
+          <li>Book your next delivery with GoHappyGo</li>
+        </ul>
+        ${emailButton(`${this.baseUrl}/profile/reservations`, 'View Delivery Summary', EMAIL_BRAND.green)}
+        <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>`,
+    });
   }
 
   getRequestCancelledForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Cancelled - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .cancelled-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .info-box { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
-          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Request Cancelled</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>We're writing to inform you that a request on your travel/demand has been cancelled.</p>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
-              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-              <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
-            </div>
-            
-            <div class="info-box">
-              <h3>ℹ️ Important Information</h3>
-              <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
-              <p>You can continue to receive other requests for your travel/demand.</p>
-            </div>
-            
-            <p><strong>What can you do?</strong></p>
-            <ul>
-              <li>Check your travel/demand status and available weight</li>
-              <li>Wait for new requests from other users</li>
-              <li>Contact support if you have any questions</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/travels" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>Thank you for using GoHappyGo!</p>
-            <p>If you have any questions, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Cancelled - GoHappyGo',
+      headerTitle: 'Request Cancelled',
+      headerVariant: 'danger',
+      ctaLabel: 'View My Travels',
+      ctaUrl: `${this.baseUrl}/profile/travels`,
+      footerNote: 'Thank you for using GoHappyGo! If you have any questions, please contact our support team.',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>We're writing to inform you that a request on your travel/demand has been cancelled.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
+          <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+          <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
+          <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
+          <p>You can continue to receive other requests for your travel/demand.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Check your travel/demand status and available weight</li>
+          <li>Wait for new requests from other users</li>
+          <li>Contact support if you have any questions</li>
+        </ul>`,
+    });
   }
 
   getRequestCancelledTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Cancelled - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .cancelled-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .refund-info { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
-          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Request Cancelled</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>We regret to inform you that your delivery request has been cancelled.</p>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-              <p><strong>Status:</strong> <span class="cancelled-badge">CANCELLED</span></p>
-            </div>
-            
-            <div class="refund-info">
-              <h3>💰 Refund Information</h3>
-              <p>If you had made a payment for this request, a full refund has been processed and will be credited back to your original payment method within 5-10 business days.</p>
-              <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>
-            </div>
-            
-            <p><strong>What can you do?</strong></p>
-            <ul>
-              <li>Browse other available travels or demands</li>
-              <li>Create a new request for a different travel</li>
-              <li>Contact support if you have any questions</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse Available Travels</a>
-            </p>
-            
-            <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Cancelled - GoHappyGo',
+      headerTitle: 'Request Cancelled',
+      headerVariant: 'danger',
+      ctaLabel: 'Browse Available Travels',
+      ctaUrl: `${this.baseUrl}/annonces`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>We regret to inform you that your delivery request has been cancelled.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+          <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">💰 Refund Information</h3>
+          <p>If you had made a payment for this request, a full refund has been processed and will be credited back to your original payment method within 5-10 business days.</p>
+          <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Browse other available travels or demands</li>
+          <li>Create a new request for a different travel</li>
+          <li>Contact support if you have any questions</li>
+        </ul>
+        <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>`,
+    });
   }
 
   /**
@@ -1222,329 +600,155 @@ export class EmailTemplatesService {
     const safeRequestId = this.escapeHtml(event.requestId);
     const safeRequestType = this.escapeHtml(event.requestType);
     const safeWeight = event.weight != null ? this.escapeHtml(String(event.weight)) + 'kg' : 'N/A';
-    const safeBaseUrl = this.escapeHtml(this.baseUrl);
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Your GoHappyGo request – action needed</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .details-box { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
-          .request-info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .action-button { background: #17a2b8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Your GoHappyGo request – action needed</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${safeName},</h2>
-            <p>We were unable to complete your delivery request because we could not process the payment when the traveler tried to accept it.</p>
 
-            <div class="details-box">
-              <h3>Details</h3>
-              <p>${safeMessage}</p>
-            </div>
-
-            <div class="request-info">
-              <h3>Request</h3>
-              <p><strong>Request ID:</strong> #${safeRequestId}</p>
-              <p><strong>Type:</strong> ${safeRequestType}</p>
-              <p><strong>Weight:</strong> ${safeWeight}</p>
-            </div>
-
-            <p><strong>Next steps</strong></p>
-            <ul>
-              <li>Update your payment method (for example, use a different card or ensure sufficient funds)</li>
-              <li>Create a new request for the same or another trip</li>
-              <li>Contact support if you need help</li>
-            </ul>
-
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Create a new request</a>
-            </p>
-
-            <p><em>No charge was made. You can submit a new request with an updated payment method when you are ready.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const html = this.wrapEmail({
+      title: 'Your GoHappyGo request – action needed',
+      headerTitle: 'Your GoHappyGo request – action needed',
+      headerVariant: 'info',
+      ctaLabel: 'Create a new request',
+      ctaUrl: `${this.baseUrl}/annonces`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${safeName},`)}
+        <p>We were unable to complete your delivery request because we could not process the payment when the traveler tried to accept it.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Details</h3>
+          <p>${safeMessage}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request</h3>
+          <p><strong>Request ID:</strong> #${safeRequestId}</p>
+          <p><strong>Type:</strong> ${safeRequestType}</p>
+          <p><strong>Weight:</strong> ${safeWeight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>Next steps</strong></p>
+        <ul>
+          <li>Update your payment method (for example, use a different card or ensure sufficient funds)</li>
+          <li>Create a new request for the same or another trip</li>
+          <li>Contact support if you need help</li>
+        </ul>
+        <p><em>No charge was made. You can submit a new request with an updated payment method when you are ready.</em></p>`,
+    });
     this.logger.log(`[Payment-failure template] Built: htmlLength=${html.length}`);
     return html;
   }
 
   getRequestCompletedForOwnerTemplate(userFirstName: string, event: RequestEvent, fundStatus?: 'pending_funds' | 'pending_onboarding' | 'released'): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Delivery Successfully Completed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .requester-info { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .completed-badge { background: #28a745; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .action-button { background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #d1ecf1; padding: 10px; border-radius: 5px; border-left: 4px solid #17a2b8; }
-          .earnings-section { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Delivery Completed Successfully!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>Congratulations! You have successfully completed a delivery request.</p>
-            
-            <div class="highlight">
-              <p><strong>✅ Status:</strong> <span class="completed-badge">COMPLETED</span></p>
-              <p>Great job on completing this delivery successfully!</p>
-            </div>
-            
-            <div class="requester-info">
-              <h3>Client Information:</h3>
-              <p><strong>Name:</strong> ${event.userFirstName}</p>
-              <p><strong>Email:</strong> ${event.userEmail}</p>
-            </div>
-            
-            <div class="request-details">
-              <h3>Delivery Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Weight:</strong> ${event.weight}kg</p>
-              <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-            </div>
-            
-            <div class="earnings-section">
-              <h3> Earnings Summary</h3>
-              ${fundStatus === 'pending_funds' 
-                ? `<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                    <p style="margin: 0; color: #856404;"><strong>⏳ Payment Pending:</strong> Your payment is pending. Funds will be released once they become available in our Stripe account (typically within 1-2 business days). You will receive a notification email when the funds are released.</p>
-                   </div>`
-                : fundStatus === 'pending_onboarding'
-                ? `<div style="background: #d1ecf1; border: 1px solid #17a2b8; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                    <p style="margin: 0; color: #0c5460;"><strong>📋 Onboarding Required:</strong> Your payment is pending. Please complete your Stripe onboarding to receive funds. Once you complete the onboarding process, your funds will be automatically released.</p>
-                    <p style="margin: 10px 0 0 0;"><a href="${this.baseUrl}/stripe/onboarding" style="color: #17a2b8; text-decoration: underline;">Complete Stripe Onboarding →</a></p>
-                   </div>`
-                : `<p>Your earnings will be processed according to our payment schedule.</p>`
-              }
-            </div>
-            
-            <p><strong>What's next?</strong></p>
-            <ul>
-              ${fundStatus === 'pending_funds' || fundStatus === 'pending_onboarding'
-                ? `<li>Your earnings are secured and will be transferred once ${fundStatus === 'pending_funds' ? 'funds become available' : 'you complete onboarding'}</li>`
-                : `<li>Your earnings will be processed and transferred</li>`
-              }
-              <li>You may receive a rating from the client</li>
-              <li>Consider taking on more delivery requests</li>
-              <li>Build your reputation as a reliable traveler</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/reservations" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Earnings</a>
-            </p>
-            
-            <p><em>Thank you for being a trusted GoHappyGo traveler! Keep up the excellent work.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const fundStatusPanel =
+      fundStatus === 'pending_funds'
+        ? emailPanel(
+            `<p style="margin:0;"><strong>⏳ Payment Pending:</strong> Your payment is pending. Funds will be released once they become available in our Stripe account (typically within 1-2 business days). You will receive a notification email when the funds are released.</p>`,
+            EMAIL_BRAND.orange,
+            EMAIL_BRAND.warningBg,
+          )
+        : fundStatus === 'pending_onboarding'
+          ? emailPanel(
+              `<p style="margin:0;"><strong>📋 Onboarding Required:</strong> Your payment is pending. Please complete your Stripe onboarding to receive funds. Once you complete the onboarding process, your funds will be automatically released.</p>
+               <p style="margin:10px 0 0 0;"><a href="${this.baseUrl}/stripe/onboarding" style="color:${EMAIL_BRAND.blue};text-decoration:underline;">Complete Stripe Onboarding →</a></p>`,
+              EMAIL_BRAND.blue,
+              EMAIL_BRAND.infoBg,
+            )
+          : `<p>Your earnings will be processed according to our payment schedule.</p>`;
+
+    return this.wrapEmail({
+      title: 'Delivery Successfully Completed - GoHappyGo',
+      headerTitle: '✅ Delivery Completed Successfully!',
+      headerVariant: 'info',
+      ctaLabel: 'View Earnings',
+      ctaUrl: `${this.baseUrl}/profile/reservations`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>Congratulations! You have successfully completed a delivery request.</p>
+        ${emailPanel(`
+          <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
+          <p>Great job on completing this delivery successfully!</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Client Information:</h3>
+          <p><strong>Name:</strong> ${event.userFirstName}</p>
+          <p><strong>Email:</strong> ${event.userEmail}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Delivery Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight}kg</p>
+          <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;text-align:center;">Earnings Summary</h3>
+          ${fundStatusPanel}`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p><strong>What's next?</strong></p>
+        <ul>
+          ${fundStatus === 'pending_funds' || fundStatus === 'pending_onboarding'
+            ? `<li>Your earnings are secured and will be transferred once ${fundStatus === 'pending_funds' ? 'funds become available' : 'you complete onboarding'}</li>`
+            : `<li>Your earnings will be processed and transferred</li>`}
+          <li>You may receive a rating from the client</li>
+          <li>Consider taking on more delivery requests</li>
+          <li>Build your reputation as a reliable traveler</li>
+        </ul>
+        <p><em>Thank you for being a trusted GoHappyGo traveler! Keep up the excellent work.</em></p>`,
+    });
   }
 
   getKycStartedTemplate(userName: string, redirectUrl: string, sessionId: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>KYC Verification Started - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px; }
-          .button { 
-            display: inline-block; 
-            background-color: #007bff; 
-            color: white; 
-            padding: 15px 30px; 
-            text-decoration: none; 
-            border-radius: 5px; 
-            margin: 20px 0;
-            font-weight: bold;
-          }
-          .info-box { 
-            background: #e7f3ff; 
-            border-left: 4px solid #007bff; 
-            padding: 15px; 
-            margin: 20px 0; 
-          }
-          .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🔐 KYC Verification Started</h1>
-          </div>
-          <div class="content">
-            <p>Hello <strong>${userName}</strong>,</p>
-            
-            <p>Your KYC (Know Your Customer) verification process has been initiated successfully.</p>
-            
-            <div class="info-box">
-              <h3>What's next?</h3>
-              <ul>
-                <li>Click the button below to complete your identity verification</li>
-                <li>You'll need to provide a valid ID document and take a selfie</li>
-                <li>The process usually takes 2-5 minutes to complete</li>
-                <li>You'll receive an email notification once verification is complete</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center;">
-              <a href="${redirectUrl}" class="button">Complete KYC Verification</a>
-            </div>
-            
-            <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
-            
-            <p>If you have any questions or need assistance, please contact our support team.</p>
-            
-            <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>This is an automated message. Please do not reply to this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'KYC Verification Started - GoHappyGo',
+      headerTitle: '🔐 KYC Verification Started',
+      headerVariant: 'info',
+      ctaLabel: 'Complete KYC Verification',
+      ctaUrl: redirectUrl,
+      footerNote: 'This is an automated message. Please do not reply to this email.',
+      bodyHtml: `
+        <p>Hello <strong>${userName}</strong>,</p>
+        <p>Your KYC (Know Your Customer) verification process has been initiated successfully.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">What's next?</h3>
+          <ul style="margin:0;padding-left:20px;">
+            <li>Click the button below to complete your identity verification</li>
+            <li>You'll need to provide a valid ID document and take a selfie</li>
+            <li>The process usually takes 2-5 minutes to complete</li>
+            <li>You'll receive an email notification once verification is complete</li>
+          </ul>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
+        <p>If you have any questions or need assistance, please contact our support team.</p>
+        <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
+    });
   }
 
   getKycCompletedTemplate(
-    userName: string, 
-    status: 'approved' | 'rejected' | 'failed', 
+    userName: string,
+    status: 'approved' | 'rejected' | 'failed',
     sessionId: string,
-    reason?: string
+    reason?: string,
   ): string {
     const isApproved = status === 'approved';
-    const statusColor = isApproved ? '#28a745' : '#dc3545';
-    const statusBg = isApproved ? '#d4edda' : '#f8d7da';
-    const statusBorder = isApproved ? '#c3e6cb' : '#f5c6cb';
-    const statusIcon = isApproved ? '✅' : '❌';
     const statusText = isApproved ? 'Approved' : 'Not Approved';
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>KYC Verification ${statusText} - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { 
-            background-color: ${statusBg}; 
-            color: ${statusColor}; 
-            padding: 20px; 
-            text-align: center; 
-            border-radius: 8px 8px 0 0;
-            border: 1px solid ${statusBorder};
-          }
-          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 8px 8px; }
-          .status-badge {
-            display: inline-block;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: bold;
-            color: white;
-            background-color: ${statusColor};
-            font-size: 16px;
-          }
-          .info-box { 
-            background: ${statusBg}; 
-            border-left: 4px solid ${statusColor}; 
-            padding: 15px; 
-            margin: 20px 0; 
-          }
-          .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>${statusIcon} KYC Verification ${statusText}</h1>
-          </div>
-          <div class="content">
-            <p>Hello <strong>${userName}</strong>,</p>
-            
-            <p>${isApproved 
-              ? 'Congratulations! Your identity has been successfully verified.' 
-              : 'Unfortunately, your identity verification was not approved.'}</p>
-            
-            <div style="text-align: center; margin: 20px 0;">
-              <span class="status-badge">${status.toUpperCase()}</span>
-            </div>
-            
-            <div class="info-box">
-              <h3>Next Steps:</h3>
-              <p>${isApproved
-                ? 'You can now enjoy all features of the GoHappyGo platform, including creating travel announcements and delivery requests.'
-                : 'Please contact our support team for assistance or try the verification process again.'}</p>
-            </div>
-            
-            ${!isApproved ? `
-              <div class="info-box">
-                <h3>Common reasons for rejection:</h3>
-                <ul>
-                  <li>Document image quality is too low</li>
-                  <li>Document is expired or invalid</li>
-                  <li>Face doesn't match the document photo</li>
-                  <li>Document type is not supported</li>
-                </ul>
-              </div>
-            ` : ''}
-            
-            <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
-            
-            <p>If you have any questions or need assistance, please contact our support team.</p>
-            
-            <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>This is an automated message. Please do not reply to this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: `KYC Verification ${statusText} - GoHappyGo`,
+      headerTitle: `${isApproved ? '✅' : '❌'} KYC Verification ${statusText}`,
+      headerVariant: isApproved ? 'success' : 'danger',
+      footerNote: 'This is an automated message. Please do not reply to this email.',
+      bodyHtml: `
+        <p>Hello <strong>${userName}</strong>,</p>
+        <p>${isApproved
+          ? 'Congratulations! Your identity has been successfully verified.'
+          : 'Unfortunately, your identity verification was not approved.'}</p>
+        <p style="text-align:center;">${emailBadge(status.toUpperCase(), isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink)}</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Next Steps:</h3>
+          <p>${isApproved
+            ? 'You can now enjoy all features of the GoHappyGo platform, including creating travel announcements and delivery requests.'
+            : 'Please contact our support team for assistance or try the verification process again.'}</p>`, isApproved ? EMAIL_BRAND.green : EMAIL_BRAND.pink, isApproved ? EMAIL_BRAND.successBg : EMAIL_BRAND.dangerBg)}
+        ${!isApproved ? emailPanel(`
+          <h3 style="margin:0 0 8px;">Common reasons for rejection:</h3>
+          <ul style="margin:0;padding-left:20px;">
+            <li>Document image quality is too low</li>
+            <li>Document is expired or invalid</li>
+            <li>Face doesn't match the document photo</li>
+            <li>Document type is not supported</li>
+          </ul>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg) : ''}
+        <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
+        <p>If you have any questions or need assistance, please contact our support team.</p>
+        <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
+    });
   }
 
-  // Support request notification to admin/operator
   getSupportRequestReceivedTemplate(supportData: {
     requestId: number;
     email: string;
@@ -1552,270 +756,122 @@ export class EmailTemplatesService {
     category: string;
     requesterType: string;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>New Support Request Received</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #FF5722; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #FF5722; }
-          .message-box { background: #fff3e0; padding: 15px; margin: 15px 0; border-radius: 5px; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🆘 New Support Request</h1>
-          </div>
-          <div class="content">
-            <p>A new support request has been submitted and requires your attention.</p>
-            
-            <div class="info-box">
-              <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-              <p><strong>From:</strong> ${supportData.email}</p>
-              <p><strong>Requester Type:</strong> ${supportData.requesterType}</p>
-              <p><strong>Category:</strong> ${supportData.category}</p>
-            </div>
-            
-            <div class="message-box">
-              <p><strong>Message:</strong></p>
-              <p>${supportData.message}</p>
-            </div>
-            
-            <p>Please log into the admin panel to respond to this request.</p>
-          </div>
-          <div class="footer">
-            <p>GoHappyGo Support System - Internal Notification</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'New Support Request Received',
+      headerTitle: '🆘 New Support Request',
+      headerVariant: 'warning',
+      footerNote: 'GoHappyGo Support System - Internal Notification',
+      bodyHtml: `
+        <p>A new support request has been submitted and requires your attention.</p>
+        ${emailPanel(`
+          <p><strong>Request ID:</strong> #${supportData.requestId}</p>
+          <p><strong>From:</strong> ${supportData.email}</p>
+          <p><strong>Requester Type:</strong> ${supportData.requesterType}</p>
+          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <p><strong>Message:</strong></p>
+          <p>${supportData.message}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p>Please log into the admin panel to respond to this request.</p>`,
+    });
   }
 
-  // Support request confirmation to requester
   getSupportRequestConfirmationTemplate(supportData: {
     requestId: number;
     email: string;
     category: string;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Support Request Received</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Support Request Received</h1>
-          </div>
-          <div class="content">
-            <p>Thank you for contacting GoHappyGo Support!</p>
-            
-            <p>We have received your support request and our team will review it shortly.</p>
-            
-            <div class="info-box">
-              <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-              <p><strong>Email:</strong> ${supportData.email}</p>
-              <p><strong>Category:</strong> ${supportData.category}</p>
-            </div>
-            
-            <p>You will receive a response via email as soon as one of our support team members reviews your request.</p>
-            
-            <p>For urgent matters, please contact us directly.</p>
-            
-            <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>This is an automated confirmation. Please do not reply to this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Support Request Received',
+      headerTitle: '✅ Support Request Received',
+      headerVariant: 'success',
+      footerNote: 'This is an automated confirmation. Please do not reply to this email.',
+      bodyHtml: `
+        <p>Thank you for contacting GoHappyGo Support!</p>
+        <p>We have received your support request and our team will review it shortly.</p>
+        ${emailPanel(`
+          <p><strong>Request ID:</strong> #${supportData.requestId}</p>
+          <p><strong>Email:</strong> ${supportData.email}</p>
+          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p>You will receive a response via email as soon as one of our support team members reviews your request.</p>
+        <p>For urgent matters, please contact us directly.</p>
+        <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
+    });
   }
 
-  // Operator response notification to requester
   getSupportResponseFromOperatorTemplate(supportData: {
     requestId: number;
     email: string;
     message: string;
     category: string;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Response to Your Support Request</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3; }
-          .message-box { background: #e3f2fd; padding: 15px; margin: 15px 0; border-radius: 5px; }
-          .button { display: inline-block; padding: 12px 24px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>💬 Response from GoHappyGo Support</h1>
-          </div>
-          <div class="content">
-            <p>Hello,</p>
-            
-            <p>Our support team has responded to your request:</p>
-            
-            <div class="info-box">
-              <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-              <p><strong>Category:</strong> ${supportData.category}</p>
-            </div>
-            
-            <div class="message-box">
-              <p><strong>Response from our team:</strong></p>
-              <p>${supportData.message}</p>
-            </div>
-            
-            <p>If you need further assistance, you can reply to this support request by logging into your account.</p>
-            
-            <a href="${this.baseUrl}/support/${supportData.requestId}" class="button">View Support Request</a>
-            
-            <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>GoHappyGo Support - ${supportData.email}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Response to Your Support Request',
+      headerTitle: '💬 Response from GoHappyGo Support',
+      headerVariant: 'info',
+      ctaLabel: 'View Support Request',
+      ctaUrl: `${this.baseUrl}/support/${supportData.requestId}`,
+      footerNote: `GoHappyGo Support - ${supportData.email}`,
+      bodyHtml: `
+        <p>Hello,</p>
+        <p>Our support team has responded to your request:</p>
+        ${emailPanel(`
+          <p><strong>Request ID:</strong> #${supportData.requestId}</p>
+          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <p><strong>Response from our team:</strong></p>
+          <p>${supportData.message}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>If you need further assistance, you can reply to this support request by logging into your account.</p>
+        <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
+    });
   }
 
-  // User reply notification to operator
   getSupportReplyFromUserTemplate(supportData: {
     requestId: number;
     email: string;
     message: string;
     category: string;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>User Reply to Support Request</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #FF9800; }
-          .message-box { background: #fff3e0; padding: 15px; margin: 15px 0; border-radius: 5px; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>↩️ User Reply Received</h1>
-          </div>
-          <div class="content">
-            <p>A user has replied to support request #${supportData.requestId}.</p>
-            
-            <div class="info-box">
-              <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-              <p><strong>From:</strong> ${supportData.email}</p>
-              <p><strong>Category:</strong> ${supportData.category}</p>
-            </div>
-            
-            <div class="message-box">
-              <p><strong>User's reply:</strong></p>
-              <p>${supportData.message}</p>
-            </div>
-            
-            <p>Please log into the admin panel to respond.</p>
-          </div>
-          <div class="footer">
-            <p>GoHappyGo Support System - Internal Notification</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'User Reply to Support Request',
+      headerTitle: '↩️ User Reply Received',
+      headerVariant: 'warning',
+      footerNote: 'GoHappyGo Support System - Internal Notification',
+      bodyHtml: `
+        <p>A user has replied to support request #${supportData.requestId}.</p>
+        ${emailPanel(`
+          <p><strong>Request ID:</strong> #${supportData.requestId}</p>
+          <p><strong>From:</strong> ${supportData.email}</p>
+          <p><strong>Category:</strong> ${supportData.category}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <p><strong>User's reply:</strong></p>
+          <p>${supportData.message}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p>Please log into the admin panel to respond.</p>`,
+    });
   }
 
-  // Support request closed notification
   getSupportRequestClosedTemplate(supportData: {
     requestId: number;
     email: string;
     category: string;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Support Request Closed</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
-          .button { display: inline-block; padding: 12px 24px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✓ Support Request Resolved</h1>
-          </div>
-          <div class="content">
-            <p>Hello,</p>
-            
-            <p>Your support request has been marked as resolved and closed.</p>
-            
-            <div class="info-box">
-              <p><strong>Request ID:</strong> #${supportData.requestId}</p>
-              <p><strong>Category:</strong> ${supportData.category}</p>
-              <p><strong>Status:</strong> CLOSED</p>
-            </div>
-            
-            <p>If you need further assistance, please feel free to submit a new support request.</p>
-            
-            <a href="${this.baseUrl}/support/new" class="button">Submit New Request</a>
-            
-            <p>Thank you for using GoHappyGo!</p>
-            
-            <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>
-          </div>
-          <div class="footer">
-            <p>GoHappyGo Support - ${supportData.email}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Support Request Closed',
+      headerTitle: '✓ Support Request Resolved',
+      headerVariant: 'success',
+      ctaLabel: 'Submit New Request',
+      ctaUrl: `${this.baseUrl}/support/new`,
+      footerNote: `GoHappyGo Support - ${supportData.email}`,
+      bodyHtml: `
+        <p>Hello,</p>
+        <p>Your support request has been marked as resolved and closed.</p>
+        ${emailPanel(`
+          <p><strong>Request ID:</strong> #${supportData.requestId}</p>
+          <p><strong>Category:</strong> ${supportData.category}</p>
+          <p><strong>Status:</strong> CLOSED</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p>If you need further assistance, please feel free to submit a new support request.</p>
+        <p>Thank you for using GoHappyGo!</p>
+        <p>Best regards,<br><strong>The GoHappyGo Team</strong></p>`,
+    });
   }
 
   /**
@@ -1831,64 +887,28 @@ export class EmailTemplatesService {
     demandId?: number;
     travelId?: number;
   }): string {
-    const entityId = data.demandId || data.travelId;
-    const entityType = data.demandId ? 'demand' : 'travel';
-    const viewUrl = `${this.baseUrl}/${entityType}/${entityId}`;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Alert Matched - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-details { background: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #FF9800; }
-          .action-button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #e8f5e9; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🔔 Alert Matched!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${data.userName},</h2>
-            <p>Great news! A new <strong>${data.alertType}</strong> has been published that matches your alert criteria.</p>
-            
-            <div class="alert-details">
-              <h3>Matched ${data.alertType} Details:</h3>
-              <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
-              <p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>
-              <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>
-            </div>
-
-            <div class="highlight">
-              <p><strong>✨ This ${data.alertType.toLowerCase()} matches your alert preferences!</strong></p>
-              <p>Don't miss out - check it out now and see if it meets your needs.</p>
-            </div>
-
-            <!-- <div style="text-align: center;">
-              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View ${data.alertType}</a>
-            </div> 
-
-            <p style="margin-top: 20px; color: #666; font-size: 14px;">
-              If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
-            </p>
-          </div> -->
-          <div class="footer">
-            <p>This is an automated notification from GoHappyGo.</p>
-            <p>If you have any questions, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Alert Matched - GoHappyGo',
+      headerTitle: '🔔 Alert Matched!',
+      headerVariant: 'warning',
+      ctaLabel: 'Browse Announcements',
+      ctaUrl: `${this.baseUrl}/annonces`,
+      footerNote: 'This is an automated notification from GoHappyGo. If you have any questions, please contact our support team.',
+      bodyHtml: `
+        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.orange)}
+        <p>Great news! A new <strong>${data.alertType}</strong> has been published that matches your alert criteria.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Matched ${data.alertType} Details:</h3>
+          <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
+          <p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>
+          <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <p><strong>✨ This ${data.alertType.toLowerCase()} matches your alert preferences!</strong></p>
+          <p>Don't miss out - check it out now and see if it meets your needs.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
+          If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
+        </p>`,
+    });
   }
 
   /**
@@ -1916,192 +936,90 @@ export class EmailTemplatesService {
       alertDetails.push(`<p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`);
     }
 
-    const viewUrl = `${this.baseUrl}/alerts`;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Alert Created - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-details { background: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4CAF50; }
-          .success-badge { background: #4CAF50; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .action-button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Alert Created Successfully!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${data.userName},</h2>
-            <p>Your alert has been created successfully. We'll notify you when a matching ${data.alertType.toLowerCase()} is published.</p>
-            
-            <div class="alert-details">
-              <h3>Alert Details:</h3>
-              ${alertDetails.join('')}
-              <p><strong>Alert ID:</strong> #${data.alertId}</p>
-            </div>
-
-            <div class="highlight">
-              <p><strong>📧 What happens next?</strong></p>
-              <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>
-            </div>
-
-            <div style="text-align: center;">
-              <a href="${this.baseUrl}/profile/favorites" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Alerts</a>
-            </div>
-
-            <p style="margin-top: 20px; color: #666; font-size: 14px;">
-              You can manage or delete your alerts anytime from your account settings.
-            </p>
-          </div>
-          <div class="footer">
-            <p>This is an automated confirmation from GoHappyGo.</p>
-            <p>If you have any questions, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Alert Created - GoHappyGo',
+      headerTitle: '✅ Alert Created Successfully!',
+      headerVariant: 'success',
+      ctaLabel: 'View My Alerts',
+      ctaUrl: `${this.baseUrl}/profile/favorites`,
+      footerNote: 'This is an automated confirmation from GoHappyGo. If you have any questions, please contact our support team.',
+      bodyHtml: `
+        ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.green)}
+        <p>Your alert has been created successfully. We'll notify you when a matching ${data.alertType.toLowerCase()} is published.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Alert Details:</h3>
+          ${alertDetails.join('')}
+          <p><strong>Alert ID:</strong> #${data.alertId}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <p><strong>📧 What happens next?</strong></p>
+          <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
+          You can manage or delete your alerts anytime from your account settings.
+        </p>`,
+    });
   }
 
   getRequestRejectedTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Rejected - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .rejected-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .info-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
-          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Request Rejected</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>We regret to inform you that your delivery request has been rejected by the travel/demand owner.</p>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-              <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
-            </div>
-            
-            <div class="info-box">
-              <h3>ℹ️ Important Information</h3>
-              <p>The travel/demand owner has decided not to accept your request at this time. This could be due to various reasons such as capacity constraints, scheduling conflicts, or other considerations.</p>
-              <p><strong>Note:</strong> No payment was processed for this request, so no refund is necessary.</p>
-            </div>
-            
-            <p><strong>What can you do?</strong></p>
-            <ul>
-              <li>Browse other available travels or demands</li>
-              <li>Create a new request for a different travel</li>
-              <li>Contact support if you have any questions</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/annonces" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Browse Available Travels</a>
-            </p>
-            
-            <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Rejected - GoHappyGo',
+      headerTitle: 'Request Rejected',
+      headerVariant: 'danger',
+      ctaLabel: 'Browse Available Travels',
+      ctaUrl: `${this.baseUrl}/annonces`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>We regret to inform you that your delivery request has been rejected by the travel/demand owner.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+          <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
+          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
+          <p>The travel/demand owner has decided not to accept your request at this time. This could be due to various reasons such as capacity constraints, scheduling conflicts, or other considerations.</p>
+          <p><strong>Note:</strong> No payment was processed for this request, so no refund is necessary.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Browse other available travels or demands</li>
+          <li>Create a new request for a different travel</li>
+          <li>Contact support if you have any questions</li>
+        </ul>
+        <p><em>We apologize for any inconvenience. If you have any questions, please don't hesitate to contact our support team.</em></p>`,
+    });
   }
 
   getRequestRejectedForOwnerTemplate(userFirstName: string, event: RequestEvent): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Request Rejected - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .request-details { background: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .rejected-badge { background: #dc3545; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
-          .info-box { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #17a2b8; }
-          .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Request Rejected</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userFirstName},</h2>
-            <p>This is a confirmation that you have rejected a request on your travel/demand.</p>
-            
-            <div class="request-details">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${event.requestId}</p>
-              <p><strong>Type:</strong> ${event.requestType}</p>
-              <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
-              <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
-              <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
-              <p><strong>Status:</strong> <span class="rejected-badge">REJECTED</span></p>
-            </div>
-            
-            <div class="info-box">
-              <h3>ℹ️ Important Information</h3>
-              <p>You have successfully rejected this request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
-              <p>You can continue to receive other requests for your travel/demand.</p>
-            </div>
-            
-            <p><strong>What can you do?</strong></p>
-            <ul>
-              <li>Check your travel/demand status and available weight</li>
-              <li>Wait for new requests from other users</li>
-              <li>Contact support if you have any questions</li>
-            </ul>
-            
-            <p style="text-align: center;">
-              <a href="${this.baseUrl}/profile/travels" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View My Travels</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>Thank you for using GoHappyGo!</p>
-            <p>If you have any questions, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Request Rejected - GoHappyGo',
+      headerTitle: 'Request Rejected',
+      headerVariant: 'danger',
+      ctaLabel: 'View My Travels',
+      ctaUrl: `${this.baseUrl}/profile/travels`,
+      footerNote: 'Thank you for using GoHappyGo! If you have any questions, please contact our support team.',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>This is a confirmation that you have rejected a request on your travel/demand.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Type:</strong> ${event.requestType}</p>
+          <p><strong>Requester:</strong> ${event.requesterName || 'Unknown'}</p>
+          <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+          <p><strong>Rejected:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
+          <p><strong>Status:</strong> ${emailBadge('REJECTED', EMAIL_BRAND.pink)}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
+          <p>You have successfully rejected this request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
+          <p>You can continue to receive other requests for your travel/demand.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Check your travel/demand status and available weight</li>
+          <li>Wait for new requests from other users</li>
+          <li>Contact support if you have any questions</li>
+        </ul>`,
+    });
   }
 
   getContactAnnouncerTemplate(params: {
@@ -2127,61 +1045,23 @@ export class EmailTemplatesService {
     const formattedTravelDate = this.formatEmailDate(travelDate) || 'N/A';
     const safeMessage = this.escapeHtml(message).replace(/\n/g, '<br>');
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>You received an inquiry from ${this.escapeHtml(senderName)} - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { padding: 24px; background: #f9f9f9; border: 1px solid #e0e0e0; border-top: none; }
-          .message-box { background: white; padding: 16px; border: 1px solid #ddd; border-radius: 6px; margin: 20px 0; }
-          .announcement-details { background: #e3f2fd; padding: 16px; border-left: 4px solid #2196F3; margin: 20px 0; border-radius: 4px; }
-          .detail-row { margin: 8px 0; }
-          .label { font-weight: bold; color: #1976D2; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">You received an inquiry from ${this.escapeHtml(senderName)}</h1>
-          </div>
-          <div class="content">
-            <p>Hello ${this.escapeHtml(recipientName)},</p>
-            <p>A GoHappyGo member sent you a message about your ${announcementLabel.toLowerCase()} listing.</p>
-
-            <div class="message-box">
-              <h3 style="margin-top: 0;">Message</h3>
-              <p style="margin-bottom: 0;">${safeMessage}</p>
-            </div>
-
-            <div class="announcement-details">
-              <h3 style="margin-top: 0;">${announcementType === 'travel' ? 'Travel' : 'Demand'} details</h3>
-              <div class="detail-row">
-                <span class="label">Departure airport:</span> ${this.escapeHtml(departureAirportName)}
-              </div>
-              <div class="detail-row">
-                <span class="label">Arrival airport:</span> ${this.escapeHtml(arrivalAirportName)}
-              </div>
-              <div class="detail-row">
-                <span class="label">Travel date:</span> ${this.escapeHtml(formattedTravelDate)}
-              </div>
-            </div>
-
-            <p>You can reply to this member from your GoHappyGo account.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} GoHappyGo. All rights reserved.</p>
-            <p>This is an automated message from GoHappyGo. Please do not reply to this email.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: `You received an inquiry from ${this.escapeHtml(senderName)} - GoHappyGo`,
+      headerTitle: `You received an inquiry from ${this.escapeHtml(senderName)}`,
+      headerVariant: 'info',
+      bodyHtml: `
+        <p>Hello ${this.escapeHtml(recipientName)},</p>
+        <p>A GoHappyGo member sent you a message about your ${announcementLabel.toLowerCase()} listing.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Message</h3>
+          <p style="margin:0;">${safeMessage}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">${announcementType === 'travel' ? 'Travel' : 'Demand'} details</h3>
+          <p><strong>Departure airport:</strong> ${this.escapeHtml(departureAirportName)}</p>
+          <p><strong>Arrival airport:</strong> ${this.escapeHtml(arrivalAirportName)}</p>
+          <p><strong>Travel date:</strong> ${this.escapeHtml(formattedTravelDate)}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>You can reply to this member from your GoHappyGo account.</p>`,
+    });
   }
 
   getPublicMessageTemplate(
@@ -2191,278 +1071,65 @@ export class EmailTemplatesService {
     arrivalAirport: string,
     flightNumber: string,
     pricePerKilo: string,
-    message: string
+    message: string,
   ): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'} - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .announcement-details { background: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0; border-radius: 3px; }
-          .message-box { background: white; padding: 15px; border: 1px solid #ddd; border-radius: 3px; margin: 20px 0; }
-          .button { display: inline-block; padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; }
-          .sender-info { background: #f5f5f5; padding: 10px; border-radius: 3px; margin: 10px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .detail-row { margin: 8px 0; }
-          .label { font-weight: bold; color: #1976D2; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>📬 New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'}</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${recipientName},</h2>
-            <p>You have received a new message regarding your ${announcementType} posting on GoHappyGo.</p>
-            
-            <div class="announcement-details">
-              <h3>${announcementType === 'travel' ? '✈️ Travel Details' : '📦 Demand Details'}</h3>
-              <div class="detail-row">
-                <span class="label">Departure:</span> ${departureAirport}
-              </div>
-              <div class="detail-row">
-                <span class="label">Arrival:</span> ${arrivalAirport}
-              </div>
-              ${flightNumber ? `<div class="detail-row">
-                <span class="label">Flight Number:</span> ${String(flightNumber).toUpperCase()}
-              </div>` : ''}
-              ${pricePerKilo ? `<div class="detail-row">
-                <span class="label">Price per Kilo:</span> ${pricePerKilo}
-              </div>` : ''}
-            </div>
-
-            <div class="message-box">
-              <h3>💬 Message:</h3>
-              <p>${message.replace(/\n/g, '<br>')}</p>
-            </div>
-
-            <p><strong>What's next?</strong></p>
-            <ul>
-              <li>Review the message and details above</li>
-              <li>Reply to the sender by visiting your GoHappyGo dashboard</li>
-              <li>Decide if you'd like to proceed with this opportunity</li>
-            </ul>
-
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${this.baseUrl}/profile/messages" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View on GoHappyGo</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-            <p>This is an automated message from GoHappyGo. Please do not reply to this email.</p>
-            <p>For any questions, please contact our support team.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: `New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'} - GoHappyGo`,
+      headerTitle: `📬 New Message About Your ${announcementType === 'travel' ? 'Travel' : 'Demand'}`,
+      headerVariant: 'info',
+      ctaLabel: 'View on GoHappyGo',
+      ctaUrl: `${this.baseUrl}/profile/messages`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${recipientName},`)}
+        <p>You have received a new message regarding your ${announcementType} posting on GoHappyGo.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">${announcementType === 'travel' ? '✈️ Travel Details' : '📦 Demand Details'}</h3>
+          <p><strong>Departure:</strong> ${departureAirport}</p>
+          <p><strong>Arrival:</strong> ${arrivalAirport}</p>
+          ${flightNumber ? `<p><strong>Flight Number:</strong> ${String(flightNumber).toUpperCase()}</p>` : ''}
+          ${pricePerKilo ? `<p><strong>Price per Kilo:</strong> ${pricePerKilo}</p>` : ''}`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">💬 Message:</h3>
+          <p>${message.replace(/\n/g, '<br>')}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>What's next?</strong></p>
+        <ul>
+          <li>Review the message and details above</li>
+          <li>Reply to the sender by visiting your GoHappyGo dashboard</li>
+          <li>Decide if you'd like to proceed with this opportunity</li>
+        </ul>`,
+    });
   }
 
   getPasswordResetTemplate(userName: string, resetCode: string): string {
     const resetUrl = `${this.baseUrl}/reset-password?code=${resetCode}`;
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Password Reset - GoHappyGo</title>
-        <style>
-          body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            line-height: 1.6; 
-            color: #333; 
-            margin: 0; 
-            padding: 0; 
-            background-color: #f4f4f4;
-          }
-          .container { 
-            max-width: 600px; 
-            margin: 20px auto; 
-            background: white; 
-            border-radius: 10px; 
-            overflow: hidden; 
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header { 
-            background: linear-gradient(135deg, #f44336, #d32f2f); 
-            color: white; 
-            padding: 30px 20px; 
-            text-align: center; 
-          }
-          .header h1 { 
-            margin: 0; 
-            font-size: 28px; 
-            font-weight: 300;
-          }
-          .header p { 
-            margin: 10px 0 0 0; 
-            font-size: 16px; 
-            opacity: 0.9;
-          }
-          .content { 
-            padding: 40px 30px; 
-            background: white;
-          }
-          .reset-section {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .reset-section h2 {
-            color: #f44336;
-            font-size: 24px;
-            margin-bottom: 10px;
-          }
-          .reset-section p {
-            font-size: 16px;
-            color: #666;
-            margin-bottom: 20px;
-          }
-          .reset-link-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 8px;
-            border-left: 4px solid #f44336;
-            margin: 25px 0;
-            text-align: center;
-          }
-          .cta-button {
-            display: inline-block;
-            background: #f44336;
-            color: white;
-            padding: 15px 40px;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: bold;
-            margin: 20px 0;
-            font-size: 16px;
-            transition: background-color 0.3s;
-          }
-          .cta-button:hover {
-            background: #d32f2f;
-          }
-          .reset-code {
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            padding: 15px;
-            background: #fff3e0;
-            margin: 20px 0;
-            border-radius: 8px;
-            letter-spacing: 2px;
-            color: #e65100;
-            border: 2px dashed #ff9800;
-          }
-          .instructions {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-          }
-          .instructions h4 {
-            margin: 0 0 10px 0;
-            color: #856404;
-          }
-          .instructions ul {
-            margin: 0;
-            padding-left: 20px;
-          }
-          .instructions li {
-            margin-bottom: 5px;
-            color: #856404;
-          }
-          .expiry-notice {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #0c5460;
-          }
-          .security-warning {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #721c24;
-          }
-          .footer { 
-            text-align: center; 
-            padding: 30px 20px; 
-            background: #f8f9fa;
-            color: #666; 
-            font-size: 14px;
-            border-top: 1px solid #e9ecef;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🔐 Password Reset Request</h1>
-            <p>Reset your GoHappyGo account password</p>
-          </div>
-          
-          <div class="content">
-            <div class="reset-section">
-              <h2>Hello ${userName}! 👋</h2>
-              <p>We received a request to reset your password. Click the button below to create a new password.</p>
-            </div>
 
-            <div class="reset-link-section">
-              <p style="margin-bottom: 20px; color: #666;">Click the button below to reset your password:</p>
-              <a href="${resetUrl}" class="cta-button">Reset Password</a>
-              <p style="margin-top: 20px; font-size: 14px; color: #999;">
-                Or copy and paste this link into your browser:<br>
-                <span style="word-break: break-all; color: #666;">${resetUrl}</span>
-              </p>
-            </div>
-
-            <div class="instructions">
-              <h4>📋 How to reset your password:</h4>
-              <ul>
-                <li>Click the "Reset Password" button above</li>
-                <li>You'll be redirected to the password reset page</li>
-                <li>Enter your new password</li>
-                <li>Click "Reset Password" to complete the process</li>
-              </ul>
-            </div>
-
-            <div class="expiry-notice">
-              <strong>⏰ Important:</strong> This password reset link will expire in 10 minutes for security reasons.
-            </div>
-
-            <div class="security-warning">
-              <strong>🔒 Security Notice:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this link with anyone.
-            </div>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <p style="color: #666; font-size: 14px;">
-                If you have any questions or need assistance, please contact our support team.
-              </p>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <p><strong>GoHappyGo</strong> - Connecting travelers and senders worldwide</p>
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-            <p style="font-size: 12px; color: #999;">
-              This is an automated message from GoHappyGo. Please do not reply to this email.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Password Reset - GoHappyGo',
+      headerTitle: '🔐 Password Reset Request',
+      headerSubtitle: 'Reset your GoHappyGo account password',
+      headerVariant: 'danger',
+      ctaLabel: 'Reset Password',
+      ctaUrl: resetUrl,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName}! 👋`, EMAIL_BRAND.pink)}
+        <p>We received a request to reset your password. Click the button below to create a new password.</p>
+        ${emailPanel(`
+          <p style="text-align:center;margin-bottom:16px;color:${EMAIL_BRAND.muted};">Or copy and paste this link into your browser:</p>
+          <p style="word-break:break-all;text-align:center;color:${EMAIL_BRAND.muted};">${resetUrl}</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        ${emailPanel(`
+          <h4 style="margin:0 0 8px;">📋 How to reset your password:</h4>
+          <ul style="margin:0;padding-left:20px;">
+            <li>Click the "Reset Password" button above</li>
+            <li>You'll be redirected to the password reset page</li>
+            <li>Enter your new password</li>
+            <li>Click "Reset Password" to complete the process</li>
+          </ul>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`<strong>⏰ Important:</strong> This password reset link will expire in 10 minutes for security reasons.`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`<strong>🔒 Security Notice:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this link with anyone.`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        <p style="text-align:center;color:${EMAIL_BRAND.muted};font-size:14px;">
+          If you have any questions or need assistance, please contact our support team.
+        </p>`,
+    });
   }
 
   /**
@@ -2475,60 +1142,29 @@ export class EmailTemplatesService {
     transferId: string;
     requestId: number;
   }): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Funds Released - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #28a745; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .success-section { background: #d4edda; border: 1px solid #28a745; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .transaction-details { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>💰 Funds Released!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>Great news! Your funds have been successfully released and transferred to your Stripe account.</p>
-            
-            <div class="success-section">
-              <p style="margin: 0; color: #155724;"><strong>✅ Payment Status:</strong> Funds Released</p>
-            </div>
-            
-            <div class="transaction-details">
-              <h3>Transaction Details:</h3>
-              <p><strong>Transaction ID:</strong> #${data.transactionId}</p>
-              <p><strong>Request ID:</strong> #${data.requestId}</p>
-              <p><strong>Amount:</strong> ${data.amount} ${data.currency.toUpperCase()}</p>
-              <p><strong>Transfer ID:</strong> ${data.transferId}</p>
-              <p><strong>Released:</strong> ${this.formatEmailDateTime(new Date())}</p>
-            </div>
-            
-            <p><strong>What's next?</strong></p>
-            <ul>
-              <li>Funds are now available in your Stripe Connect account</li>
-              <li>You can withdraw funds according to your Stripe payout schedule</li>
-              <li>Check your Stripe dashboard for payout details</li>
-            </ul>
-            
-            <p><em>Thank you for being a trusted GoHappyGo traveler!</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Funds Released - GoHappyGo',
+      headerTitle: '💰 Funds Released!',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>Great news! Your funds have been successfully released and transferred to your Stripe account.</p>
+        ${emailPanel(`<p style="margin:0;"><strong>✅ Payment Status:</strong> Funds Released</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Transaction Details:</h3>
+          <p><strong>Transaction ID:</strong> #${data.transactionId}</p>
+          <p><strong>Request ID:</strong> #${data.requestId}</p>
+          <p><strong>Amount:</strong> ${data.amount} ${data.currency.toUpperCase()}</p>
+          <p><strong>Transfer ID:</strong> ${data.transferId}</p>
+          <p><strong>Released:</strong> ${this.formatEmailDateTime(new Date())}</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        <p><strong>What's next?</strong></p>
+        <ul>
+          <li>Funds are now available in your Stripe Connect account</li>
+          <li>You can withdraw funds according to your Stripe payout schedule</li>
+          <li>Check your Stripe dashboard for payout details</li>
+        </ul>
+        <p><em>Thank you for being a trusted GoHappyGo traveler!</em></p>`,
+    });
   }
 
   /**
@@ -2541,65 +1177,29 @@ export class EmailTemplatesService {
     const requesterName = this.resolveUserDisplayName(requestData.requester, requestData.requesterName, 'the requester');
     const baseUrl = this.baseUrl;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${isReminder ? 'Reminder: ' : ''}Cancellation Confirmation Required - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
-          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .action-button { background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 5px; }
-          .danger-button { background: #f44336; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>${isReminder ? '⏰ Reminder: ' : ''}Cancellation Confirmation Required</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            ${isReminder ? '<p><strong>This is a reminder.</strong> Please respond to the cancellation request below.</p>' : ''}
-            <p>${requesterName} has requested to cancel their delivery request. Since the travel date has passed, we need your confirmation to proceed.</p>
-
-            <div class="alert-box">
-              <p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>
-            </div>
-
-            <div class="request-info">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestId}</p>
-              <p><strong>Type:</strong> ${requestType}</p>
-              <p><strong>Weight:</strong> ${weight}</p>
-            </div>
-
-            <p><strong>What happens next?</strong></p>
-            <ul>
-              <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
-              <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
-            </ul>
-
-            <p style="text-align: center;">
-              <a href="${baseUrl}/requests/${requestId}/confirm-cancellation" class="action-button">Confirm Cancellation</a>
-              <a href="${baseUrl}/requests/${requestId}/dispute-cancellation" class="action-button danger-button">Dispute (Service Fulfilled)</a>
-            </p>
-
-            <p><em>You have ${process.env.CANCELLATION_CONFIRMATION_DAYS || 7} days to respond. If no response is received, our admin team will be notified.</em></p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: `${isReminder ? 'Reminder: ' : ''}Cancellation Confirmation Required - GoHappyGo`,
+      headerTitle: `${isReminder ? '⏰ Reminder: ' : ''}Cancellation Confirmation Required`,
+      headerVariant: 'warning',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.orange)}
+        ${isReminder ? '<p><strong>This is a reminder.</strong> Please respond to the cancellation request below.</p>' : ''}
+        <p>${requesterName} has requested to cancel their delivery request. Since the travel date has passed, we need your confirmation to proceed.</p>
+        ${emailPanel(`<p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>
+          <p><strong>Type:</strong> ${requestType}</p>
+          <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p><strong>What happens next?</strong></p>
+        <ul>
+          <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
+          <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
+        </ul>
+        ${emailButton(`${baseUrl}/requests/${requestId}/confirm-cancellation`, 'Confirm Cancellation', EMAIL_BRAND.blue)}
+        ${emailButton(`${baseUrl}/requests/${requestId}/dispute-cancellation`, 'Dispute (Service Fulfilled)', EMAIL_BRAND.pink)}
+        <p><em>You have ${process.env.CANCELLATION_CONFIRMATION_DAYS || 7} days to respond. If no response is received, our admin team will be notified.</em></p>`,
+    });
   }
 
   /**
@@ -2609,53 +1209,21 @@ export class EmailTemplatesService {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const baseUrl = this.baseUrl;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Cancellation Confirmed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .success-box { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; }
-          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Cancellation Confirmed</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>The seller has confirmed the cancellation of your request.</p>
-
-            <div class="success-box">
-              <p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>
-            </div>
-
-            <div class="request-info">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestId}</p>
-            </div>
-
-            <p>You can create a new request when you're ready to try again.</p>
-
-            <p style="text-align: center;">
-              <a href="${baseUrl}/profile/travel-requests" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Requests</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Cancellation Confirmed - GoHappyGo',
+      headerTitle: '✅ Cancellation Confirmed',
+      headerVariant: 'success',
+      ctaLabel: 'View Requests',
+      ctaUrl: `${baseUrl}/profile/travel-requests`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>The seller has confirmed the cancellation of your request.</p>
+        ${emailPanel(`<p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>You can create a new request when you're ready to try again.</p>`,
+    });
   }
 
   /**
@@ -2665,53 +1233,21 @@ export class EmailTemplatesService {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const baseUrl = this.baseUrl;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Cancellation Disputed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
-          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>⚠️ Cancellation Disputed</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${userName},</h2>
-            <p>The seller has disputed your cancellation request, claiming that the service was fulfilled.</p>
-
-            <div class="alert-box">
-              <p><strong>Admin Review:</strong> Our admin team will review this dispute and contact you within 2-3 business days.</p>
-            </div>
-
-            <div class="request-info">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestId}</p>
-            </div>
-
-            <p>If you have any evidence or additional information, please contact our support team.</p>
-
-            <p style="text-align: center;">
-              <a href="${baseUrl}/support" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Contact Support</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Cancellation Disputed - GoHappyGo',
+      headerTitle: '⚠️ Cancellation Disputed',
+      headerVariant: 'warning',
+      ctaLabel: 'Contact Support',
+      ctaUrl: `${baseUrl}/support`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.orange)}
+        <p>The seller has disputed your cancellation request, claiming that the service was fulfilled.</p>
+        ${emailPanel(`<p><strong>Admin Review:</strong> Our admin team will review this dispute and contact you within 2-3 business days.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>If you have any evidence or additional information, please contact our support team.</p>`,
+    });
   }
 
   /**
@@ -2737,50 +1273,19 @@ export class EmailTemplatesService {
       return `<li>Request #${requestId} — Requester: ${requesterName} — Requested: ${requestedDate} — Days pending: ${daysPendingLabel}</li>`;
     }).join('');
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Daily summary: Pending cancellation confirmations - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f44336; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-box { background: #ffebee; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f44336; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Pending cancellation confirmations (daily summary)</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${adminName},</h2>
-            <p>There are <strong>${requests.length}</strong> request(s) waiting for the seller to confirm or dispute a post-travel cancellation. Unresponsive sellers are auto-cancelled in favour of the buyer after <strong>${process.env.CANCELLATION_CONFIRMATION_DAYS || 7}</strong> days.</p>
-
-            <div class="alert-box">
-              <p><strong>Note:</strong> Review as needed; this email is sent once per day only when at least one request is still in this state.</p>
-            </div>
-
-            <h3>Pending requests:</h3>
-            <ul>
-              ${requestsList}
-            </ul>
-
-            <p style="text-align: center;">
-              <a href="${baseUrl}/admin/requests/pending-cancellations" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Review Requests</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Daily summary: Pending cancellation confirmations - GoHappyGo',
+      headerTitle: 'Pending cancellation confirmations (daily summary)',
+      headerVariant: 'danger',
+      ctaLabel: 'Review Requests',
+      ctaUrl: `${baseUrl}/admin/requests/pending-cancellations`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${adminName},`)}
+        <p>There are <strong>${requests.length}</strong> request(s) waiting for the seller to confirm or dispute a post-travel cancellation. Unresponsive sellers are auto-cancelled in favour of the buyer after <strong>${process.env.CANCELLATION_CONFIRMATION_DAYS || 7}</strong> days.</p>
+        ${emailPanel(`<p><strong>Note:</strong> Review as needed; this email is sent once per day only when at least one request is still in this state.</p>`, EMAIL_BRAND.pink, EMAIL_BRAND.dangerBg)}
+        <h3>Pending requests:</h3>
+        <ul>${requestsList}</ul>`,
+    });
   }
 
   /**
@@ -2795,53 +1300,22 @@ export class EmailTemplatesService {
       || 'Unknown';
     const baseUrl = this.baseUrl;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Admin Alert: Cancellation Disputed - GoHappyGo</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background: #f9f9f9; }
-          .alert-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
-          .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>⚠️ Cancellation Disputed - Admin Review Required</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${adminName},</h2>
-            <p>A seller has disputed a cancellation request, claiming the service was fulfilled.</p>
-
-            <div class="alert-box">
-              <p><strong>Review Required:</strong> Please investigate this dispute and make a decision.</p>
-            </div>
-
-            <div class="request-info">
-              <h3>Request Details:</h3>
-              <p><strong>Request ID:</strong> #${requestId}</p>
-              <p><strong>Requester:</strong> ${requesterName}</p>
-              <p><strong>Seller:</strong> ${sellerName}</p>
-            </div>
-
-            <p style="text-align: center;">
-              <a href="${baseUrl}/admin/requests/${requestId}" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Review Request</a>
-            </p>
-          </div>
-          <div class="footer">
-            <p>© 2024 GoHappyGo. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    return this.wrapEmail({
+      title: 'Admin Alert: Cancellation Disputed - GoHappyGo',
+      headerTitle: '⚠️ Cancellation Disputed - Admin Review Required',
+      headerVariant: 'warning',
+      ctaLabel: 'Review Request',
+      ctaUrl: `${baseUrl}/admin/requests/${requestId}`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${adminName},`, EMAIL_BRAND.orange)}
+        <p>A seller has disputed a cancellation request, claiming the service was fulfilled.</p>
+        ${emailPanel(`<p><strong>Review Required:</strong> Please investigate this dispute and make a decision.</p>`, EMAIL_BRAND.orange, EMAIL_BRAND.warningBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>
+          <p><strong>Requester:</strong> ${requesterName}</p>
+          <p><strong>Seller:</strong> ${sellerName}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}`,
+    });
   }
 
   /**
@@ -2851,100 +1325,40 @@ export class EmailTemplatesService {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const requestType = requestData.requestType || 'N/A';
     const weight = requestData.weight != null ? `${requestData.weight}kg` : 'N/A';
-    const baseUrl = this.baseUrl;
+    const autoCompleteDays = process.env.AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE || 7;
 
     if (isForOwner) {
-      return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Request Auto-Completed - GoHappyGo</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .success-box { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; }
-            .request-info { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Request Auto-Completed</h1>
-            </div>
-            <div class="content">
-              <h2>Hello ${userName},</h2>
-              <p>The request has been automatically completed by the system.</p>
-
-              <div class="success-box">
-                <p><strong>Funds Released:</strong> Payment has been released to your Stripe Connect account.</p>
-              </div>
-
-              <div class="request-info">
-                <h3>Request Details:</h3>
-                <p><strong>Request ID:</strong> #${requestId}</p>
-                <p><strong>Type:</strong> ${requestType}</p>
-                <p><strong>Weight:</strong> ${weight}</p>
-              </div>
-
-              <p><em>The request was auto-completed because the buyer did not complete it within ${process.env.AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE || 7} days after the travel date.</em></p>
-            </div>
-            <div class="footer">
-              <p>© 2024 GoHappyGo. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-    } else {
-      return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Request Auto-Completed - GoHappyGo</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .info-box { background: #e7f3f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .request-info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Request Auto-Completed</h1>
-            </div>
-            <div class="content">
-              <h2>Hello ${userName},</h2>
-              <p>Your request has been automatically completed by the system.</p>
-
-              <div class="info-box">
-                <p><strong>Note:</strong> Since you did not complete the request within ${process.env.AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE || 7} days after the travel date, the system has automatically marked it as completed.</p>
-              </div>
-
-              <div class="request-info">
-                <h3>Request Details:</h3>
-                <p><strong>Request ID:</strong> #${requestId}</p>
-                <p><strong>Type:</strong> ${requestType}</p>
-                <p><strong>Weight:</strong> ${weight}</p>
-              </div>
-
-              <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>
-            </div>
-            <div class="footer">
-              <p>© 2024 GoHappyGo. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      return this.wrapEmail({
+        title: 'Request Auto-Completed - GoHappyGo',
+        headerTitle: '✅ Request Auto-Completed',
+        headerVariant: 'success',
+        bodyHtml: `
+          ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+          <p>The request has been automatically completed by the system.</p>
+          ${emailPanel(`<p><strong>Funds Released:</strong> Payment has been released to your Stripe Connect account.</p>`, EMAIL_BRAND.green, EMAIL_BRAND.successBg)}
+          ${emailPanel(`
+            <h3 style="margin:0 0 8px;">Request Details:</h3>
+            <p><strong>Request ID:</strong> #${requestId}</p>
+            <p><strong>Type:</strong> ${requestType}</p>
+            <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+          <p><em>The request was auto-completed because the buyer did not complete it within ${autoCompleteDays} days after the travel date.</em></p>`,
+      });
     }
+
+    return this.wrapEmail({
+      title: 'Request Auto-Completed - GoHappyGo',
+      headerTitle: '✅ Request Auto-Completed',
+      headerVariant: 'success',
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.green)}
+        <p>Your request has been automatically completed by the system.</p>
+        ${emailPanel(`<p><strong>Note:</strong> Since you did not complete the request within ${autoCompleteDays} days after the travel date, the system has automatically marked it as completed.</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>
+          <p><strong>Type:</strong> ${requestType}</p>
+          <p><strong>Weight:</strong> ${weight}</p>`, EMAIL_BRAND.blue, EMAIL_BRAND.infoBg)}
+        <p>Payment has been released to the seller. If you have any concerns, please contact support.</p>`,
+    });
   }
-} 
+}

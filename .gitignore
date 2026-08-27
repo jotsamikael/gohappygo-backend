@@ -19,6 +19,34 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Archives / backups
+*.rar
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Angular cache (extra safety)
+.angular/
+admin/.angular/
+
+# Env variants
+.env.*
+
+# Uploads / runtime
+uploads/
+storage/
+
+# Secrets
+*.pem
+*.key
+*.p12
+serviceAccount*.json
+
+# IDE / tooling
+.cursor/
 
 # Tests
 /coverage
@@ -60,3 +88,5 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+
