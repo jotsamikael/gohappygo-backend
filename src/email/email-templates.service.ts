@@ -172,7 +172,7 @@ export class EmailTemplatesService {
         <p>Your account has been successfully verified. You can now:</p>
         <ul>
           <li>Post travel declarations</li>
-          <li>Publish delivery demands</li>
+          <li>Publish demands</li>
           <li>Make requests to other users</li>
           <li>Complete transactions</li>
         </ul>`,
@@ -271,7 +271,7 @@ export class EmailTemplatesService {
       headerVariant: 'info',
       bodyHtml: `
         ${emailHeading(`Hello ${userName},`)}
-        <p>Your delivery demand has been successfully published and is now visible to potential travelers.</p>
+        <p>Your demand has been successfully published and is now visible to potential travelers.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Demand Details:</h3>
           <p><strong>Description:</strong> ${demandData.title || demandData.description || 'Unknown'}</p>
@@ -280,7 +280,7 @@ export class EmailTemplatesService {
           <p><strong>Travel Date:</strong> ${formattedDate}</p>
           <p><strong>Weight:</strong> ${weight}kg</p>
           <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`)}
-        <p>You will be notified when someone offers to help with your delivery.</p>`,
+        <p>You will be notified when someone offers to help with your request.</p>`,
     });
   }
 
@@ -298,20 +298,20 @@ export class EmailTemplatesService {
           : `<p>Great news! Your travel request has been accepted and is ready to proceed.</p>`}
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
-          <p>Your request is now confirmed and the delivery process can begin.</p>`)}
+          <p>Your request is now confirmed and the process can begin.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestData.requestId}</p>
           <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}`)}
+          ${requestData.limitDate ? `<p><strong>Request Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}`)}
         <p><strong>What happens next?</strong></p>
         <ul>
           <li>You can now communicate with the traveler through the platform</li>
           <li>Arrange the package handover details</li>
-          <li>Track the delivery progress in your dashboard</li>
-          <li>Complete payment once delivery is confirmed</li>
+          <li>Track the progress in your dashboard</li>
+          <li>Complete payment once request is confirmed</li>
         </ul>
-        <p><em>Please keep in touch with the traveler to ensure smooth delivery coordination.</em></p>`,
+        <p><em>Please keep in touch with the traveler to ensure smooth coordination.</em></p>`,
     });
   }
 
@@ -326,7 +326,7 @@ export class EmailTemplatesService {
         ${emailHeading(`Hello ${userName},`)}
         ${requestData.isInstant
           ? `<p><strong>⚡ Instant Travel Purchase!</strong></p><p>${requestData.requesterName || 'A requester'} has purchased ${requestData.weight}kg in your instant travel. The request has been automatically accepted.</p>`
-          : `<p>You have successfully accepted a delivery request. The requester has been notified.</p>`}
+          : `<p>You have successfully accepted a request. The requester has been notified.</p>`}
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('ACCEPTED')}</p>
           <p>This request is now active and ready for coordination.</p>`)}
@@ -334,16 +334,16 @@ export class EmailTemplatesService {
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestData.requestId}</p>
           <p><strong>Weight:</strong> ${requestData.weight}kg</p>
-          ${requestData.limitDate ? `<p><strong>Delivery Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
+          ${requestData.limitDate ? `<p><strong> Deadline:</strong> ${this.formatEmailDate(requestData.limitDate)}</p>` : ''}
           <p><strong>Accepted:</strong> ${this.formatEmailDateTime(requestData.timestamp)}</p>`)}
         <p><strong>Next Steps:</strong></p>
         <ul>
           <li>Contact the requester to arrange package pickup</li>
-          <li>Confirm delivery details and timeline</li>
+          <li>Confirm request details and timeline</li>
           <li>Coordinate the handover process</li>
-          <li>Update delivery status as you progress</li>
+          <li>Update request status as you progress</li>
         </ul>
-        <p><em>Remember to maintain good communication with the requester throughout the delivery process.</em></p>`,
+        <p><em>Remember to maintain good communication with the requester throughout the process.</em></p>`,
     });
   }
 
@@ -441,7 +441,7 @@ export class EmailTemplatesService {
       headerVariant: 'success',
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
-        <p>Your delivery request has been successfully submitted and is now being reviewed.</p>
+        <p>Your request has been successfully submitted and is now being reviewed.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
@@ -465,7 +465,7 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/profile/reservations`,
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
-        <p>You have received a new delivery request for your travel/demand.</p>
+        <p>You have received a new  request for your travel.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Requester Information:</h3>
           <p><strong>Name:</strong> ${event.userFirstName}</p>
@@ -488,32 +488,32 @@ export class EmailTemplatesService {
 
   getRequestCompletedTemplate(userFirstName: string, event: RequestEvent): string {
     return this.wrapEmail({
-      title: 'Delivery Completed - GoHappyGo',
-      headerTitle: 'Delivery Completed!',
+      title: 'Request Completed - GoHappyGo',
+      headerTitle: 'Request Completed!',
       headerVariant: 'success',
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`, EMAIL_BRAND.headerText)}
-        <p>Excellent news! Your delivery request has been successfully completed.</p>
+        <p>Excellent news! Your  request has been successfully completed.</p>
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
           <p>Your package has been delivered as requested.</p>`)}
         ${emailPanel(`
-          <h3 style="margin:0 0 8px;">Delivery Details:</h3>
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
           <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;text-align:center;">⭐ Rate Your Experience</h3>
-          <p style="text-align:center;">Help us improve our service by rating your delivery experience.</p>
-          ${emailButton(`${this.baseUrl}/profile/reviews`, 'Rate Delivery', EMAIL_BRAND.blue)}`)}
+          <p style="text-align:center;">Help us improve our service by rating your experience.</p>
+          ${emailButton(`${this.baseUrl}/profile/reviews`, 'Rate', EMAIL_BRAND.blue)}`)}
         <p><strong>What's next?</strong></p>
         <ul>
-          <li>Review and rate the delivery service</li>
+          <li>Review and rate the  service</li>
           <li>Complete any final payments if needed</li>
           <li>Share your experience with other users</li>
-          <li>Book your next delivery with GoHappyGo</li>
+          <li>Book your next request with GoHappyGo</li>
         </ul>
-        ${emailButton(`${this.baseUrl}/profile/reservations`, 'View Delivery Summary', EMAIL_BRAND.blue)}
+        ${emailButton(`${this.baseUrl}/profile/reservations`, 'View  Summary', EMAIL_BRAND.blue)}
         <p><em>Thank you for using GoHappyGo! We hope you had a great experience.</em></p>`,
     });
   }
@@ -528,7 +528,7 @@ export class EmailTemplatesService {
       footerNote: 'Thank you for using GoHappyGo! If you have any questions, please contact our support team.',
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`)}
-        <p>We're writing to inform you that a request on your travel/demand has been cancelled.</p>
+        <p>We're writing to inform you that a request on your travel has been cancelled.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
@@ -538,7 +538,7 @@ export class EmailTemplatesService {
           <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">ℹ️ Important Information</h3>
-          <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel/demand.</p>
+          <p>The requester has cancelled their request. The weight capacity that was reserved for this request is now available again on your travel.</p>
           <p>You can continue to receive other requests for your travel/demand.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
@@ -558,7 +558,7 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/annonces`,
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`)}
-        <p>We regret to inform you that your delivery request has been cancelled.</p>
+        <p>We regret to inform you that your request has been cancelled.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
@@ -601,7 +601,7 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/annonces`,
       bodyHtml: `
         ${emailHeading(`Hello ${safeName},`)}
-        <p>We were unable to complete your delivery request because we could not process the payment when the traveler tried to accept it.</p>
+        <p>We were unable to complete your request because we could not process the payment when the traveler tried to accept it.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Details</h3>
           <p>${safeMessage}</p>`)}
@@ -635,23 +635,23 @@ export class EmailTemplatesService {
           : `<p>Your earnings will be processed according to our payment schedule.</p>`;
 
     return this.wrapEmail({
-      title: 'Delivery Successfully Completed - GoHappyGo',
-      headerTitle: '✅ Delivery Completed Successfully!',
+      title: 'Request Successfully Completed - GoHappyGo',
+      headerTitle: '✅ Request Completed Successfully!',
       headerVariant: 'info',
       ctaLabel: 'View Earnings',
       ctaUrl: `${this.baseUrl}/profile/reservations`,
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`)}
-        <p>Congratulations! You have successfully completed a delivery request.</p>
+        <p>Congratulations! You have successfully completed a request.</p>
         ${emailPanel(`
           <p><strong>✅ Status:</strong> ${emailBadge('COMPLETED')}</p>
-          <p>Great job on completing this delivery successfully!</p>`)}
+          <p>Great job on completing this request successfully!</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Client Information:</h3>
           <p><strong>Name:</strong> ${event.userFirstName}</p>
           <p><strong>Email:</strong> ${event.userEmail}</p>`)}
         ${emailPanel(`
-          <h3 style="margin:0 0 8px;">Delivery Details:</h3>
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
           <p><strong>Weight:</strong> ${event.weight}kg</p>
           <p><strong>Completed:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>`)}
@@ -664,7 +664,7 @@ export class EmailTemplatesService {
             ? `<li>Your earnings are secured and will be transferred once ${fundStatus === 'pending_funds' ? 'funds become available' : 'you complete onboarding'}</li>`
             : `<li>Your earnings will be processed and transferred</li>`}
           <li>You may receive a rating from the client</li>
-          <li>Consider taking on more delivery requests</li>
+          <li>Consider taking on more requests</li>
           <li>Build your reputation as a reliable traveler</li>
         </ul>
         <p><em>Thank you for being a trusted GoHappyGo traveler! Keep up the excellent work.</em></p>`,
@@ -719,7 +719,7 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Next Steps:</h3>
           <p>${isApproved
-            ? 'You can now enjoy all features of the GoHappyGo platform, including creating travel announcements and delivery requests.'
+            ? 'You can now enjoy all features of the GoHappyGo platform, including creating travel announcements and requests.'
             : 'Please contact our support team for assistance or try the verification process again.'}</p>`)}
         ${!isApproved ? emailPanel(`
           <h3 style="margin:0 0 8px;">Common reasons for rejection:</h3>
@@ -954,7 +954,7 @@ export class EmailTemplatesService {
       ctaUrl: `${this.baseUrl}/annonces`,
       bodyHtml: `
         ${emailHeading(`Hello ${userFirstName},`)}
-        <p>We regret to inform you that your delivery request has been rejected by the travel/demand owner.</p>
+        <p>We regret to inform you that your request has been rejected by the travel/demand owner.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${event.requestId}</p>
@@ -1168,7 +1168,7 @@ export class EmailTemplatesService {
       bodyHtml: `
         ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         ${isReminder ? '<p><strong>This is a reminder.</strong> Please respond to the cancellation request below.</p>' : ''}
-        <p>${requesterName} has requested to cancel their delivery request. Since the travel date has passed, we need your confirmation to proceed.</p>
+        <p>${requesterName} has requested to cancel their request. Since the travel date has passed, we need your confirmation to proceed.</p>
         ${emailPanel(`<p><strong>⚠️ Action Required:</strong> Please confirm whether the service was fulfilled or not.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>
