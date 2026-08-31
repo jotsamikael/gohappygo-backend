@@ -410,11 +410,6 @@ export class RequestService {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
     }*/
 
-    //check if travel is created by the same user as the requester
-    if (createRequestDto.travelId && createRequestDto.travelId === user.id) {
-      throw new CustomBadRequestException('You cannot create a request to your own travel', ErrorCode.REQUEST_OWN_TRAVEL);
-    }
-
     // Get the travel to check if it's instant and validate weight availability
     const travel = await this.travelService.findOne({
       where: { id: createRequestDto.travelId },
@@ -423,6 +418,10 @@ export class RequestService {
 
     if (!travel) {
       throw new CustomNotFoundException('Travel not found', ErrorCode.TRAVEL_NOT_FOUND);
+    }
+
+    if (travel.userId === user.id) {
+      throw new CustomBadRequestException('You cannot create a request to your own travel', ErrorCode.REQUEST_OWN_TRAVEL);
     }
 
     // Check if travel is still active
