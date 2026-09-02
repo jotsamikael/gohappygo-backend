@@ -15,6 +15,7 @@ import { CreateAirlineDto } from './dto/create-airline.dto';
 import { CloudinaryService } from 'src/file-upload/cloudinary/cloudinary.service';
 import { VisibilityService } from 'src/common/service/visibility.service';
 import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class AirlineService implements OnModuleInit {
@@ -28,6 +29,7 @@ export class AirlineService implements OnModuleInit {
     private readonly cloudinaryService: CloudinaryService,
     private readonly visibilityService: VisibilityService,
     private readonly cacheInvalidation: CacheInvalidationService,
+    private readonly commonService: CommonService,
   ) {}
 
 
@@ -131,7 +133,9 @@ export class AirlineService implements OnModuleInit {
     const totalItems = await countQueryBuilder.getCount();
     console.log('🔍 Total items found:', totalItems);
 
-    const items = await queryBuilder.getMany();
+    const items = (await queryBuilder.getMany()).map((airline) =>
+      this.mapAirlineForApiResponse(airline),
+    );
     console.log(' Items retrieved:', items.length);
 
     const totalPages = Math.ceil(totalItems / limit);
@@ -275,6 +279,13 @@ export class AirlineService implements OnModuleInit {
   /**
    * Clear airline list cache
    */
+  private mapAirlineForApiResponse(airline: AirlineEntity): AirlineEntity {
+    return {
+      ...airline,
+      logoUrl: this.commonService.resolveAirlineLogoUrl(airline.logoUrl),
+    } as AirlineEntity;
+  }
+
   async clearAirlineListCache(): Promise<void> {
     await this.cacheInvalidation.invalidateNamespace(CacheNamespace.AIRLINES);
     await this.cacheInvalidation.invalidateNamespace(CacheNamespace.AIRLINE_IATA);
@@ -316,7 +327,7 @@ export class AirlineService implements OnModuleInit {
     const newState = airline.isDeactivated ? 'deactivated' : 'activated';
     this.logger.log(`Airline #${id} (${airline.name}) ${newState} by user #${user.id}`);
 
-    return savedAirline;
+    return this.mapAirlineForApiResponse(savedAirline);
   }
 
   async createAirline(
@@ -356,7 +367,7 @@ export class AirlineService implements OnModuleInit {
     await this.clearAirlineListCache();
 
     this.logger.log(`Airline created: ${savedAirline.name} (${savedAirline.icaoCode}) by user #${user.id}`);
-    return savedAirline;
+    return this.mapAirlineForApiResponse(savedAirline);
   }
 
   async updateAirline(
@@ -400,7 +411,7 @@ export class AirlineService implements OnModuleInit {
     await this.clearAirlineListCache();
 
     this.logger.log(`Airline updated: ${savedAirline.name} (ID: ${id}) by user #${user.id}`);
-    return savedAirline;
+    return this.mapAirlineForApiResponse(savedAirline);
   }
 
   /**

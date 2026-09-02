@@ -40,13 +40,41 @@ export class BookmarkMapper {
   }
 
   toTravelResponse(travel: any): TravelResponseDto | null {
-   return plainToInstance(TravelResponseDto, travel, {
+    if (!travel) {
+      return null;
+    }
+
+    const mappedTravel = {
+      ...travel,
+      airline: travel.airline
+        ? {
+            ...travel.airline,
+            logoUrl: this.commonService.resolveAirlineLogoUrl(travel.airline.logoUrl),
+          }
+        : travel.airline,
+    };
+
+    return plainToInstance(TravelResponseDto, mappedTravel, {
      excludeExtraneousValues: true,
     enableImplicitConversion: true });
   }
 
   toDemandResponse(demand: any): DemandResponseDto | null {
-  return plainToInstance(DemandResponseDto, demand, { excludeExtraneousValues: true,
+    if (!demand) {
+      return null;
+    }
+
+    const mappedDemand = {
+      ...demand,
+      airline: demand.airline
+        ? {
+            ...demand.airline,
+            logoUrl: this.commonService.resolveAirlineLogoUrl(demand.airline.logoUrl),
+          }
+        : demand.airline,
+    };
+
+  return plainToInstance(DemandResponseDto, mappedDemand, { excludeExtraneousValues: true,
     enableImplicitConversion: true });
   }
 

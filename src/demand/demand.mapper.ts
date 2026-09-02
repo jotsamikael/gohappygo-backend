@@ -98,7 +98,7 @@ export class DemandMapper {
             icaoCode: demand.airline.icaoCode,
             iataCode: demand.airline.iataCode || '',
             name: demand.airline.name,
-            logoUrl: demand.airline.logoUrl || '',
+            logoUrl: this.commonService.resolveAirlineLogoUrl(demand.airline.logoUrl),
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
@@ -224,7 +224,7 @@ export class DemandMapper {
             name: demand.airline.name,
             icaoCode: demand.airline.icaoCode,
             iataCode: demand.airline.iataCode || '',
-            logoUrl: demand.airline.logoUrl || null,
+            logoUrl: this.commonService.resolveAirlineLogoUrl(demand.airline.logoUrl),
             isDeactivated: demand.airline.isDeactivated,
             createdAt: demand.airline.createdAt,
         }, {

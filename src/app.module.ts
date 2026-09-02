@@ -121,6 +121,7 @@ import { join } from 'path';
         STRIPE_REFRESH_URL_MOBILE: joi.string().uri().optional(),
         FRONTEND_URL: joi.string().default('http://localhost:4200'),
         EMAIL_LOGO_URL: joi.string().uri().optional(),
+        PLACEHOLDER_IMAGE_URL: joi.string().uri().optional(),
         DIDIT_API_KEY: joi.string().optional(),
         DIDIT_BASE_URL: joi.string().uri().optional(),
         DIDIT_WEBHOOK_SECRET_KEY: joi.string().optional(),

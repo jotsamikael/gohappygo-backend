@@ -97,7 +97,7 @@ export class TravelMapper {
             icaoCode: travel.airline.icaoCode,
             iataCode: travel.airline.iataCode || '',
             name: travel.airline.name,
-            logoUrl: travel.airline.logoUrl || '',
+            logoUrl: this.commonService.resolveAirlineLogoUrl(travel.airline.logoUrl),
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true
@@ -234,7 +234,7 @@ export class TravelMapper {
             icaoCode: travel.airline.icaoCode,
             iataCode: travel.airline.iataCode || '',
             prefix: travel.airline.prefix || '',
-            logoUrl: travel.airline.logoUrl || null,
+            logoUrl: this.commonService.resolveAirlineLogoUrl(travel.airline.logoUrl),
         }, {
             excludeExtraneousValues: true,
             enableImplicitConversion: true

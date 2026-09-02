@@ -2208,7 +2208,7 @@ export class RequestService {
           travel.airline = {
             airlineId: airline.id,
             name: airline.name,
-            logoUrl: (airline.logoUrl as string | null) ?? null
+            logoUrl: this.commonService.resolveAirlineLogoUrl(airline.logoUrl)
           };
         } else {
           // If airline not found, set airline to null

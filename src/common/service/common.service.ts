@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AccountStatus, DELETED_USER_DISPLAY_NAME } from "src/account-deletion/account-deletion.types";
 import { UserEntity } from "src/user/user.entity";
 
@@ -23,6 +24,22 @@ export interface PublicUserDisplay {
 
 @Injectable()
 export class CommonService {
+    constructor(@Optional() private readonly configService?: ConfigService) {}
+
+    /** Use configured placeholder when an airline logo is missing in API responses. */
+    resolveAirlineLogoUrl(logoUrl?: string | null): string {
+        const trimmed = (logoUrl ?? '').trim();
+        if (trimmed) {
+            return trimmed;
+        }
+
+        return (
+            this.configService?.get<string>('placeholderImageUrl')?.trim() ||
+            process.env.PLACEHOLDER_IMAGE_URL?.trim() ||
+            ''
+        );
+    }
+
      /**
      * Formats a user's full name as "Firstname L."
      * @param firstName - User's first name

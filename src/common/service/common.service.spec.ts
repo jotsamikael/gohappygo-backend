@@ -43,3 +43,23 @@ describe('CommonService anonymized user helpers', () => {
     expect((anonymized as any).phone).toBeUndefined();
   });
 });
+
+describe('CommonService airline logo helper', () => {
+  const placeholderUrl = 'https://cdn.example.com/placeholder.png';
+
+  it('returns the existing logo when present', () => {
+    const service = new CommonService();
+    expect(service.resolveAirlineLogoUrl('https://cdn.example.com/airline.png')).toBe(
+      'https://cdn.example.com/airline.png',
+    );
+  });
+
+  it('falls back to configured placeholder when logo is missing', () => {
+    const service = new CommonService({
+      get: (key: string) => (key === 'placeholderImageUrl' ? placeholderUrl : undefined),
+    } as any);
+
+    expect(service.resolveAirlineLogoUrl(null)).toBe(placeholderUrl);
+    expect(service.resolveAirlineLogoUrl('')).toBe(placeholderUrl);
+  });
+});

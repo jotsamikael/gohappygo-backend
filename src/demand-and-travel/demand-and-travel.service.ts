@@ -19,6 +19,7 @@ import { UserEntity, UserRole } from 'src/user/user.entity';
 import { AirportService } from 'src/airport/airport.service';
 import { VisibilityService } from 'src/common/service/visibility.service';
 import { CacheInvalidationService, CacheNamespace } from 'src/common/service/cache-invalidation.service';
+import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
 export class DemandAndTravelService {
@@ -36,6 +37,7 @@ export class DemandAndTravelService {
         private readonly configService: ConfigService,
         private readonly visibilityService: VisibilityService,
         private readonly cacheInvalidation: CacheInvalidationService,
+        private readonly commonService: CommonService,
     ) {}
 
     async getDemandsAndTravels(query: FindDemandsAndTravelsQueryDto, user: any): Promise<PaginatedDemandsAndTravelsResponseDto> {
@@ -923,7 +925,7 @@ export class DemandAndTravelService {
             icaoCode: airline.icaoCode,
             iataCode: airline.iataCode,
             prefix: airline.prefix,
-            logoUrl: airline.logoUrl
+            logoUrl: this.commonService.resolveAirlineLogoUrl(airline.logoUrl)
         };
     }
 }

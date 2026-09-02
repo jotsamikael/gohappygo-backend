@@ -52,7 +52,7 @@ export class DemandAndTravelMapper {
     return plainToInstance(AirlineSimpleResponseDto, {
       airlineId: airline.id,
       name: airline.name,
-      logoUrl: airline.logoUrl
+      logoUrl: this.commonService.resolveAirlineLogoUrl(airline.logoUrl)
     }, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true,
@@ -290,7 +290,10 @@ export class DemandAndTravelMapper {
    * Map airline entity to AirlineResponseDto (for backward compatibility)
    */
   toAirlineResponse(airline: AirlineEntity): AirlineResponseDto {
-    return plainToInstance(AirlineResponseDto, airline, {
+    return plainToInstance(AirlineResponseDto, {
+      ...airline,
+      logoUrl: this.commonService.resolveAirlineLogoUrl(airline.logoUrl),
+    }, {
       excludeExtraneousValues: true,
       enableImplicitConversion: true,
     });
