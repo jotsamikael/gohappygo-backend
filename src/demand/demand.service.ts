@@ -246,6 +246,22 @@ async publishDemand(
         throw new BadRequestException('Departure and arrival airports cannot be the same')
       }
 
+      const parsedTravelDate = new Date(createDemandDto.travelDate);
+      const travelDateOnly = new Date(
+        parsedTravelDate.getFullYear(),
+        parsedTravelDate.getMonth(),
+        parsedTravelDate.getDate(),
+      );
+      const now = new Date();
+      const currentDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (travelDateOnly < currentDateOnly) {
+        throw new CustomBadRequestException(
+          'Travel date cannot be in the past',
+          ErrorCode.VALIDATION_ERROR,
+        );
+      }
+
       const travelDate = this.normalizeDemandTravelDate(createDemandDto.travelDate);
 
       if (createDemandDto.flightNumber?.trim()) {

@@ -323,6 +323,20 @@ export class TravelService {
     }
 
     const departureDatetime = new Date(createTravelDto.departureDatetime);
+    const departureDateOnly = new Date(
+      departureDatetime.getFullYear(),
+      departureDatetime.getMonth(),
+      departureDatetime.getDate(),
+    );
+    const now = new Date();
+    const currentDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (departureDateOnly < currentDateOnly) {
+      throw new CustomBadRequestException(
+        'Departure date cannot be in the past',
+        ErrorCode.VALIDATION_ERROR,
+      );
+    }
 
     const existingTravelByFlight = await this.findActiveTravelDuplicateByFlight({
       userId: user.id,
