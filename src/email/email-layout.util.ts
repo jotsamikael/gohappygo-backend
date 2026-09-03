@@ -26,15 +26,30 @@ export function emailButton(
 export function emailPanel(
   content: string,
   accentColor: string = EMAIL_BRAND.blue,
-  backgroundColor: string = EMAIL_BRAND.panelBg,
+  backgroundColor: string = EMAIL_BRAND.white,
 ): string {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-           style="margin:20px 0;background-color:${backgroundColor};border:1px solid ${EMAIL_BRAND.border};border-left:3px solid ${accentColor};border-radius:6px;">
+           style="margin:20px 0;background-color:${backgroundColor};border:1px solid ${accentColor};border-radius:6px;">
       <tr>
         <td style="padding:16px 20px;font-family:Arial,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.text};">
           ${content}
         </td>
+      </tr>
+    </table>`;
+}
+
+/** Centered accent line below the email header title (~75% width). */
+export function emailHeaderDivider(
+  color: string = EMAIL_BRAND.blue,
+  widthPercent = 75,
+): string {
+  return `
+    <table role="presentation" width="${widthPercent}%" cellpadding="0" cellspacing="0" border="0" align="center"
+           style="margin:16px auto 0;width:${widthPercent}%;">
+      <tr>
+        <td height="3" bgcolor="${color}"
+            style="background-color:${color};font-size:0;line-height:0;border-radius:2px;">&nbsp;</td>
       </tr>
     </table>`;
 }
@@ -71,8 +86,8 @@ function buildLogoBlock(ctx: EmailLayoutContext): string {
     <a href="${ctx.baseUrl}" target="_blank" style="text-decoration:none;display:inline-block;margin:0 0 16px;">
       <img src="${safeUrl}"
            alt="GoHappyGo"
-           width="220"
-           style="display:block;margin:0 auto;max-width:220px;width:220px;height:auto;border:0;outline:none;-ms-interpolation-mode:bicubic;" />
+           width="180"
+           style="display:block;margin:0 auto;max-width:180px;width:180px;height:auto;border:0;outline:none;-ms-interpolation-mode:bicubic;" />
     </a>`;
 }
 
@@ -113,11 +128,12 @@ export function wrapEmailLayout(
           <!-- Header -->
           <tr>
             <td align="center" bgcolor="${EMAIL_BRAND.white}"
-                style="padding:32px 28px 24px;background-color:${EMAIL_BRAND.white};border-bottom:3px solid ${EMAIL_BRAND.blue};">
+                style="padding:32px 28px 24px;background-color:${EMAIL_BRAND.white};">
               ${logoBlock}
               <h1 style="margin:0;font-family:Arial,'Segoe UI',sans-serif;font-size:22px;font-weight:700;color:${EMAIL_BRAND.headerText};line-height:1.35;">
                 ${headerTitle}
               </h1>
+              ${emailHeaderDivider()}
               ${options.headerSubtitle ? `<p style="margin:10px 0 0;font-size:15px;color:${EMAIL_BRAND.muted};line-height:1.5;">${options.headerSubtitle}</p>` : ''}
             </td>
           </tr>
