@@ -367,8 +367,9 @@ export class EmailTemplatesService {
   getEmailVerificationTemplate(userName: string, verificationCode: string): string {
     return this.wrapEmail({
       title: 'Welcome to GoHappyGo - Email Verification',
-      headerTitle: 'Welcome to GoHappyGo',
-      headerSubtitle: 'Verify your email to complete registration',
+      headerTitle: 'Verify your email to complete registration',
+      headerTitleColor: EMAIL_BRAND.blue,
+      headerSubtitle: 'Welcome to GoHappyGo',
       footerNote: 'This email was sent to you because you registered for a GoHappyGo account. If you have any questions, please contact our support team.',
       bodyHtml: `
         ${emailHeading(`Hello ${userName}`, EMAIL_BRAND.headerText)}

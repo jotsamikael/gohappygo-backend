@@ -28,6 +28,7 @@ export interface WrapEmailLayoutOptions {
   bodyHtml: string;
   headerTitle?: string;
   headerSubtitle?: string;
+  headerTitleColor?: string;
   headerVariant?: EmailHeaderVariant;
   ctaLabel?: string;
   ctaUrl?: string;

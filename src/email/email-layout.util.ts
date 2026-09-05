@@ -30,9 +30,10 @@ export function emailPanel(
 ): string {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-           style="margin:20px 0;background-color:${backgroundColor};border:1px solid ${accentColor};border-radius:6px;">
+           style="margin:20px 0;border-collapse:separate;border-spacing:0;">
       <tr>
-        <td style="padding:16px 20px;font-family:Arial,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.text};">
+        <td style="padding:16px 20px;font-family:Arial,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.text};
+                   background-color:${backgroundColor};border:1px solid ${accentColor};border-radius:8px;">
           ${content}
         </td>
       </tr>
@@ -97,6 +98,7 @@ export function wrapEmailLayout(
 ): string {
   const year = new Date().getFullYear();
   const headerTitle = options.headerTitle ?? options.title;
+  const headerTitleColor = options.headerTitleColor ?? EMAIL_BRAND.headerText;
   const preheader = options.preheader ?? '';
   const logoBlock = buildLogoBlock(ctx);
 
@@ -130,7 +132,7 @@ export function wrapEmailLayout(
             <td align="center" bgcolor="${EMAIL_BRAND.white}"
                 style="padding:32px 28px 24px;background-color:${EMAIL_BRAND.white};">
               ${logoBlock}
-              <h1 style="margin:0;font-family:Arial,'Segoe UI',sans-serif;font-size:22px;font-weight:700;color:${EMAIL_BRAND.headerText};line-height:1.35;">
+              <h1 style="margin:0;font-family:Arial,'Segoe UI',sans-serif;font-size:22px;font-weight:700;color:${headerTitleColor};line-height:1.35;">
                 ${headerTitle}
               </h1>
               ${emailHeaderDivider()}
@@ -149,7 +151,7 @@ export function wrapEmailLayout(
             <td style="padding:20px 28px 28px;border-top:1px solid ${EMAIL_BRAND.border};text-align:center;background-color:${EMAIL_BRAND.white};">
               <p style="margin:0 0 8px;font-size:13px;color:${EMAIL_BRAND.muted};">
                 <a href="${ctx.baseUrl}" style="color:${EMAIL_BRAND.blue};text-decoration:none;font-weight:bold;">GoHappyGo</a>
-                &mdash; Share your journey, multiply the joy
+                &mdash; Share your journey, Multiply the joy
               </p>
               <p style="margin:0 0 8px;font-size:12px;color:${EMAIL_BRAND.lightMuted};">
                 &copy; ${year} GoHappyGo. All rights reserved.
