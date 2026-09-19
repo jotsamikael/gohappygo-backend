@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UserEntity } from 'src/user/user.entity';
@@ -143,22 +143,28 @@ export class AccountDeletionService {
     };
   }
 
+  private userInvolvedInRequest(userId: number): Brackets {
+    return new Brackets((qb) => {
+      qb.where('r.requesterId = :uid', { uid: userId })
+        .orWhere('travel.userId = :uid', { uid: userId })
+        .orWhere('demand.userId = :uid', { uid: userId });
+    });
+  }
+
   private async runPrechecks(userId: number): Promise<void> {
-    const blockedStatuses = ['ACCEPTED', 'NEGOCIATING'];
+    const blockedStatuses = ['ACCEPTED', 'NEGOTIATING'];
     const activeReqCount = await this.requestRepository
       .createQueryBuilder('r')
       .leftJoin('r.currentStatus', 'status')
       .leftJoin('r.travel', 'travel')
-      .leftJoin('travel.user', 'travelUser')
       .leftJoin('r.demand', 'demand')
-      .leftJoin('demand.user', 'demandUser')
-      .where('r.requesterId = :uid OR travelUser.id = :uid OR demandUser.id = :uid', { uid: userId })
+      .where(this.userInvolvedInRequest(userId))
       .andWhere('status.status IN (:...blocked)', { blocked: blockedStatuses })
       .getCount();
 
     if (activeReqCount > 0) {
       throw new CustomBadRequestException(
-        'Account cannot be deleted while a request is in ACCEPTED or NEGOCIATING status.',
+        'Account cannot be deleted while a request is in ACCEPTED or NEGOTIATING status.',
         ErrorCode.REQUEST_IN_ACCEPTED_OR_NEGOCIATING_STATUS,
       );
     }
@@ -167,10 +173,8 @@ export class AccountDeletionService {
       .createQueryBuilder('r')
       .leftJoin('r.currentStatus', 'status')
       .leftJoin('r.travel', 'travel')
-      .leftJoin('travel.user', 'travelUser')
       .leftJoin('r.demand', 'demand')
-      .leftJoin('demand.user', 'demandUser')
-      .where('r.requesterId = :uid OR travelUser.id = :uid OR demandUser.id = :uid', { uid: userId })
+      .where(this.userInvolvedInRequest(userId))
       .andWhere('status.status = :pendingStatus', { pendingStatus: 'PENDING_CANCELLATION_CONFIRMATION' })
       .getCount();
 

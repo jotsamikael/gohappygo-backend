@@ -24,6 +24,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { AccountStatus, DATA_CATEGORIES_REMOVED, DATA_CATEGORIES_RETAINED } from './account-deletion.types';
 import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
+import { Brackets } from 'typeorm';
 
 describe('AccountDeletionService', () => {
   let service: AccountDeletionService;
@@ -125,6 +126,19 @@ describe('AccountDeletionService', () => {
     mockQueryBuilder.getCount.mockResolvedValueOnce(1);
 
     await expect(service.anonymizeAndCloseAccount(baseUser)).rejects.toBeInstanceOf(CustomBadRequestException);
+  });
+
+  it('groups user involvement with status filter for active-request precheck', async () => {
+    await service.anonymizeAndCloseAccount(baseUser);
+
+    expect(mockQueryBuilder.where.mock.calls[0][0]).toBeInstanceOf(Brackets);
+
+    const blockedStatusFilter = mockQueryBuilder.andWhere.mock.calls.find(
+      (call) => call[0] === 'status.status IN (:...blocked)',
+    );
+    expect(blockedStatusFilter?.[1]).toEqual({
+      blocked: ['ACCEPTED', 'NEGOTIATING'],
+    });
   });
 
   it('blocks deletion when account is already anonymized', async () => {

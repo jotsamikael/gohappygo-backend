@@ -2,7 +2,7 @@
  * GDPR account deletion — prior-state audit notes
  *
  * Before AccountDeletionService, DELETE /api/auth/delete only:
- * - blocked ACCEPTED/NEGOCIATING requests
+ * - blocked ACCEPTED/NEGOTIATING requests (user match grouped with Brackets)
  * - cancelled future demands/travels
  * - called usersRepository.softDelete (PII remained on row)
  *
