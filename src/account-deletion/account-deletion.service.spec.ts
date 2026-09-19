@@ -78,7 +78,7 @@ describe('AccountDeletionService', () => {
         { provide: getRepositoryToken(EmailVerificationEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
         { provide: getRepositoryToken(PhoneVerificationEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
         { provide: getRepositoryToken(PasswordResetEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
-        { provide: getRepositoryToken(NotificationEntity), useValue: { softDelete: jest.fn() } },
+        { provide: getRepositoryToken(NotificationEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
         { provide: getRepositoryToken(SupportRequestEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
         { provide: getRepositoryToken(TransactionEntity), useValue: { createQueryBuilder: () => mockQueryBuilder } },
         { provide: getRepositoryToken(AccountDeletionAuditEntity), useValue: auditRepository },

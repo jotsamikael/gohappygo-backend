@@ -245,7 +245,13 @@ export class AccountDeletionService {
       .from(PasswordResetEntity)
       .where('userId = :userId', { userId })
       .execute();
-    await this.notificationRepository.softDelete({ targetUserId: userId });
+    await this.notificationRepository
+      .createQueryBuilder()
+      .update(NotificationEntity)
+      .set({ deletedAt: new Date() })
+      .where('targetUserId = :userId', { userId })
+      .andWhere('deletedAt IS NULL')
+      .execute();
   }
 
   private async scrubCommunications(userId: number): Promise<void> {
