@@ -1,7 +1,8 @@
+import './common/logging/sentry';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { LoggingInterceptor } from './common/interceptors/loging.interceptor';
+import { ValidationPipe } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { DbRetryInterceptor } from './common/interceptors/db-retry.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -20,11 +21,12 @@ import { PlatformPricingEntity } from './platform-pricing/entities/platform-pric
 //root file ->entry point of nest js application
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap')
   const app = await NestFactory.create(AppModule, {
-    logger:['error', 'warn','log','debug','verbose'],
+    bufferLogs: true,
     rawBody: true, // Enable raw body for Stripe webhook signature verification
   });
+  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
   
   // Get ConfigService instance
   const configService = app.get(ConfigService);
@@ -86,10 +88,7 @@ async function bootstrap() {
       disableErrorMessages: false
     })
   );
-  app.useGlobalInterceptors(
-    new LoggingInterceptor(),
-    new DbRetryInterceptor()
-  )
+  app.useGlobalInterceptors(new DbRetryInterceptor());
 
   // Swagger configuration with HTTPS server URLs
   const enableSwagger = configService.get<string>('ENABLE_SWAGGER') !== 'false';

@@ -1,4 +1,5 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserController } from './user/user.controller';
@@ -13,7 +14,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventsModule } from './events/events.module';
-import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { PinoLoggerModule } from './common/logging/pino-logger.module';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
+import { SentryContextInterceptor } from './common/interceptors/sentry-context.interceptor';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { DemandModule } from './demand/demand.module';
 import { TravelModule } from './travel/travel.module';
 import { RequestModule } from './request/request.module';
@@ -136,10 +140,18 @@ import { join } from 'path';
         CANCELLATION_CONFIRMATION_DAYS: joi.number().default(7),
         SELFIE_RETENTION_DAYS: joi.number().default(70),
         JWT_ACCESS_EXPIRES: joi.string().default('15m'),
-        ADMIN_EMAIL: joi.string().email().optional()
+        ADMIN_EMAIL: joi.string().email().optional(),
+        LOG_LEVEL: joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent').default(
+          process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        ),
+        SENTRY_DSN: joi.string().uri().allow('').optional(),
+        SENTRY_ENVIRONMENT: joi.string().optional(),
+        SENTRY_TRACES_SAMPLE_RATE: joi.number().min(0).max(1).default(0),
       }),
       load: [appConfig]
     }),
+    PinoLoggerModule,
+    SentryModule.forRoot(),
     //Caching
     CacheModule.register({
       isGlobal: true,
@@ -265,11 +277,16 @@ import { join } from 'path';
       RequestSchedulerModule
   ],
   controllers: [AppController, UserController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: SentryExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SentryContextInterceptor,
+    },
+  ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    // Apply middleware for all routes
-    consumer.apply(LoggerMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}
