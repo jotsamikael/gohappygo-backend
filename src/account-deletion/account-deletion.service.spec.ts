@@ -24,6 +24,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { AccountStatus, DATA_CATEGORIES_REMOVED, DATA_CATEGORIES_RETAINED } from './account-deletion.types';
 import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
+import { ErrorCode } from 'src/common/exception/error-codes';
 import { Brackets } from 'typeorm';
 
 describe('AccountDeletionService', () => {
@@ -139,6 +140,24 @@ describe('AccountDeletionService', () => {
     expect(blockedStatusFilter?.[1]).toEqual({
       blocked: ['ACCEPTED', 'NEGOTIATING'],
     });
+
+    const disputedStatusFilter = mockQueryBuilder.andWhere.mock.calls.find(
+      (call) => call[0] === 'status.status = :disputedStatus',
+    );
+    expect(disputedStatusFilter?.[1]).toEqual({
+      disputedStatus: 'CANCELLATION_DISPUTED',
+    });
+  });
+
+  it('blocks deletion when a cancellation dispute is open', async () => {
+    mockQueryBuilder.getCount
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+
+    await expect(service.anonymizeAndCloseAccount(baseUser)).rejects.toMatchObject({
+      errorCode: ErrorCode.ACCOUNT_DELETION_CANCELLATION_DISPUTED,
+    });
   });
 
   it('blocks deletion when account is already anonymized', async () => {
@@ -149,6 +168,45 @@ describe('AccountDeletionService', () => {
         deletedAt: new Date(),
       } as UserEntity),
     ).rejects.toBeInstanceOf(CustomBadRequestException);
+  });
+
+  it('skips already cancelled future listings when closing an account', async () => {
+    const demandGetMany = jest.fn().mockResolvedValue([]);
+    const travelGetMany = jest.fn().mockResolvedValue([]);
+    const demandCancel = jest.fn();
+    const travelCancel = jest.fn();
+
+    const demandRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        ...mockQueryBuilder,
+        getMany: demandGetMany,
+      })),
+    };
+    const travelRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        ...mockQueryBuilder,
+        getMany: travelGetMany,
+      })),
+    };
+
+    (service as any).demandRepository = demandRepository;
+    (service as any).travelRepository = travelRepository;
+    (service as any).demandService = { cancelDemand: demandCancel };
+    (service as any).travelService = { cancelTravel: travelCancel };
+
+    await service.anonymizeAndCloseAccount(baseUser);
+
+    const demandStatusFilter = mockQueryBuilder.andWhere.mock.calls.find(
+      (call) => call[0] === 'd.status != :cancelled',
+    );
+    const travelStatusFilter = mockQueryBuilder.andWhere.mock.calls.find(
+      (call) => call[0] === 't.status != :cancelled',
+    );
+
+    expect(demandStatusFilter?.[1]).toEqual({ cancelled: 'cancelled' });
+    expect(travelStatusFilter?.[1]).toEqual({ cancelled: 'cancelled' });
+    expect(demandCancel).not.toHaveBeenCalled();
+    expect(travelCancel).not.toHaveBeenCalled();
   });
 
   it('deletes linked Firebase user when firebaseUid is present', async () => {

@@ -185,6 +185,22 @@ export class AccountDeletionService {
       );
     }
 
+    const cancellationDisputedCount = await this.requestRepository
+      .createQueryBuilder('r')
+      .leftJoin('r.currentStatus', 'status')
+      .leftJoin('r.travel', 'travel')
+      .leftJoin('r.demand', 'demand')
+      .where(this.userInvolvedInRequest(userId))
+      .andWhere('status.status = :disputedStatus', { disputedStatus: 'CANCELLATION_DISPUTED' })
+      .getCount();
+
+    if (cancellationDisputedCount > 0) {
+      throw new CustomBadRequestException(
+        'Account cannot be deleted while a request is in cancellation dispute.',
+        ErrorCode.ACCOUNT_DELETION_CANCELLATION_DISPUTED,
+      );
+    }
+
     const pendingPayoutCount = await this.transactionRepository
       .createQueryBuilder('t')
       .where('(t.payerId = :uid OR t.payeeId = :uid)', { uid: userId })
@@ -280,6 +296,7 @@ export class AccountDeletionService {
       .createQueryBuilder('d')
       .where('d.userId = :uid', { uid: userId })
       .andWhere('DATE(d.travelDate) >= DATE(:today)', { today: now })
+      .andWhere('d.status != :cancelled', { cancelled: 'cancelled' })
       .getMany();
 
     for (const demand of futureDemands) {
@@ -290,6 +307,7 @@ export class AccountDeletionService {
       .createQueryBuilder('t')
       .where('t.userId = :uid', { uid: userId })
       .andWhere('(t.travelDate >= :now OR (t.travelDate IS NULL AND t.departureDatetime >= :now))', { now })
+      .andWhere('t.status != :cancelled', { cancelled: 'cancelled' })
       .getMany();
 
     for (const travel of futureTravels) {

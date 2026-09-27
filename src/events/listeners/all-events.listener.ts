@@ -307,6 +307,17 @@ export class AllEventsListener {
     );
   }
 
+  @OnEvent(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN)
+  async handleRequestDisputeResolvedByAdmin(event: {
+    requestId: number;
+    adminId: number;
+    note?: string | null;
+  }): Promise<void> {
+    this.logger.log(
+      `Request ${event.requestId} dispute resolved by admin ${event.adminId}`,
+    );
+  }
+
   /**
    * Helper method to get admin users
    */
