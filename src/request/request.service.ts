@@ -74,6 +74,10 @@ export class RequestService {
     return this.configService.get<string>('CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE') === 'true';
   }
 
+  private travelerMustBeVerified(): boolean {
+    return this.configService.get<string>('TRAVELER_MUST_BE_VERIFIED') === 'true';
+  }
+
   /** Update scalar request fields without cascading to loaded relations. */
   private async updateRequestFields(
     requestId: number,
@@ -405,10 +409,9 @@ export class RequestService {
 
   //createRequest to seek travel - Updated to only require weight
   async createRequestToTravel(createRequestDto: CreateRequestToTravelDto, user: UserEntity): Promise<RequestEntity> {
-    //check if user account is verified
-    /*if (!user.isVerified) {
+    if (this.travelerMustBeVerified() && !user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }*/
+    }
 
     // Get the travel to check if it's instant and validate weight availability
     const travel = await this.travelService.findOne({
