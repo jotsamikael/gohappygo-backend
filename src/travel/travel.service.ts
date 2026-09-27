@@ -31,6 +31,7 @@ import { StripeService } from 'src/stripe/stripe.service';
 import { UserService } from 'src/user/user.service';
 import { RequestStatusHistoryEntity } from 'src/request-status-history/RequestStatusHistory.entity';
 import { RequestListingCancellationService } from 'src/request-listing-cancellation/request-listing-cancellation.service';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class TravelService {
  
@@ -56,7 +57,12 @@ export class TravelService {
     private readonly stripeService: StripeService,
     private readonly userService: UserService,
     private readonly requestListingCancellationService: RequestListingCancellationService,
+    private readonly configService: ConfigService,
   ) { }
+
+  private travelerMustBeVerified(): boolean {
+    return this.configService.get<string>('TRAVELER_MUST_BE_VERIFIED') === 'true';
+  }
 
   private generateTravelsListCacheKey(query: FindTravelsQueryDto): string {
     const { 
@@ -312,10 +318,9 @@ export class TravelService {
   }
 
   async publishTravel(user: UserEntity, createTravelDto: CreateTravelDto, image1: Express.Multer.File, image2: Express.Multer.File): Promise<TravelEntity> {
-    //check if user account is verified
-    /*if (!user.isVerified) {
+    if (this.travelerMustBeVerified() && !user.isVerified) {
       throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
-    }*/
+    }
 
     // Check if departure and arrival airports are the same
     if (createTravelDto.departureAirportId === createTravelDto.arrivalAirportId) {

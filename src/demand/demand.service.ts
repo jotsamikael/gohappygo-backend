@@ -29,6 +29,7 @@ import { RequestStatusHistoryService } from 'src/request-status-history/request-
 import { TransactionService } from 'src/transaction/transaction.service';
 import { StripeService } from 'src/stripe/stripe.service';
 import { UserService } from 'src/user/user.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DemandService {
@@ -53,9 +54,14 @@ export class DemandService {
         private readonly transactionService: TransactionService,
         @Inject(forwardRef(() => StripeService))
         private readonly stripeService: StripeService,
-        private readonly userService: UserService
+        private readonly userService: UserService,
+        private readonly configService: ConfigService,
 
     ){}
+
+    private travelerMustBeVerified(): boolean {
+        return this.configService.get<string>('TRAVELER_MUST_BE_VERIFIED') === 'true';
+    }
 
 
 async getDemands(query: FindDemandsQueryDto): Promise<PaginatedResponse<DemandResponseDto>> {
@@ -236,10 +242,9 @@ async publishDemand(
     image2: Express.Multer.File,
     image3: Express.Multer.File  // Add third parameter
 ): Promise<DemandEntity> {
-      //check if user account is verified
-     /* if(!user.isVerified){
-        throw new BadRequestException('Your account is not verified')
-      }*/
+      if (this.travelerMustBeVerified() && !user.isVerified) {
+        throw new CustomBadRequestException('Your account is not verified', ErrorCode.USER_NOT_VERIFIED);
+      }
 
       // Check if departure and arrival airports are the same
       if (createDemandDto.departureAirportId === createDemandDto.arrivalAirportId) {

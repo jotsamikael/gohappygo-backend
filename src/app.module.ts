@@ -136,6 +136,7 @@ import { join } from 'path';
         PUBLIC_APP_URL: joi.string().uri().optional(),
         BACKEND_URL: joi.string().uri().optional(),
         CAN_COMPLETE_TRAVEL_BEFORE_TRAVEL_DATE: joi.string().valid('true', 'false').default('false'),
+        TRAVELER_MUST_BE_VERIFIED: joi.string().valid('true', 'false').default('false'),
         AUTO_COMPLETE_DAYS_AFTER_TRAVEL_DATE: joi.number().default(7),
         CANCELLATION_CONFIRMATION_DAYS: joi.number().default(7),
         SELFIE_RETENTION_DAYS: joi.number().default(70),
