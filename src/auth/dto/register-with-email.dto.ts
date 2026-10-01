@@ -39,10 +39,10 @@ export class RegisterWithEmailDto {
     description: 'User password',
     example: 'password123',
     minLength: 6,
-    maxLength: 32
+    maxLength: 128
   })
   @IsNotEmpty()
   @MinLength(6, { message: 'password must be at least 6 characters' })
-  @MaxLength(32, { message: 'password can not exceed 32 characters' })
+  @MaxLength(128, { message: 'password can not exceed 128 characters' })
   password: string;
 }

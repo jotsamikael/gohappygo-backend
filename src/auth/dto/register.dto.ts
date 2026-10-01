@@ -48,11 +48,11 @@ export class RegisterDto {
     description: 'User password',
     example: 'password123',
     minLength: 6,
-    maxLength: 32
+    maxLength: 128
   })
   @IsNotEmpty()
   @MinLength(6, { message: 'password must be atleast 6 charcters' })
-  @MaxLength(32, { message: 'password can not exceed 40 charcters' })
+  @MaxLength(128, { message: 'password can not exceed 128 charcters' })
   password: string;
 
   @ApiProperty({

@@ -6,10 +6,10 @@ export class ResetPasswordDto {
     description: 'New password',
     example: 'newpassword123',
     minLength: 6,
-    maxLength: 32
+    maxLength: 128
   })
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
-  @MaxLength(32, { message: 'Password cannot be more than 32 characters long' })
+  @MaxLength(128, { message: 'Password cannot be more than 128 characters long' })
   password: string;
 }

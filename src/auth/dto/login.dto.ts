@@ -15,10 +15,10 @@ export class LoginDto {
         description: 'User password',
         example: 'password123',
         minLength: 6,
-        maxLength: 16
+        maxLength: 128
     })
     @IsNotEmpty({ message: 'Password is required' })
     @MinLength(6, { message: 'Must be atleast 3 characters long' })
-    @MaxLength(16, { message: 'Can not be more than 50 characters long' })
+    @MaxLength(128, { message: 'Can not be more than 128 characters long' })
     password: string
 }
