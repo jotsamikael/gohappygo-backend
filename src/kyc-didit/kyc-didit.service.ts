@@ -118,9 +118,69 @@ export class KycDiditService {
     );
 
     if (user.kycStatus === 'pending' && user.kycReference) {
-      return this.resumePendingSession(user);
+      const resumed = await this.tryResumePendingSession(user);
+      if (resumed) {
+        return resumed;
+      }
+      this.logger.warn(
+        `Pending Didit session ${user.kycReference} is not resumable for user ${user.id}; creating a new session`,
+      );
     }
 
+    return this.createDiditSession(user, client);
+  }
+
+  /**
+   * Resume an in-progress Didit session. Returns null when the session is
+   * gone (404) or has no hosted URL so the caller can create a new one.
+   */
+  private async tryResumePendingSession(user: UserEntity): Promise<{
+    redirectUrl: string;
+    sessionId: string | null | undefined;
+    message: string;
+  } | null> {
+    this.logger.log(
+      `Resuming pending KYC session ${user.kycReference} for user ${user.id}`,
+    );
+
+    try {
+      const session = await this.fetchDiditSession(user.kycReference!);
+      const redirectUrl = session?.url;
+
+      if (!redirectUrl) {
+        this.logger.warn(
+          `Didit session ${user.kycReference} has no url for user ${user.id}`,
+        );
+        return null;
+      }
+
+      return {
+        redirectUrl,
+        sessionId: user.kycReference,
+        message: 'Existing KYC session resumed. Redirect user to complete verification.',
+      };
+    } catch (error) {
+      const status = error?.response?.status;
+      this.logger.error(
+        `Failed to resume Didit session ${user.kycReference} for user ${user.id}: ${error.message}`,
+      );
+      this.logger.error(
+        `Error response: ${JSON.stringify(error.response?.data)}`,
+      );
+
+      if (status === 401) {
+        throw new BadRequestException('Invalid Didit API credentials');
+      }
+      if (status === 404) {
+        return null;
+      }
+      throw new BadRequestException(
+        'Failed to resume KYC session. Please try again later.',
+      );
+    }
+  }
+
+  private async createDiditSession(user: UserEntity, client: KycClient) {
     const returnUrl = resolveKycReturnUrl(this.configService, client);
 
     const contactDetails: Record<string, string> = {
@@ -217,30 +277,6 @@ export class KycDiditService {
         'Failed to start KYC process. Please try again later.',
       );
     }
-  }
-
-  /**
-   * Resume an in-progress Didit session instead of creating a new one.
-   */
-  private async resumePendingSession(user: UserEntity) {
-    this.logger.log(
-      `Resuming pending KYC session ${user.kycReference} for user ${user.id}`,
-    );
-
-    const session = await this.fetchDiditSession(user.kycReference!);
-    const redirectUrl = session?.url;
-
-    if (!redirectUrl) {
-      throw new BadRequestException(
-        'KYC verification is already in progress but session URL is unavailable',
-      );
-    }
-
-    return {
-      redirectUrl,
-      sessionId: user.kycReference,
-      message: 'Existing KYC session resumed. Redirect user to complete verification.',
-    };
   }
 
   private async fetchDiditSession(sessionId: string): Promise<any> {
