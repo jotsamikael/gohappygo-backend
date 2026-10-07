@@ -67,6 +67,28 @@ export class KycDiditService {
   }
 
   /**
+   * Placeholders (email_${uuid}, social_${firebaseUid}, deleted-*) are unique NOT NULL
+   * sentinels, not E.164 numbers. Didit rejects phone values over 20 characters.
+   */
+  private isDiditSafePhone(phone?: string | null): boolean {
+    if (!phone) {
+      return false;
+    }
+    const trimmed = phone.trim();
+    if (trimmed.length === 0 || trimmed.length > 20) {
+      return false;
+    }
+    if (
+      trimmed.startsWith('email_') ||
+      trimmed.startsWith('social_') ||
+      trimmed.startsWith('deleted-')
+    ) {
+      return false;
+    }
+    return /^\+?[0-9][0-9\s.-]{5,19}$/.test(trimmed);
+  }
+
+  /**
    * Map Didit status strings to internal KYC status.
    */
   mapDiditStatus(raw: string): Exclude<KycStatus, 'uninitiated'> {
@@ -101,6 +123,14 @@ export class KycDiditService {
 
     const returnUrl = resolveKycReturnUrl(this.configService, client);
 
+    const contactDetails: Record<string, string> = {
+      email: user.email,
+      email_lang: 'en',
+    };
+    if (this.isDiditSafePhone(user.phone)) {
+      contactDetails.phone = user.phone.trim();
+    }
+
     const payload = {
       workflow_id: this.workflowId,
       vendor_data: user.id.toString(),
@@ -111,11 +141,7 @@ export class KycDiditService {
         user_name: `${user.firstName} ${user.lastName}`,
         platform: client,
       },
-      contact_details: {
-        email: user.email,
-        email_lang: 'en',
-        phone: user.phone,
-      },
+      contact_details: contactDetails,
     };
 
     try {
@@ -180,9 +206,12 @@ export class KycDiditService {
         throw new BadRequestException('Invalid Didit API credentials');
       }
       if (error.response?.status === 400) {
-        throw new BadRequestException(
-          `Invalid request to Didit: ${error.response.data?.message || 'Unknown error'}`,
-        );
+        const diditBody = error.response.data;
+        const diditMessage =
+          diditBody?.detail ||
+          diditBody?.message ||
+          (diditBody ? JSON.stringify(diditBody) : 'Unknown error');
+        throw new BadRequestException(`Invalid request to Didit: ${diditMessage}`);
       }
       throw new BadRequestException(
         'Failed to start KYC process. Please try again later.',
