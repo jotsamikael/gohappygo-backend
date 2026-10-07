@@ -10,7 +10,7 @@ export class StartKycQueryDto {
   @ApiPropertyOptional({
     enum: KycClient,
     default: KycClient.WEB,
-    description: 'Client platform starting KYC (controls Didit return_url)',
+    description: 'Client platform starting KYC (controls Didit callback / user return URL)',
   })
   @IsOptional()
   @IsEnum(KycClient)

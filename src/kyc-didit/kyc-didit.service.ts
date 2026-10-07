@@ -60,12 +60,6 @@ export class KycDiditService {
     return this.configService.get<string>('DIDIT_WORKFLOW_ID') || '';
   }
 
-  private get webhookCallbackUrl(): string {
-    const backendUrl =
-      this.configService.get<string>('BACKEND_URL') || 'http://localhost:3000';
-    return `${backendUrl.replace(/\/$/, '')}/api/kyc/webhook`;
-  }
-
   /**
    * Placeholders (email_${uuid}, social_${firebaseUid}, deleted-*) are unique NOT NULL
    * sentinels, not E.164 numbers. Didit rejects phone values over 20 characters.
@@ -194,8 +188,7 @@ export class KycDiditService {
     const payload = {
       workflow_id: this.workflowId,
       vendor_data: user.id.toString(),
-      callback: this.webhookCallbackUrl,
-      return_url: returnUrl,
+      callback: returnUrl,
       metadata: {
         user_email: user.email,
         user_name: `${user.firstName} ${user.lastName}`,
@@ -206,7 +199,7 @@ export class KycDiditService {
 
     try {
       this.logger.log(
-        `Creating Didit session for user ${user.id}, return_url=${returnUrl}`,
+        `Creating Didit session for user ${user.id}, callback=${returnUrl}`,
       );
 
       const resp = await firstValueFrom(
