@@ -4,7 +4,7 @@ import {
   IsOptional,
   MinLength,
   MaxLength,
-  Matches,
+  IsPhoneNumber,
 } from 'class-validator';
 
 export class UpdateProfileDto {
@@ -47,4 +47,14 @@ export class UpdateProfileDto {
   @MaxLength(500, { message: 'bio cannot exceed 500 characters' })
   bio?: string;
 
+  @ApiProperty({
+    description:
+      'Phone number in international format. Can only be changed before Didit KYC verification (isVerified=false).',
+    example: '+33612345678',
+    required: false,
+  })
+  @IsOptional()
+  @IsPhoneNumber(undefined, { message: 'phone must be a valid phone number' })
+  @MaxLength(20, { message: 'phone cannot exceed 20 characters' })
+  phone?: string;
 }

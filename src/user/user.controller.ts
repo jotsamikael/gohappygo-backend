@@ -125,7 +125,8 @@ export class UserController {
   @ApiBody({ type: UpdatePhoneDto })
   @ApiOperation({
     summary: 'Update phone number',
-    description: 'Update the phone number of the currently authenticated user'
+    description:
+      'Update the phone number of the currently authenticated user. Blocked after identity verification (isVerified=true).'
   })
   @ApiResponse({
     status: 200,
@@ -208,7 +209,8 @@ export class UserController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Update current user profile',
-    description: 'Update the profile of the currently authenticated user. Optionally upload a profile picture.'
+    description:
+      'Update the profile of the currently authenticated user. Phone can be changed only while isVerified is false. Optionally upload a profile picture.',
   })
   @ApiBody({
       type: UpdateProfileDto,

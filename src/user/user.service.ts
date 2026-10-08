@@ -19,7 +19,7 @@ import { UpdateProfileDto } from './dto/request/update-profile.dto';
 import { FileUploadService } from 'src/file-upload/file-upload.service';
 import { FilePurpose } from 'src/uploaded-file/uploaded-file-purpose.enum';
 import { CommonService } from 'src/common/service/common.service';
-import { CustomBadRequestException } from 'src/common/exception/custom-exceptions';
+import { CustomBadRequestException, CustomConflictException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 
 @Injectable()
@@ -553,6 +553,16 @@ async updateUserProfile(
         ErrorCode.USER_PROFILE_NAME_LOCKED_AFTER_VERIFICATION,
       );
     }
+
+    if (
+      updateProfileDto.phone !== undefined &&
+      updateProfileDto.phone.trim() !== (currentUser.phone ?? '').trim()
+    ) {
+      throw new CustomBadRequestException(
+        'Phone number cannot be changed after identity verification',
+        ErrorCode.USER_PROFILE_PHONE_LOCKED_AFTER_VERIFICATION,
+      );
+    }
   }
 
   // Update firstName if provided
@@ -578,6 +588,23 @@ async updateUserProfile(
   // Update bio if provided
   if (updateProfileDto.bio !== undefined) {
     currentUser.bio = updateProfileDto.bio;
+  }
+
+  if (updateProfileDto.phone !== undefined) {
+    const nextPhone = updateProfileDto.phone.trim();
+    if (nextPhone !== (currentUser.phone ?? '').trim()) {
+      const existingByPhone = await this.userRepository.findOne({
+        where: { phone: nextPhone },
+      });
+      if (existingByPhone && existingByPhone.id !== currentUser.id) {
+        throw new CustomConflictException(
+          'Phone number already in use',
+          ErrorCode.AUTH_ACCOUNT_ALREADY_EXISTS,
+        );
+      }
+      currentUser.phone = nextPhone;
+      currentUser.isPhoneVerified = false;
+    }
   }
 
  
@@ -625,6 +652,12 @@ async updateUserProfile(
     if (!foundUser) {
       throw new NotFoundException(`User not found`)
 
+    }
+    if (foundUser.isVerified) {
+      throw new CustomBadRequestException(
+        'Phone number cannot be changed after identity verification',
+        ErrorCode.USER_PROFILE_PHONE_LOCKED_AFTER_VERIFICATION,
+      );
     }
     //if old and new phone number are the save, cancel
     if (updatePhoneDto.newPhoneNumber == updatePhoneDto.oldPhoneNumber) {

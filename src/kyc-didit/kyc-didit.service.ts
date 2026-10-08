@@ -14,6 +14,8 @@ import { UserEventsService } from '../events/user-events.service';
 import * as crypto from 'crypto';
 import { KycClient } from './dto/start-kyc-query.dto';
 import { resolveKycReturnUrl } from './kyc-return-urls.util';
+import { CustomBadRequestException } from '../common/exception/custom-exceptions';
+import { ErrorCode } from '../common/exception/error-codes';
 
 export type KycStatus =
   | 'uninitiated'
@@ -110,6 +112,13 @@ export class KycDiditService {
     this.logger.log(
       `Starting KYC process for user ${user.id} (${user.email}), client=${client}`,
     );
+
+    if (!this.isDiditSafePhone(user.phone)) {
+      throw new CustomBadRequestException(
+        'Update your account with a valid phone number before starting identity verification',
+        ErrorCode.KYC_VALID_PHONE_REQUIRED,
+      );
+    }
 
     if (user.kycStatus === 'pending' && user.kycReference) {
       const resumed = await this.tryResumePendingSession(user);
