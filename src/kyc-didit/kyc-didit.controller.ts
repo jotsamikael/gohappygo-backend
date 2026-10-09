@@ -5,10 +5,11 @@ import {
   Req,
   Query,
   UseGuards,
-  Headers,
   Logger,
   BadRequestException,
+  RawBodyRequest,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { KycDiditService } from './kyc-didit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -50,7 +51,7 @@ export class KycDiditController {
     const client = query.client ?? KycClient.WEB;
     this.logger.log(`KYC start requested by user ${user.id}, client=${client}`);
 
-    if (user.kycStatus === 'approved') {
+    if (user.isVerified || user.kycStatus === 'approved') {
       throw new BadRequestException('User is already verified');
     }
 
@@ -65,21 +66,17 @@ export class KycDiditController {
   })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid webhook signature' })
-  async handleWebhook(
-    @Req() req: any,
-    @Headers('x-didit-signature') signature: string,
-  ) {
+  async handleWebhook(@Req() req: RawBodyRequest<Request>) {
     this.logger.log('Received webhook from Didit');
 
-    const rawBody = req.rawBody || JSON.stringify(req.body);
-
-    if (!signature) {
-      this.logger.error('Webhook missing signature header');
-      throw new BadRequestException('Missing webhook signature');
-    }
+    const rawBody = req.rawBody
+      ? Buffer.isBuffer(req.rawBody)
+        ? req.rawBody.toString('utf8')
+        : String(req.rawBody)
+      : JSON.stringify(req.body ?? {});
 
     try {
-      await this.kycService.handleWebhook(rawBody, signature);
+      await this.kycService.handleWebhook(rawBody, req.headers);
 
       this.logger.log('Webhook processed successfully');
       return { success: true, message: 'Webhook processed successfully' };

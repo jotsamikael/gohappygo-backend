@@ -11,11 +11,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { UserEntity } from '../user/user.entity';
 import { UserEventsService } from '../events/user-events.service';
-import * as crypto from 'crypto';
 import { KycClient } from './dto/start-kyc-query.dto';
 import { resolveKycReturnUrl } from './kyc-return-urls.util';
 import { CustomBadRequestException } from '../common/exception/custom-exceptions';
 import { ErrorCode } from '../common/exception/error-codes';
+import { verifyDiditWebhookSignature } from './didit-webhook.util';
 
 export type KycStatus =
   | 'uninitiated'
@@ -88,17 +88,24 @@ export class KycDiditService {
    * Map Didit status strings to internal KYC status.
    */
   mapDiditStatus(raw: string): Exclude<KycStatus, 'uninitiated'> {
-    const status = (raw || '').toLowerCase();
+    const status = (raw || '').toLowerCase().replace(/_/g, ' ').trim();
     switch (status) {
       case 'approved':
         return 'approved';
       case 'rejected':
+      case 'declined':
         return 'rejected';
       case 'failed':
+      case 'abandoned':
+      case 'expired':
+      case 'kyc expired':
         return 'failed';
       case 'pending':
       case 'in review':
-      case 'in_review':
+      case 'not started':
+      case 'in progress':
+      case 'awaiting user':
+      case 'resubmitted':
         return 'pending';
       default:
         return 'failed';
@@ -120,8 +127,12 @@ export class KycDiditService {
       );
     }
 
+    if (user.isVerified || user.kycStatus === 'approved') {
+      throw new BadRequestException('User is already verified');
+    }
+
     if (user.kycStatus === 'pending' && user.kycReference) {
-      const resumed = await this.tryResumePendingSession(user);
+      const resumed = await this.tryResumePendingSession(user, client);
       if (resumed) {
         return resumed;
       }
@@ -137,7 +148,10 @@ export class KycDiditService {
    * Resume an in-progress Didit session. Returns null when the session is
    * gone (404) or has no hosted URL so the caller can create a new one.
    */
-  private async tryResumePendingSession(user: UserEntity): Promise<{
+  private async tryResumePendingSession(
+    user: UserEntity,
+    client: KycClient,
+  ): Promise<{
     redirectUrl: string;
     sessionId: string | null | undefined;
     message: string;
@@ -148,8 +162,26 @@ export class KycDiditService {
 
     try {
       const session = await this.fetchDiditSession(user.kycReference!);
-      const redirectUrl = session?.url;
+      const rawStatus = this.extractDiditStatus(session);
+      const mapped = this.mapDiditStatus(rawStatus);
 
+      if (mapped === 'approved') {
+        await this.syncUserFromDiditStatus(user, rawStatus, user.kycReference!);
+        return {
+          redirectUrl: resolveKycReturnUrl(this.configService, client),
+          sessionId: user.kycReference,
+          message: 'KYC is already approved.',
+        };
+      }
+
+      if (mapped !== 'pending') {
+        this.logger.warn(
+          `Didit session ${user.kycReference} status=${rawStatus} is not resumable for user ${user.id}`,
+        );
+        return null;
+      }
+
+      const redirectUrl = session?.url;
       if (!redirectUrl) {
         this.logger.warn(
           `Didit session ${user.kycReference} has no url for user ${user.id}`,
@@ -171,7 +203,7 @@ export class KycDiditService {
         `Error response: ${JSON.stringify(error.response?.data)}`,
       );
 
-      if (status === 401) {
+      if (status === 401 || status === 403) {
         throw new BadRequestException('Invalid Didit API credentials');
       }
       if (status === 404) {
@@ -212,9 +244,9 @@ export class KycDiditService {
       );
 
       const resp = await firstValueFrom(
-        this.http.post(`${this.baseUrl}/v2/session/`, payload, {
+        this.http.post(`${this.baseUrl}/v3/session/`, payload, {
           headers: {
-            'X-Api-Key': this.apiKey,
+            'x-api-key': this.apiKey,
             'Content-Type': 'application/json',
           },
         }),
@@ -264,7 +296,7 @@ export class KycDiditService {
         `Error response: ${JSON.stringify(error.response?.data)}`,
       );
 
-      if (error.response?.status === 401) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         throw new BadRequestException('Invalid Didit API credentials');
       }
       if (error.response?.status === 400) {
@@ -282,14 +314,32 @@ export class KycDiditService {
   }
 
   private async fetchDiditSession(sessionId: string): Promise<any> {
-    const resp = await firstValueFrom(
-      this.http.get(`${this.baseUrl}/v2/session/${sessionId}`, {
-        headers: {
-          'X-Api-Key': this.apiKey,
-        },
-      }),
+    const headers = { 'x-api-key': this.apiKey };
+    try {
+      const resp = await firstValueFrom(
+        this.http.get(`${this.baseUrl}/v3/session/${sessionId}/`, { headers }),
+      );
+      return resp.data;
+    } catch (error) {
+      if (error?.response?.status !== 404) {
+        throw error;
+      }
+      const decision = await firstValueFrom(
+        this.http.get(`${this.baseUrl}/v3/session/${sessionId}/decision/`, {
+          headers,
+        }),
+      );
+      return decision.data;
+    }
+  }
+
+  private extractDiditStatus(session: any): string {
+    return (
+      session?.status ||
+      session?.verification_status ||
+      session?.decision?.status ||
+      ''
     );
-    return resp.data;
   }
 
   /**
@@ -303,9 +353,24 @@ export class KycDiditService {
   ): Promise<boolean> {
     const finalStatus = this.mapDiditStatus(rawStatus);
     const previousStatus = user.kycStatus;
+    const alreadyApproved = user.isVerified || previousStatus === 'approved';
+
+    if (
+      alreadyApproved &&
+      finalStatus !== 'approved' &&
+      finalStatus !== 'rejected' &&
+      finalStatus !== 'failed'
+    ) {
+      this.logger.log(
+        `[syncUserFromDiditStatus] User ${user.id} already approved; ignoring Didit status '${rawStatus}'`,
+      );
+      return false;
+    }
+
     const needsUpdate =
       previousStatus !== finalStatus ||
-      (finalStatus === 'approved' && !user.isVerified);
+      (finalStatus === 'approved' && !user.isVerified) ||
+      (finalStatus === 'approved' && user.kycReference !== verificationId);
 
     if (!needsUpdate) {
       this.logger.log(
@@ -314,9 +379,15 @@ export class KycDiditService {
       return false;
     }
 
+    const isVerified =
+      finalStatus === 'approved' ||
+      (alreadyApproved && finalStatus !== 'rejected' && finalStatus !== 'failed');
+
     await this.users.update(user.id, {
-      kycStatus: finalStatus,
-      isVerified: finalStatus === 'approved',
+      kycStatus: isVerified ? 'approved' : finalStatus,
+      isVerified,
+      kycProvider: 'didit',
+      kycReference: verificationId,
       kycUpdatedAt: new Date(),
     });
 
@@ -340,39 +411,72 @@ export class KycDiditService {
     return true;
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string) {
-    const hmac = crypto.createHmac('sha256', this.webhookSecret);
-    hmac.update(rawBody, 'utf8');
-    const digest = hmac.digest('hex');
+  async handleWebhook(
+    rawBody: string,
+    headers: Record<string, string | string[] | undefined>,
+  ) {
+    this.logger.log('Received webhook from Didit');
 
-    if (digest !== signature) {
-      this.logger.error('Invalid webhook signature received');
+    let event: Record<string, any>;
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      throw new BadRequestException('Invalid webhook payload');
+    }
+
+    const verified = verifyDiditWebhookSignature(
+      rawBody,
+      event,
+      headers,
+      this.webhookSecret,
+    );
+    if (!verified) {
+      this.logger.error('Invalid or missing Didit webhook signature');
       throw new UnauthorizedException('Invalid webhook signature');
     }
 
-    this.logger.log('Webhook signature verified successfully');
-  }
-
-  async handleWebhook(rawBody: string, signature: string) {
-    this.logger.log('Received webhook from Didit');
-
-    this.verifyWebhookSignature(rawBody, signature);
-
-    const event = JSON.parse(rawBody);
+    this.logger.log(`Webhook signature verified successfully (${verified})`);
     this.logger.log(`Processing webhook event: ${JSON.stringify(event)}`);
+
+    const webhookType = event.webhook_type || '';
+    if (
+      webhookType &&
+      webhookType !== 'status.updated' &&
+      webhookType !== 'data.updated'
+    ) {
+      this.logger.log(`Ignoring Didit webhook type ${webhookType}`);
+      return;
+    }
 
     const verificationId =
       event.session_id || event.verification_id || event.id;
-    const status = event.status || '';
+    let status = event.status || '';
 
     if (!verificationId) {
       this.logger.error('Webhook missing verification ID');
       return;
     }
 
-    const user = await this.users.findOne({
-      where: { kycReference: verificationId },
-    });
+    if (verified === 'simple' || !status) {
+      try {
+        const session = await this.fetchDiditSession(verificationId);
+        status = this.extractDiditStatus(session) || status;
+      } catch (error) {
+        this.logger.warn(
+          `Could not re-fetch Didit session ${verificationId}: ${error.message}`,
+        );
+      }
+    }
+
+    if (!status) {
+      this.logger.error(`Webhook missing status for session ${verificationId}`);
+      return;
+    }
+
+    const user = await this.findUserForDiditSession(
+      verificationId,
+      event.vendor_data || event.decision?.vendor_data,
+    );
     if (!user) {
       this.logger.warn(`No user found for verification ID: ${verificationId}`);
       return;
@@ -384,6 +488,25 @@ export class KycDiditService {
       verificationId,
       event.reason,
     );
+  }
+
+  private async findUserForDiditSession(
+    sessionId: string,
+    vendorData?: string,
+  ): Promise<UserEntity | null> {
+    const byReference = await this.users.findOne({
+      where: { kycReference: sessionId },
+    });
+    if (byReference) {
+      return byReference;
+    }
+
+    const vendorId = Number.parseInt(String(vendorData || ''), 10);
+    if (!Number.isInteger(vendorId) || vendorId <= 0) {
+      return null;
+    }
+
+    return this.users.findOne({ where: { id: vendorId } });
   }
 
   /**
@@ -417,7 +540,7 @@ export class KycDiditService {
 
     try {
       const session = await this.fetchDiditSession(user.kycReference);
-      const rawStatus = session?.status || session?.verification_status || '';
+      const rawStatus = this.extractDiditStatus(session);
       const wasUpdated = await this.syncUserFromDiditStatus(
         user,
         rawStatus,
