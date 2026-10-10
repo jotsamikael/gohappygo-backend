@@ -97,7 +97,7 @@ export class UserEntity extends PublicIdentifiableEntity {
 
   /* add near other columns */
 @Column({ type: 'varchar', length: 20, default: 'uninitiated' })
-kycStatus: 'uninitiated' | 'pending' | 'approved' | 'rejected' | 'failed';
+kycStatus: 'uninitiated' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'failed';
 
 @Column({ type: 'varchar', length: 50, nullable: true })
 kycProvider?: 'didit'|'onfido' | null;

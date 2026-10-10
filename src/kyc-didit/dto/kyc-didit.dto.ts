@@ -19,10 +19,10 @@ export class KycStartResponseDto {
  */
 export class KycStatusResponseDto {
   @ApiProperty({ 
-    enum: ['uninitiated', 'pending', 'approved', 'rejected', 'failed'],
-    description: 'Current KYC verification status'
+    enum: ['uninitiated', 'pending', 'in_review', 'approved', 'rejected', 'failed'],
+    description: 'Current KYC verification status. in_review means the user finished Didit and a human must approve or reject.'
   })
-  kycStatus: 'uninitiated' | 'pending' | 'approved' | 'rejected' | 'failed';
+  kycStatus: 'uninitiated' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'failed';
 
   @ApiProperty({ 
     type: 'string', 

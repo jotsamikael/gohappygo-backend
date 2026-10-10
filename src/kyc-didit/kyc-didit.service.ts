@@ -20,6 +20,7 @@ import { verifyDiditWebhookSignature } from './didit-webhook.util';
 export type KycStatus =
   | 'uninitiated'
   | 'pending'
+  | 'in_review'
   | 'approved'
   | 'rejected'
   | 'failed';
@@ -100,8 +101,9 @@ export class KycDiditService {
       case 'expired':
       case 'kyc expired':
         return 'failed';
-      case 'pending':
       case 'in review':
+        return 'in_review';
+      case 'pending':
       case 'not started':
       case 'in progress':
       case 'awaiting user':
@@ -131,10 +133,20 @@ export class KycDiditService {
       throw new BadRequestException('User is already verified');
     }
 
-    if (user.kycStatus === 'pending' && user.kycReference) {
+    const canReuseSession =
+      (user.kycStatus === 'pending' || user.kycStatus === 'in_review') &&
+      !!user.kycReference;
+
+    if (canReuseSession) {
       const resumed = await this.tryResumePendingSession(user, client);
       if (resumed) {
         return resumed;
+      }
+      if (user.kycStatus === 'in_review') {
+        throw new CustomBadRequestException(
+          'Your identity verification is under review. You will be notified when it is approved or rejected.',
+          ErrorCode.KYC_UNDER_REVIEW,
+        );
       }
       this.logger.warn(
         `Pending Didit session ${user.kycReference} is not resumable for user ${user.id}; creating a new session`,
@@ -174,6 +186,14 @@ export class KycDiditService {
         };
       }
 
+      if (mapped === 'in_review') {
+        await this.syncUserFromDiditStatus(user, rawStatus, user.kycReference!);
+        throw new CustomBadRequestException(
+          'Your identity verification is under review. You will be notified when it is approved or rejected.',
+          ErrorCode.KYC_UNDER_REVIEW,
+        );
+      }
+
       if (mapped !== 'pending') {
         this.logger.warn(
           `Didit session ${user.kycReference} status=${rawStatus} is not resumable for user ${user.id}`,
@@ -195,6 +215,13 @@ export class KycDiditService {
         message: 'Existing KYC session resumed. Redirect user to complete verification.',
       };
     } catch (error) {
+      if (
+        error instanceof CustomBadRequestException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+
       const status = error?.response?.status;
       this.logger.error(
         `Failed to resume Didit session ${user.kycReference} for user ${user.id}: ${error.message}`,

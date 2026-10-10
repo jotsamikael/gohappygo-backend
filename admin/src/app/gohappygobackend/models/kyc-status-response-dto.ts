@@ -17,7 +17,7 @@ export interface KycStatusResponseDto {
   /**
    * Current KYC verification status
    */
-  kycStatus: 'uninitiated' | 'pending' | 'approved' | 'rejected' | 'failed';
+  kycStatus: 'uninitiated' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'failed';
 
   /**
    * Last status update timestamp

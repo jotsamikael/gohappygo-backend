@@ -9,6 +9,7 @@ import { KycDiditService } from './kyc-didit.service';
 import { UserEntity } from '../user/user.entity';
 import { UserEventsService } from '../events/user-events.service';
 import { KycClient } from './dto/start-kyc-query.dto';
+import { ErrorCode } from '../common/exception/error-codes';
 
 const SECRET = 'webhook-secret';
 const now = () => Math.floor(Date.now() / 1000);
@@ -80,6 +81,7 @@ describe('KycDiditService', () => {
       expect(service.mapDiditStatus('Declined')).toBe('rejected');
       expect(service.mapDiditStatus('In Progress')).toBe('pending');
       expect(service.mapDiditStatus('Not Started')).toBe('pending');
+      expect(service.mapDiditStatus('In Review')).toBe('in_review');
       expect(service.mapDiditStatus('Abandoned')).toBe('failed');
       expect(service.mapDiditStatus('Kyc Expired')).toBe('failed');
     });
@@ -111,6 +113,33 @@ describe('KycDiditService', () => {
           kycStatus: 'approved',
           isVerified: true,
           kycReference: 'ef1abe2e-a339-4170-a320-8327f0354053',
+        }),
+      );
+    });
+
+    it('persists in_review without verifying the user', async () => {
+      users.findOne.mockResolvedValueOnce(pendingUser);
+
+      const event = {
+        webhook_type: 'data.updated',
+        timestamp: now(),
+        session_id: pendingUser.kycReference,
+        status: 'In Review',
+        vendor_data: '145',
+      };
+      const rawBody = JSON.stringify(event);
+
+      await service.handleWebhook(rawBody, {
+        'x-timestamp': String(event.timestamp),
+        'x-signature': hmacHex(rawBody),
+      });
+
+      expect(users.update).toHaveBeenCalledWith(
+        145,
+        expect.objectContaining({
+          kycStatus: 'in_review',
+          isVerified: false,
+          kycReference: pendingUser.kycReference,
         }),
       );
     });
@@ -150,6 +179,30 @@ describe('KycDiditService', () => {
       );
       expect(result.sessionId).toBe(pendingUser.kycReference);
       expect(result.message).toBe('KYC is already approved.');
+    });
+
+    it('does not create a new session when Didit is In Review', async () => {
+      http.get.mockReturnValue(
+        of({
+          data: {
+            session_id: pendingUser.kycReference,
+            status: 'In Review',
+            url: 'https://verify.didit.me/session/old',
+          },
+        }),
+      );
+
+      await expect(service.start(pendingUser, KycClient.WEB)).rejects.toMatchObject({
+        errorCode: ErrorCode.KYC_UNDER_REVIEW,
+      });
+      expect(http.post).not.toHaveBeenCalled();
+      expect(users.update).toHaveBeenCalledWith(
+        145,
+        expect.objectContaining({
+          kycStatus: 'in_review',
+          isVerified: false,
+        }),
+      );
     });
   });
 });

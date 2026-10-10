@@ -14028,11 +14028,12 @@
             "enum": [
               "uninitiated",
               "pending",
+              "in_review",
               "approved",
               "rejected",
               "failed"
             ],
-            "description": "Current KYC verification status"
+            "description": "Current KYC verification status. in_review means the user finished Didit and a human must approve or reject."
           },
           "kycUpdatedAt": {
             "type": "string",
@@ -14166,11 +14167,12 @@
             "enum": [
               "uninitiated",
               "pending",
+              "in_review",
               "approved",
               "rejected",
               "failed"
             ],
-            "description": "Current KYC verification status"
+            "description": "Current KYC verification status. in_review means the user finished verification and a human must approve or reject."
           },
           "kycUpdatedAt": {
             "type": "string",
