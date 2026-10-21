@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import Mailjet, { Client, LibraryResponse, SendEmailV3_1 } from 'node-mailjet';
 import { EmailTemplatesService } from './email-templates.service';
 import { RequestEvent } from 'src/events/user-events.service';
 
@@ -18,239 +18,200 @@ export interface EmailOptions {
   }>;
 }
 
+type MailjetContact = { Email: string; Name?: string };
+
 @Injectable()
 export class EmailService {
- 
- 
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter | null;
-  private supportTransporter: nodemailer.Transporter | null;
-
-  private parseBoolean(value: unknown): boolean | undefined {
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === 'true') return true;
-      if (normalized === 'false') return false;
-    }
-    return undefined;
-  }
+  private mailjet: Client | null = null;
 
   constructor(
     private configService: ConfigService,
     private emailTemplatesService: EmailTemplatesService,
   ) {
-    this.initializeTransporter();
-    this.initializeSupportTransporter();
+    this.initializeMailjet();
   }
 
-  private initializeTransporter(): void {
-    const emailUser = this.configService.get<string>('EMAIL_USER');
-    const emailPass = this.configService.get<string>('EMAIL_PASSWORD');
+  private initializeMailjet(): void {
+    const apiKey =
+      this.configService.get<string>('MAILJET_API_KEY') ||
+      this.configService.get<string>('MJ_APIKEY_PUBLIC');
+    const apiSecret =
+      this.configService.get<string>('MAILJET_API_SECRET') ||
+      this.configService.get<string>('MJ_APIKEY_PRIVATE');
 
-    // Skip email setup if no credentials provided
-    if (!emailUser || !emailPass) {
-      this.logger.warn('Email credentials not configured. Email sending will be skipped.');
-      this.logger.warn(`EMAIL_USER: ${emailUser ? 'Set' : 'Not Set'}`);
-      this.logger.warn(`EMAIL_PASSWORD: ${emailPass ? 'Set' : 'Not Set'}`);
-      return;
-    }
-
-    const host = this.configService.get<string>('EMAIL_HOST');
-    const portValue = this.configService.get<string | number>('EMAIL_PORT');
-    const port = typeof portValue === 'number' ? portValue : parseInt(portValue ?? '587', 10);
-    const secureEnv = this.configService.get<boolean | string>('EMAIL_SECURE');
-    const secure = this.parseBoolean(secureEnv) ?? port === 465;
-    const rejectUnauthorizedEnv = this.configService.get<boolean | string>('EMAIL_TLS_REJECT_UNAUTHORIZED');
-    const rejectUnauthorized = this.parseBoolean(rejectUnauthorizedEnv);
-    const requireTlsEnv = this.configService.get<boolean | string>('EMAIL_REQUIRE_TLS');
-    const requireTLS = this.parseBoolean(requireTlsEnv) ?? port === 587;
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      // SMTP 587 uses STARTTLS upgrade (secure must be false at connection start).
-      secure,
-      requireTLS,
-      auth: {
-        user: emailUser,
-        pass: emailPass,
-      },
-      tls: {
-        // For self-signed certs before LE is active, set EMAIL_TLS_REJECT_UNAUTHORIZED=false.
-        rejectUnauthorized: rejectUnauthorized ?? true,
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-    this.logger.log(
-      `Email transporter created: host=${host}, port=${port}, secure=${secure}, requireTLS=${requireTLS}, rejectUnauthorized=${rejectUnauthorized ?? true}`,
-    );
-
-    // Verify connection
-    this.transporter.verify((error, success) => {
-      if (error) {
-        this.logger.error('Email server connection failed:', error);
-      } else {
-        this.logger.log('Email server is ready to send messages');
-      }
-    });
-  }
-
-  private initializeSupportTransporter(): void {
-    const supportEmail = this.configService.get<string>('SUPPORT_EMAIL_USER');
-    const supportPass = this.configService.get<string>('SUPPORT_EMAIL_PASSWORD');
-
-    if (!supportEmail || !supportPass) {
+    if (!apiKey || !apiSecret) {
       this.logger.warn(
-        'Support email credentials (SUPPORT_EMAIL_USER / SUPPORT_EMAIL_PASSWORD) not configured. Support emails will fallback to primary transporter.',
+        'Mailjet credentials not configured (MAILJET_API_KEY / MAILJET_API_SECRET). Email sending will be skipped.',
       );
-      this.supportTransporter = null;
       return;
     }
 
-    const host =
-      this.configService.get<string>('SUPPORT_EMAIL_HOST') ||
-      this.configService.get<string>('EMAIL_HOST');
-    const portValue =
-      this.configService.get<string | number>('SUPPORT_EMAIL_PORT') ||
-      this.configService.get<string | number>('EMAIL_PORT');
-    const port = typeof portValue === 'number' ? portValue : parseInt(portValue ?? '587', 10);
-    const secureEnv = this.configService.get<boolean | string>('EMAIL_SECURE');
-    const secure = this.parseBoolean(secureEnv) ?? port === 465;
-    const rejectUnauthorizedEnv = this.configService.get<boolean | string>('EMAIL_TLS_REJECT_UNAUTHORIZED');
-    const rejectUnauthorized = this.parseBoolean(rejectUnauthorizedEnv);
-    const requireTlsEnv = this.configService.get<boolean | string>('EMAIL_REQUIRE_TLS');
-    const requireTLS = this.parseBoolean(requireTlsEnv) ?? port === 587;
+    this.mailjet = Mailjet.apiConnect(apiKey, apiSecret);
+    this.logger.log('Mailjet Send API client initialized');
+  }
 
-    this.supportTransporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      requireTLS,
-      auth: {
-        user: supportEmail,
-        pass: supportPass,
-      },
-      tls: {
-        rejectUnauthorized: rejectUnauthorized ?? true,
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-    this.logger.log(
-      `Support email transporter created: host=${host}, port=${port}, secure=${secure}, requireTLS=${requireTLS}, rejectUnauthorized=${rejectUnauthorized ?? true}, user=${supportEmail}`,
+  private parseFrom(from: string): MailjetContact {
+    const angled = from.match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/);
+    if (angled) {
+      const name = angled[1].trim();
+      return name
+        ? { Email: angled[2].trim(), Name: name }
+        : { Email: angled[2].trim() };
+    }
+    return { Email: from.trim() };
+  }
+
+  private toContacts(value?: string | string[]): MailjetContact[] {
+    if (!value) {
+      return [];
+    }
+    const list = Array.isArray(value) ? value : [value];
+    return list
+      .map((entry) => entry?.trim())
+      .filter((entry): entry is string => !!entry)
+      .map((entry) => this.parseFrom(entry));
+  }
+
+  private toAttachments(
+    attachments?: EmailOptions['attachments'],
+  ): SendEmailV3_1.Attachment[] | undefined {
+    if (!attachments?.length) {
+      return undefined;
+    }
+    return attachments.map((file) => ({
+      Filename: file.filename,
+      ContentType: file.contentType || 'application/octet-stream',
+      Base64Content: Buffer.isBuffer(file.content)
+        ? file.content.toString('base64')
+        : Buffer.from(file.content, 'utf8').toString('base64'),
+    }));
+  }
+
+  private isSandbox(): boolean {
+    return this.configService.get<string>('MAILJET_SANDBOX') === 'true';
+  }
+
+  private defaultFrom(): string {
+    return (
+      this.configService.get<string>('EMAIL_FROM') ||
+      'noreply@gohappygo.fr'
     );
+  }
+
+  private async dispatchMailjet(
+    options: EmailOptions,
+    logPrefix: string,
+  ): Promise<boolean> {
+    if (!this.mailjet) {
+      this.logger.warn(
+        `[${logPrefix}] NOT CONFIGURED (set MAILJET_API_KEY and MAILJET_API_SECRET). Skipping. Subject: "${options.subject}", to: ${options.to}.`,
+      );
+      return false;
+    }
+
+    const from = this.parseFrom(options.from || this.defaultFrom());
+    const to = this.toContacts(options.to);
+    if (to.length === 0) {
+      this.logger.error(`[${logPrefix}] Missing recipient for subject="${options.subject}"`);
+      return false;
+    }
+
+    const bcc = this.toContacts(
+      options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
+    );
+    const htmlLength = typeof options.html === 'string' ? options.html.length : 0;
+    this.logger.log(
+      `[${logPrefix}] Sending: to=${to.map((c) => c.Email).join(',')}, subject="${options.subject}", htmlLength=${htmlLength}, from=${from.Email}`,
+    );
+
+    const message: SendEmailV3_1.Message = {
+      From: from,
+      To: to,
+      Subject: options.subject,
+      HTMLPart: options.html,
+      TextPart: options.text,
+    };
+    if (bcc.length) {
+      message.Bcc = bcc;
+    }
+    const attachments = this.toAttachments(options.attachments);
+    if (attachments) {
+      message.Attachments = attachments;
+    }
+
+    const body: SendEmailV3_1.Body = {
+      SandboxMode: this.isSandbox(),
+      Messages: [message],
+    };
+
+    try {
+      return await this.requestMailjet(body, options.subject, logPrefix);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isTransient = /ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket|timeout|5\d\d/i.test(
+        msg,
+      );
+      if (!isTransient) {
+        this.logger.error(
+          `[${logPrefix}] Send failed: to=${options.to}, subject="${options.subject}": ${msg}`,
+          error instanceof Error ? error.stack : error,
+        );
+        return false;
+      }
+      this.logger.warn(`[${logPrefix}] Transient error, retrying once in 2s: ${msg}`);
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        return await this.requestMailjet(body, options.subject, logPrefix);
+      } catch (retryError) {
+        this.logger.error(
+          `[${logPrefix}] Send failed on retry: to=${options.to}, subject="${options.subject}"`,
+          retryError instanceof Error ? retryError.stack : retryError,
+        );
+        return false;
+      }
+    }
+  }
+
+  private async requestMailjet(
+    body: SendEmailV3_1.Body,
+    subject: string,
+    logPrefix: string,
+  ): Promise<boolean> {
+    const result: LibraryResponse<SendEmailV3_1.Response> = await this.mailjet!
+      .post('send', { version: 'v3.1' })
+      .request(body);
+    const message = result.body?.Messages?.[0];
+    if (message?.Status === 'success') {
+      const delivered = message.To?.[0];
+      this.logger.log(
+        `[${logPrefix}] Sent successfully: status=${message.Status}, messageId=${delivered?.MessageID}, messageUuid=${delivered?.MessageUUID}`,
+      );
+      return true;
+    }
+    this.logger.error(
+      `[${logPrefix}] Mailjet did not accept message: subject="${subject}", status=${message?.Status}, errors=${JSON.stringify(message?.Errors)}`,
+    );
+    return false;
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    if (!this.transporter) {
-      this.logger.warn(
-        `[Email] NOT CONFIGURED (set EMAIL_USER and EMAIL_PASSWORD). Skipping. Subject: "${options.subject}", to: ${options.to}. This is likely why payment-failure email is not received.`,
-      );
-      return false;
-    }
-
-    const mailOptions = {
-      from: options.from || this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('EMAIL_USER'),
-      to: options.to,
-      bcc: options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      attachments: options.attachments,
-    };
-    const htmlLength = typeof options.html === 'string' ? options.html.length : 0;
-    this.logger.log(
-      `[Email] Sending: to=${options.to}, subject="${options.subject}", htmlLength=${htmlLength}, from=${mailOptions.from ?? '(default)'}`,
-    );
-
-    try {
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`[Email] Sent successfully: messageId=${info.messageId}`);
-      return true;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      const isTransient =
-        /socket disconnected|ECONNRESET|ETIMEDOUT|ECONNREFUSED|TLS|connection/i.test(msg);
-      if (isTransient) {
-        this.logger.warn(
-          `[Email] Transient error, retrying once in 2s: ${msg}`,
-        );
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const info = await this.transporter.sendMail(mailOptions);
-          this.logger.log(`[Email] Sent successfully on retry: messageId=${info.messageId}`);
-          return true;
-        } catch (retryError) {
-          this.logger.error(
-            `[Email] Send failed on retry: to=${options.to}, subject="${options.subject}"`,
-            retryError instanceof Error ? retryError.stack : retryError,
-          );
-          return false;
-        }
-      }
-      this.logger.error(
-        `[Email] Send failed: to=${options.to}, subject="${options.subject}"`,
-        error instanceof Error ? error.stack : error,
-      );
-      return false;
-    }
+    return this.dispatchMailjet(options, 'Email');
   }
 
   /**
-   * Send an email using the support transporter (support@gohappygo.fr).
-   * Requires SUPPORT_EMAIL_USER and SUPPORT_EMAIL_PASSWORD to be configured.
-   * If the support transporter is not configured, it falls back to the primary
-   * transporter with a message indicating it's from support (though the envelope
-   * sender will still be the primary email address).
+   * Send from support@gohappygo.fr via the same Mailjet account.
    */
   async sendSupportEmail(options: EmailOptions): Promise<boolean> {
     const supportEmail =
       this.configService.get<string>('SUPPORT_EMAIL') || 'support@gohappygo.fr';
-
-    if (!this.supportTransporter) {
-      this.logger.warn(
-        'Support email transporter not configured. Falling back to primary email transporter to send support response.',
-      );
-      return this.sendEmail({
+    return this.dispatchMailjet(
+      {
         ...options,
         from: options.from || `"GoHappyGo Support" <${supportEmail}>`,
-      });
-    }
-
-    const mailOptions = {
-      from: options.from || `"GoHappyGo Support" <${supportEmail}>`,
-      replyTo: supportEmail,
-      to: options.to,
-      bcc: options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      attachments: options.attachments,
-    };
-
-    try {
-      const info = await this.supportTransporter.sendMail(mailOptions);
-      this.logger.log(
-        `[Support Email] Sent successfully: messageId=${info.messageId}, from=${supportEmail}`,
-      );
-      return true;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `[Support Email] Failed to send via support transporter: to=${options.to}, subject="${options.subject}", error=${msg}`,
-      );
-      // Log the failure clearly but do NOT fallback to primary transporter
-      // because Mailcow will reject the sender address "support@gohappygo.fr"
-      // when authenticated as "noreply@gohappygo.fr".
-      this.logger.error(
-        `[Support Email] Support email delivery FAILED. The support transporter could not send to ${options.to}. Check the TLS configuration and ensure the support mailbox exists in Mailcow.`,
-      );
-      return false;
-    }
+      },
+      'Support Email',
+    );
   }
 
   /**
