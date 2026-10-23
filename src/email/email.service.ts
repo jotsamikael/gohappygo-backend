@@ -42,13 +42,43 @@ export class EmailService {
 
     if (!apiKey || !apiSecret) {
       this.logger.warn(
-        'Mailjet credentials not configured (MAILJET_API_KEY / MAILJET_API_SECRET). Email sending will be skipped.',
+        '[Mailjet] Client NOT initialized: MAILJET_API_KEY / MAILJET_API_SECRET missing. Outbound mail will be skipped.',
       );
       return;
     }
 
     this.mailjet = Mailjet.apiConnect(apiKey, apiSecret);
-    this.logger.log('Mailjet Send API client initialized');
+    this.logger.log(
+      `[Mailjet] Client initialized: keyPrefix=${apiKey.slice(0, 6)}…, sandbox=${this.isSandbox()}`,
+    );
+  }
+
+  private formatMailjetError(error: unknown): string {
+    const err = error as {
+      message?: string;
+      ErrorMessage?: string;
+      statusCode?: number;
+      status?: number;
+      code?: string;
+      errno?: string;
+      response?: { status?: number; statusText?: string; data?: unknown };
+    };
+    const httpStatus =
+      err?.statusCode ?? err?.status ?? err?.response?.status;
+    const body = err?.response?.data
+      ? JSON.stringify(err.response.data)
+      : undefined;
+    return [
+      `message=${err?.message ?? String(error)}`,
+      err?.ErrorMessage ? `ErrorMessage=${err.ErrorMessage}` : null,
+      httpStatus !== undefined ? `httpStatus=${httpStatus}` : null,
+      err?.code ? `code=${err.code}` : null,
+      err?.errno ? `errno=${err.errno}` : null,
+      err?.response?.statusText ? `statusText=${err.response.statusText}` : null,
+      body ? `body=${body}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
   }
 
   private parseFrom(from: string): MailjetContact {
@@ -105,7 +135,7 @@ export class EmailService {
   ): Promise<boolean> {
     if (!this.mailjet) {
       this.logger.warn(
-        `[${logPrefix}] NOT CONFIGURED (set MAILJET_API_KEY and MAILJET_API_SECRET). Skipping. Subject: "${options.subject}", to: ${options.to}.`,
+        `[Mailjet][${logPrefix}] SKIPPED: client not initialized (MAILJET_API_KEY / MAILJET_API_SECRET). Mailjet never received this send. subject="${options.subject}", to=${options.to}.`,
       );
       return false;
     }
@@ -113,16 +143,19 @@ export class EmailService {
     const from = this.parseFrom(options.from || this.defaultFrom());
     const to = this.toContacts(options.to);
     if (to.length === 0) {
-      this.logger.error(`[${logPrefix}] Missing recipient for subject="${options.subject}"`);
+      this.logger.error(
+        `[Mailjet][${logPrefix}] SKIPPED: missing recipient. Mailjet never received this send. subject="${options.subject}"`,
+      );
       return false;
     }
 
     const bcc = this.toContacts(
       options.bcc || this.configService.get<string>('EMAIL_ARCHIVE_BCC') || undefined,
     );
+    const attachments = this.toAttachments(options.attachments);
     const htmlLength = typeof options.html === 'string' ? options.html.length : 0;
     this.logger.log(
-      `[${logPrefix}] Sending: to=${to.map((c) => c.Email).join(',')}, subject="${options.subject}", htmlLength=${htmlLength}, from=${from.Email}`,
+      `[Mailjet][${logPrefix}] Preparing send: provider=mailjet, endpoint=POST /v3.1/send, sandbox=${this.isSandbox()}, from=${from.Email}, to=${to.map((c) => c.Email).join(',')}, bcc=${bcc.map((c) => c.Email).join(',') || '(none)'}, subject="${options.subject}", htmlLength=${htmlLength}, attachments=${attachments?.length ?? 0}`,
     );
 
     const message: SendEmailV3_1.Message = {
@@ -135,7 +168,6 @@ export class EmailService {
     if (bcc.length) {
       message.Bcc = bcc;
     }
-    const attachments = this.toAttachments(options.attachments);
     if (attachments) {
       message.Attachments = attachments;
     }
@@ -148,25 +180,25 @@ export class EmailService {
     try {
       return await this.requestMailjet(body, options.subject, logPrefix);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const details = this.formatMailjetError(error);
       const isTransient = /ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket|timeout|5\d\d/i.test(
-        msg,
+        details,
       );
       if (!isTransient) {
         this.logger.error(
-          `[${logPrefix}] Send failed: to=${options.to}, subject="${options.subject}": ${msg}`,
-          error instanceof Error ? error.stack : error,
+          `[Mailjet][${logPrefix}] HTTP call failed before/without a success payload (Mailjet may not have accepted the message): to=${options.to}, subject="${options.subject}", ${details}`,
         );
         return false;
       }
-      this.logger.warn(`[${logPrefix}] Transient error, retrying once in 2s: ${msg}`);
+      this.logger.warn(
+        `[Mailjet][${logPrefix}] Transient HTTP error, retrying once in 2s: ${details}`,
+      );
       await new Promise((r) => setTimeout(r, 2000));
       try {
         return await this.requestMailjet(body, options.subject, logPrefix);
       } catch (retryError) {
         this.logger.error(
-          `[${logPrefix}] Send failed on retry: to=${options.to}, subject="${options.subject}"`,
-          retryError instanceof Error ? retryError.stack : retryError,
+          `[Mailjet][${logPrefix}] HTTP call failed on retry (Mailjet did not confirm receipt): to=${options.to}, subject="${options.subject}", ${this.formatMailjetError(retryError)}`,
         );
         return false;
       }
@@ -178,19 +210,35 @@ export class EmailService {
     subject: string,
     logPrefix: string,
   ): Promise<boolean> {
+    const started = Date.now();
+    this.logger.log(
+      `[Mailjet][${logPrefix}] Calling Mailjet now: POST https://api.mailjet.com/v3.1/send subject="${subject}"`,
+    );
     const result: LibraryResponse<SendEmailV3_1.Response> = await this.mailjet!
       .post('send', { version: 'v3.1' })
       .request(body);
+    const elapsedMs = Date.now() - started;
+    const httpStatus = result.response?.status;
     const message = result.body?.Messages?.[0];
-    if (message?.Status === 'success') {
-      const delivered = message.To?.[0];
+    const delivered = message?.To?.[0];
+
+    this.logger.log(
+      `[Mailjet][${logPrefix}] Mailjet HTTP response received: httpStatus=${httpStatus}, elapsedMs=${elapsedMs}, payloadStatus=${message?.Status ?? 'missing'}, messageId=${delivered?.MessageID ?? 'n/a'}, messageUuid=${delivered?.MessageUUID ?? 'n/a'}, messageHref=${delivered?.MessageHref ?? 'n/a'}`,
+    );
+
+    const httpOk = httpStatus == null || (httpStatus >= 200 && httpStatus < 300);
+    if (httpOk && message?.Status === 'success') {
+      const sandboxNote = this.isSandbox()
+        ? ' SANDBOX MODE: Mailjet accepted the payload but will not deliver to the inbox.'
+        : '';
       this.logger.log(
-        `[${logPrefix}] Sent successfully: status=${message.Status}, messageId=${delivered?.MessageID}, messageUuid=${delivered?.MessageUUID}`,
+        `[Mailjet][${logPrefix}] Mailjet ACCEPTED the send. Look up messageId=${delivered?.MessageID} in the Mailjet dashboard (Delivered/Bounced/Blocked).${sandboxNote}`,
       );
       return true;
     }
+
     this.logger.error(
-      `[${logPrefix}] Mailjet did not accept message: subject="${subject}", status=${message?.Status}, errors=${JSON.stringify(message?.Errors)}`,
+      `[Mailjet][${logPrefix}] Mailjet responded but DID NOT accept the message: subject="${subject}", httpStatus=${httpStatus}, payloadStatus=${message?.Status}, errors=${JSON.stringify(message?.Errors)}, raw=${JSON.stringify(result.body)}`,
     );
     return false;
   }

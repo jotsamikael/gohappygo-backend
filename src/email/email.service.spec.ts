@@ -19,6 +19,7 @@ describe('EmailService (Mailjet)', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     request.mockResolvedValue({
+      response: { status: 200 },
       body: {
         Messages: [
           {
