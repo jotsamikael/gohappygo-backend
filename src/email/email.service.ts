@@ -1,8 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Mailjet, { Client, LibraryResponse, SendEmailV3_1 } from 'node-mailjet';
+import MailjetModule = require('node-mailjet');
+import type { Client, LibraryResponse, SendEmailV3_1 } from 'node-mailjet';
 import { EmailTemplatesService } from './email-templates.service';
 import { RequestEvent } from 'src/events/user-events.service';
+
+type MailjetConnect = {
+  apiConnect: (apiKey: string, apiSecret: string) => Client;
+};
+
+/** node-mailjet is CJS (`module.exports = Mailjet`). ESM default import compiles to missing `.default`. */
+function getMailjetSdk(): MailjetConnect {
+  const mod = MailjetModule as unknown as MailjetConnect & { default?: MailjetConnect };
+  return mod.default ?? mod;
+}
 
 export interface EmailOptions {
   to: string | string[];
@@ -47,10 +58,17 @@ export class EmailService {
       return;
     }
 
-    this.mailjet = Mailjet.apiConnect(apiKey, apiSecret);
-    this.logger.log(
-      `[Mailjet] Client initialized: keyPrefix=${apiKey.slice(0, 6)}…, sandbox=${this.isSandbox()}`,
-    );
+    try {
+      this.mailjet = getMailjetSdk().apiConnect(apiKey, apiSecret);
+      this.logger.log(
+        `[Mailjet] Client initialized: keyPrefix=${apiKey.slice(0, 6)}…, sandbox=${this.isSandbox()}`,
+      );
+    } catch (error) {
+      this.mailjet = null;
+      this.logger.error(
+        `[Mailjet] Client init failed (API will still boot; outbound mail skipped): ${this.formatMailjetError(error)}`,
+      );
+    }
   }
 
   private formatMailjetError(error: unknown): string {
