@@ -139,7 +139,7 @@ export class RequestSchedulerService {
                 await this.emailService.sendCancellationConfirmationRequest(
                   owner.email,
                   this.commonService.userGreetingName(owner, 'User'),
-                  request,
+                  { ...request, cancellationConfirmationDays: confirmationDays },
                   true,
                 );
                 this.logger.log(`Sent final reminder to seller for request ${request.id}`);

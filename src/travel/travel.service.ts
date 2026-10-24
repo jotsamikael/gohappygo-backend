@@ -484,10 +484,17 @@ export class TravelService {
       throw new CustomBadRequestException('Travel is already cancelled', ErrorCode.TRAVEL_CANNOT_BE_DELETED);
     }
 
-    // 4. Cancel all active requests (refund paid, release weight, notify requesters)
+    // 4. Cancel all active requests (full refund, release weight, notify requesters)
+    let cancelledRequestCount = 0;
     if (travel.requests && travel.requests.length > 0) {
       for (const request of travel.requests) {
-        await this.requestListingCancellationService.cancelRequestForListingCancellation(request.id, travel.userId);
+        const cancelled = await this.requestListingCancellationService.cancelRequestForListingCancellation(
+          request.id,
+          travel.userId,
+        );
+        if (cancelled) {
+          cancelledRequestCount += 1;
+        }
       }
     }
 
@@ -511,7 +518,11 @@ export class TravelService {
             where: { id: cancelledTravel.id },
             relations: ['departureAirport', 'arrivalAirport', 'currency'],
           });
-          this.userEventService.emitTravelCancelled(owner, travelWithRelations || cancelledTravel);
+          this.userEventService.emitTravelCancelled(
+            owner,
+            travelWithRelations || cancelledTravel,
+            cancelledRequestCount,
+          );
         }
       } catch {
         // Best-effort: cancellation event should not block the request

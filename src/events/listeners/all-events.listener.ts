@@ -28,7 +28,17 @@ export class AllEventsListener {
   ) {
   }
 
-
+  private async sendEmailOrWarn(
+    context: string,
+    send: () => Promise<boolean>,
+  ): Promise<void> {
+    const sent = await send();
+    if (!sent) {
+      this.logger.warn(
+        `[Email] ${context}: sendEmail returned false (Mailjet may not have delivered).`,
+      );
+    }
+  }
 
   // User Registration
   @OnEvent('user.registered')
@@ -94,6 +104,16 @@ export class AllEventsListener {
     await this.emailService.sendTravelPublishedConfirmation(event.userEmail, event.userFirstName, event);
   }
 
+  @OnEvent(UserEventType.TRAVEL_CANCELLED)
+  async handleTravelCancelled(event: TravelEvent): Promise<void> {
+    this.logger.log(
+      `Travel cancelled by ${event.userEmail} - ${event.flightNumber} (${event.cancelledRequestCount ?? 0} requests cancelled)`,
+    );
+    await this.sendEmailOrWarn('travel cancelled (seller)', () =>
+      this.emailService.sendTravelCancelledConfirmation(event.userEmail, event.userFirstName, event),
+    );
+  }
+
   @OnEvent(UserEventType.DEMAND_PUBLISHED)
   async handleDemandPublished(event: DemandEvent): Promise<void> {
     this.logger.log(`Demand published by ${event.userEmail} - ${event.description}`);
@@ -142,6 +162,16 @@ export class AllEventsListener {
       if (event.cancellationReason && event.emailAlreadySent) {
         return;
       }
+      if (event.cancelledDueToListingWithdrawal) {
+        await this.sendEmailOrWarn('request cancelled (travel listing withdrawn)', () =>
+          this.emailService.sendRequestCancelledDueToListingWithdrawalConfirmation(
+            event.userEmail,
+            event.userFirstName,
+            event,
+          ),
+        );
+        return;
+      }
       if (event.cancellationReason) {
         await this.emailService.sendRequestCancelledDueToPaymentFailureConfirmation(
           event.userEmail,
@@ -154,6 +184,9 @@ export class AllEventsListener {
       }
     } else {
       // Send email to travel/demand owner (isForOwner=true means this is for the owner)
+      if (event.cancelledDueToListingWithdrawal) {
+        return;
+      }
       await this.emailService.sendRequestCancelledForOwnerConfirmation(event.userEmail, event.userFirstName, event);
     }
   }
@@ -229,45 +262,77 @@ export class AllEventsListener {
   @OnEvent(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED)
   async handleCancellationConfirmationRequested(event: RequestEvent): Promise<void> {
     this.logger.log(`Cancellation confirmation requested - Request ID: ${event.requestId}`);
-    // Send email to seller (isForOwner=true means this is for the owner/seller)
     if (event.isForOwner) {
-      await this.emailService.sendCancellationConfirmationRequest(event.userEmail, event.userFirstName, event);
+      await this.sendEmailOrWarn(
+        `cancellation confirmation request requestId=${event.requestId} to=${event.userEmail}`,
+        () =>
+          this.emailService.sendCancellationConfirmationRequest(
+            event.userEmail,
+            event.userFirstName,
+            event,
+          ),
+      );
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_PENDING)
+  async handleCancellationPending(event: RequestEvent): Promise<void> {
+    this.logger.log(`Cancellation pending (buyer) - Request ID: ${event.requestId}`);
+    if (!event.isForOwner) {
+      await this.sendEmailOrWarn(
+        `cancellation pending requestId=${event.requestId} to=${event.userEmail}`,
+        () =>
+          this.emailService.sendCancellationPending(
+            event.userEmail,
+            event.userFirstName,
+            event,
+          ),
+      );
     }
   }
 
   @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
   async handleCancellationConfirmed(event: RequestEvent): Promise<void> {
-    this.logger.log(`Cancellation confirmed - Request ID: ${event.requestId}`);
-    // Send email to buyer (isForOwner=false means this is for the requester/buyer)
-    if (!event.isForOwner) {
-      await this.emailService.sendCancellationConfirmed(event.userEmail, event.userFirstName, event);
-    }
+    this.logger.log(
+      `Cancellation confirmed - Request ID: ${event.requestId} (${event.isForOwner ? 'seller' : 'buyer'}, by=${event.cancellationConfirmedBy ?? 'seller'})`,
+    );
+    await this.sendEmailOrWarn(
+      `cancellation confirmed requestId=${event.requestId} to=${event.userEmail}`,
+      () =>
+        this.emailService.sendCancellationConfirmed(
+          event.userEmail,
+          event.userFirstName,
+          event,
+        ),
+    );
   }
 
   @OnEvent(UserEventType.CANCELLATION_DISPUTED)
   async handleCancellationDisputed(event: RequestEvent): Promise<void> {
     this.logger.log(`Cancellation disputed - Request ID: ${event.requestId}`);
-    // Send email to buyer
     if (!event.isForOwner) {
-      await this.emailService.sendCancellationDisputed(event.userEmail, event.userFirstName, event);
+      await this.sendEmailOrWarn(
+        `cancellation disputed (buyer) requestId=${event.requestId} to=${event.userEmail}`,
+        () =>
+          this.emailService.sendCancellationDisputed(
+            event.userEmail,
+            event.userFirstName,
+            event,
+          ),
+      );
     }
-    
-    // Send email to admin using ADMIN_EMAIL env variable
-    const adminEmail = this.configService.get<string>('ADMIN_EMAIL') || "support@gohappygo.fr";
+
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL') || 'support@gohappygo.fr';
     if (!adminEmail) {
       this.logger.warn('ADMIN_EMAIL is not set; skipping admin notification for disputed cancellation');
       return;
     }
 
-    try {
-      await this.emailService.sendAdminCancellationDisputed(
-        adminEmail,
-        'Admin',
-        event,
-      );
-    } catch (error) {
-      this.logger.error(`Failed to send admin notification for disputed cancellation: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    await this.sendEmailOrWarn(
+      `cancellation disputed (admin) requestId=${event.requestId} to=${adminEmail}`,
+      () =>
+        this.emailService.sendAdminCancellationDisputed(adminEmail, 'Admin', event),
+    );
   }
 
   @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)

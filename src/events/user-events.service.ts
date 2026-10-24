@@ -54,6 +54,8 @@ export interface TravelEvent extends BaseUserEvent {
   weightAvailable: number;
   pricePerKg: number;
   currencySymbol?: string; // Currency symbol (e.g., $, €, £)
+  /** Active requests cancelled as part of listing withdrawal (seller cancel travel). */
+  cancelledRequestCount?: number;
 }
 
 export interface DemandEvent extends BaseUserEvent {
@@ -82,6 +84,12 @@ export interface RequestEvent extends BaseUserEvent {
   cancellationReason?: string;
   /** When true, payment-failure email was already sent by caller (e.g. request.service); listener should skip sending. */
   emailAlreadySent?: boolean;
+  /** Post-travel cancellation: seller confirmed vs cron auto-confirmed after no seller response. */
+  cancellationConfirmedBy?: 'seller' | 'auto';
+  /** Days the seller has to respond when status is PENDING_CANCELLATION_CONFIRMATION. */
+  cancellationConfirmationDays?: number;
+  /** Buyer request cancelled because seller withdrew the travel/demand listing (full refund). */
+  cancelledDueToListingWithdrawal?: boolean;
 }
 
 export interface TransactionEvent extends BaseUserEvent {
@@ -294,7 +302,20 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.TRAVEL_UPDATED, event);
   }
 
-  emitTravelCancelled(user: UserEntity, travelData: any): void {
+  emitTravelCancelled(user: UserEntity, travelData: any, cancelledRequestCount = 0): void {
+    const departureAirport =
+      typeof travelData.departureAirport === 'string'
+        ? travelData.departureAirport
+        : travelData.departureAirport?.name ||
+          travelData.departureAirport?.airportName ||
+          'Unknown';
+    const arrivalAirport =
+      typeof travelData.arrivalAirport === 'string'
+        ? travelData.arrivalAirport
+        : travelData.arrivalAirport?.name ||
+          travelData.arrivalAirport?.airportName ||
+          'Unknown';
+
     const event: TravelEvent = {
       userId: user.id,
       userFirstName: this.commonService.userGreetingName(user),
@@ -302,12 +323,13 @@ export class UserEventsService {
       timestamp: new Date(),
       travelId: travelData.id,
       flightNumber: travelData.flightNumber,
-      departureAirport: travelData.departureAirport?.name || 'Unknown',
-      arrivalAirport: travelData.arrivalAirport?.name || 'Unknown',
+      departureAirport,
+      arrivalAirport,
       travelDate: travelData.travelDate || travelData.departureDatetime,
       weightAvailable: travelData.weightAvailable,
       pricePerKg: travelData.pricePerKg || 0,
       currencySymbol: travelData.currency?.symbol || '$',
+      cancelledRequestCount,
     };
     this.eventEmitter.emit(UserEventType.TRAVEL_CANCELLED, event);
   }
@@ -543,6 +565,7 @@ export class UserEventsService {
     ownerId: number,
     cancellationReason?: string,
     emailAlreadySent?: boolean,
+    cancelledDueToListingWithdrawal?: boolean,
   ): void {
     const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
@@ -560,6 +583,7 @@ export class UserEventsService {
       weight: requestData.weight,
       ...(cancellationReason && { cancellationReason }),
       ...(emailAlreadySent && { emailAlreadySent }),
+      ...(cancelledDueToListingWithdrawal && { cancelledDueToListingWithdrawal }),
     };
     this.eventEmitter.emit(UserEventType.REQUEST_CANCELLED, event);
   }
@@ -619,7 +643,12 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.KYC_COMPLETED, event);
   }
 
-  emitCancellationConfirmationRequested(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
+  emitCancellationConfirmationRequested(
+    user: UserEntity,
+    requestData: RequestEntity,
+    ownerId: number,
+    confirmationDays?: number,
+  ): void {
     const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
@@ -634,12 +663,18 @@ export class UserEventsService {
       requestType: requestData.requestType,
       weight: requestData.weight,
       isForOwner: true,
+      ...(confirmationDays !== undefined && { cancellationConfirmationDays: confirmationDays }),
     };
     this.eventEmitter.emit(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED, event);
   }
 
-  /** @param user Buyer (requester) — confirmation email is sent to this user via the event listener. */
-  emitCancellationConfirmed(user: UserEntity, requestData: RequestEntity, ownerId: number): void {
+  /** Buyer entered PENDING_CANCELLATION_CONFIRMATION (post-travel cancel submitted). */
+  emitCancellationPending(
+    user: UserEntity,
+    requestData: RequestEntity,
+    ownerId: number,
+    confirmationDays: number,
+  ): void {
     const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
 
     const event: RequestEvent = {
@@ -654,6 +689,34 @@ export class UserEventsService {
       requestType: requestData.requestType,
       weight: requestData.weight,
       isForOwner: false,
+      cancellationConfirmationDays: confirmationDays,
+    };
+    this.eventEmitter.emit(UserEventType.CANCELLATION_PENDING, event);
+  }
+
+  /** Buyer or seller notification/email after post-travel cancellation is finalized. */
+  emitCancellationConfirmed(
+    user: UserEntity,
+    requestData: RequestEntity,
+    ownerId: number,
+    confirmedBy: 'seller' | 'auto',
+  ): void {
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
+    const isForOwner = user.id === ownerId;
+
+    const event: RequestEvent = {
+      userId: user.id,
+      userFirstName: this.commonService.userGreetingName(user),
+      userEmail: user.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName: requesterName,
+      ownerId: ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner,
+      cancellationConfirmedBy: confirmedBy,
     };
     this.eventEmitter.emit(UserEventType.CANCELLATION_CONFIRMED, event);
   }

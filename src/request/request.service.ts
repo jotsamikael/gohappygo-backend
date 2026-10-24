@@ -1272,10 +1272,20 @@ export class RequestService {
         // Send email and notification to seller requesting confirmation
         const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
         if (ownerId) {
+          const confirmationDays =
+            Number(this.configService.get<number>('CANCELLATION_CONFIRMATION_DAYS', 7)) || 7;
           const owner = await this.userService.findOne({ id: ownerId });
           if (owner) {
-            // Emit event for cancellation confirmation request
-            this.userEventService.emitCancellationConfirmationRequested(owner, request, ownerId);
+            this.userEventService.emitCancellationConfirmationRequested(
+              owner,
+              request,
+              ownerId,
+              confirmationDays,
+            );
+          }
+          const requester = await this.userService.findOne({ id: request.requesterId });
+          if (requester) {
+            this.userEventService.emitCancellationPending(requester, request, ownerId, confirmationDays);
           }
         }
 
@@ -1447,7 +1457,14 @@ export class RequestService {
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
 
     if (requester && ownerId && request.cancellationConfirmedAt) {
-      this.userEventService.emitCancellationConfirmed(requester, request, ownerId);
+      const confirmedBy = confirmedByUserId == null ? 'auto' : 'seller';
+      this.userEventService.emitCancellationConfirmed(requester, request, ownerId, confirmedBy);
+      if (confirmedBy === 'auto') {
+        const owner = await this.userService.findOne({ id: ownerId });
+        if (owner) {
+          this.userEventService.emitCancellationConfirmed(owner, request, ownerId, 'auto');
+        }
+      }
     }
 
     await this.clearRequestListCache();
@@ -1544,30 +1561,10 @@ export class RequestService {
     request.currentStatusId = disputedStatus.id;
     request.currentStatus = disputedStatus;
 
-    // Send email to buyer and admin (single CANCELLATION_DISPUTED emit to avoid duplicate admin email)
     const ownerId = request.travelId ? request.travel.userId : (request.demandId ? request.demand.userId : null);
     const requester = await this.userService.findOne({ id: request.requesterId });
     if (requester && ownerId) {
-      // Emit event for buyer notification
-      // `user` comes from JWT payload and may not contain firstName/lastName.
-      // Use the seller loaded via request.travel.user / request.demand.user instead.
-      const sellerUser = request.travel?.user ?? request.demand?.user;
-      const sellerName = this.commonService.userFullName(sellerUser) || 'Unknown';
-      const buyerEvent: RequestEvent = {
-        userId: requester.id,
-        userFirstName: this.commonService.userGreetingName(requester),
-        userEmail: requester.email,
-        timestamp: new Date(),
-        requesterId: request.requesterId,
-        requesterName: this.commonService.userFullName(requester),
-        ownerId: ownerId,
-        ownerName: sellerName,
-        requestId: request.id,
-        requestType: request.requestType,
-        weight: request.weight,
-        isForOwner: false,
-      };
-      this.userEventService['eventEmitter'].emit(UserEventType.CANCELLATION_DISPUTED, buyerEvent);
+      this.userEventService.emitCancellationDisputed(requester, request, ownerId);
     }
 
     // Clear cache

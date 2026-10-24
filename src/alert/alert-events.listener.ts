@@ -55,7 +55,6 @@ export class AlertEventsListener {
         demand.departureAirportId,
         demand.arrivalAirportId,
         demand.flightNumber || null,
-        demand.travelDate ? new Date(demand.travelDate) : null,
         'DEMAND',
       );
 
@@ -95,7 +94,7 @@ export class AlertEventsListener {
             departureAirport: demand.departureAirport?.name || 'Unknown',
             arrivalAirport: demand.arrivalAirport?.name || 'Unknown',
             flightNumber: demand.flightNumber || 'N/A',
-            travelDate: demand.travelDate ? new Date(demand.travelDate).toLocaleDateString() : 'N/A',
+            travelDate: demand.travelDate ?? 'N/A',
             demandId: event.demandId,
           });
 
@@ -140,7 +139,6 @@ export class AlertEventsListener {
         travel.departureAirportId,
         travel.arrivalAirportId,
         travel.flightNumber || null,
-        (travel as any).travelDate || travel.departureDatetime ? new Date((travel as any).travelDate ?? travel.departureDatetime) : null,
         'TRAVEL',
       );
 
@@ -180,7 +178,7 @@ export class AlertEventsListener {
             departureAirport: travel.departureAirport?.name || 'Unknown',
             arrivalAirport: travel.arrivalAirport?.name || 'Unknown',
             flightNumber: travel.flightNumber || 'N/A',
-            travelDate: ((travel as any).travelDate ?? travel.departureDatetime) ? new Date((travel as any).travelDate ?? travel.departureDatetime).toLocaleDateString() : 'N/A',
+            travelDate: ((travel as any).travelDate ?? travel.departureDatetime) ?? 'N/A',
             travelId: event.travelId,
           });
 

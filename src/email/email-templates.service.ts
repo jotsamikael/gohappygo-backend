@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RequestEvent } from 'src/events/user-events.service';
+import { RequestEvent, TravelEvent } from 'src/events/user-events.service';
 import { CommonService } from 'src/common/service/common.service';
 import { EMAIL_BRAND, WrapEmailLayoutOptions } from './email-brand.constants';
 import {
@@ -70,16 +70,52 @@ export class EmailTemplatesService {
 
   /**
    * Calendar dates in emails: DD/MM/YYYY (day/month/year).
-   * Uses UTC date parts so ISO timestamps stay consistent regardless of server locale.
+   * DATE columns and YYYY-MM-DD values keep the same calendar day (no TZ shift).
    */
   private formatEmailDate(value: Date | string | number | null | undefined): string {
     if (value === null || value === undefined || value === '') return '';
+    const parts = this.calendarDateParts(value);
+    if (!parts) return '';
+    const day = String(parts.day).padStart(2, '0');
+    const month = String(parts.month).padStart(2, '0');
+    return `${day}/${month}/${parts.year}`;
+  }
+
+  /**
+   * Travel/alert dates are calendar days. Do not convert local midnight to UTC
+   * (that shows the previous day on UTC+ servers such as the VPS).
+   */
+  private calendarDateParts(
+    value: Date | string | number,
+  ): { day: number; month: number; year: number } | null {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) {
+        return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) };
+      }
+      const dmy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dmy) {
+        return { day: Number(dmy[1]), month: Number(dmy[2]), year: Number(dmy[3]) };
+      }
+    }
+
     const d = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const year = d.getUTCFullYear();
-    return `${day}/${month}/${year}`;
+    if (Number.isNaN(d.getTime())) return null;
+
+    const utcMidnight =
+      d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+    if (utcMidnight) {
+      return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+    }
+
+    const localMidnight =
+      d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0;
+    if (localMidnight) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
+
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
   }
 
   /**
@@ -96,19 +132,12 @@ export class EmailTemplatesService {
   }
 
   /**
-   * Prefer DD/MM/YYYY when the value parses as a date; otherwise HTML-escape the raw string.
+   * Prefer DD/MM/YYYY when the value is a calendar date; otherwise HTML-escape the raw string.
    */
   private formatEmailDateFlexible(value: Date | string | number | null | undefined): string {
     if (value === null || value === undefined || value === '') return '';
-    if (value instanceof Date) {
-      const formatted = this.formatEmailDate(value);
-      return formatted || this.escapeHtml(String(value));
-    }
-    const d = new Date(value as string | number);
-    if (!Number.isNaN(d.getTime())) {
-      return this.formatEmailDate(d);
-    }
-    return this.escapeHtml(String(value));
+    const formatted = this.formatEmailDate(value);
+    return formatted || this.escapeHtml(String(value));
   }
 
   getWelcomeTemplate(userName: string): string {
@@ -241,6 +270,48 @@ export class EmailTemplatesService {
           <p><strong>Available Weight:</strong> ${weightAvailable}kg</p>
           <p><strong>Price per kg:</strong> ${currencySymbol}${pricePerKg}</p>`)}
         <p>You will be notified when someone makes a request for your travel.</p>`,
+    });
+  }
+
+  getTravelCancelledTemplate(userName: string, event: TravelEvent): string {
+    const flightRaw =
+      event.flightNumber != null && event.flightNumber !== ''
+        ? String(event.flightNumber).trim()
+        : '';
+    const flightDisplay = flightRaw.length > 0 ? flightRaw.toUpperCase() : 'Unknown';
+    const travelDate =
+      event.travelDate != null
+        ? this.formatEmailDate(event.travelDate) || 'Unknown'
+        : 'Unknown';
+    const cancelledCount = event.cancelledRequestCount ?? 0;
+
+    const requestsPanel =
+      cancelledCount > 0
+        ? emailPanel(`
+          <h3 style="margin:0 0 8px;">Buyer requests</h3>
+          <p><strong>${cancelledCount}</strong> active request(s) on this travel were cancelled.</p>
+          <p>Buyers were notified and any payments collected for those requests are being refunded in full (including platform fees).</p>`)
+        : '';
+
+    return this.wrapEmail({
+      title: 'Travel Cancelled - GoHappyGo',
+      headerTitle: 'Travel Cancelled',
+      headerVariant: 'danger',
+      ctaLabel: 'View My Travels',
+      ctaUrl: `${this.baseUrl}/profile/travels`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`)}
+        <p>Your travel listing has been cancelled and is no longer visible on GoHappyGo.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Travel Details:</h3>
+          <p><strong>Travel ID:</strong> #${event.travelId}</p>
+          <p><strong>Flight:</strong> ${flightDisplay}</p>
+          <p><strong>From:</strong> ${event.departureAirport}</p>
+          <p><strong>To:</strong> ${event.arrivalAirport}</p>
+          <p><strong>Date:</strong> ${travelDate}</p>
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
+        ${requestsPanel}
+        <p>If you cancelled by mistake or need help, contact our support team.</p>`,
     });
   }
 
@@ -550,6 +621,34 @@ export class EmailTemplatesService {
     });
   }
 
+  getRequestCancelledDueToListingWithdrawalTemplate(userFirstName: string, event: RequestEvent): string {
+    return this.wrapEmail({
+      title: 'Travel Cancelled - Your Request - GoHappyGo',
+      headerTitle: 'Travel Cancelled by Seller',
+      headerVariant: 'danger',
+      ctaLabel: 'Browse Available Travels',
+      ctaUrl: `${this.baseUrl}/annonces`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userFirstName},`)}
+        <p>The traveler cancelled their trip. Your request was automatically cancelled because the travel listing is no longer available.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${event.requestId}</p>
+          <p><strong>Weight:</strong> ${event.weight ? event.weight + 'kg' : 'N/A'}</p>
+          <p><strong>Cancelled:</strong> ${this.formatEmailDateTime(event.timestamp)}</p>
+          <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">💰 Full Refund</h3>
+          <p>If you paid for this request, a <strong>full refund</strong> of your charge (including platform service fees and VAT) has been initiated and will return to your original payment method within 5–10 business days.</p>
+          <p>If funds were already sent to the traveler, our team may need extra time to complete the refund — contact support if you do not see it after 10 business days.</p>`)}
+        <p><strong>What can you do?</strong></p>
+        <ul>
+          <li>Find another travel on GoHappyGo</li>
+          <li>Contact support if you have questions about your refund</li>
+        </ul>`,
+    });
+  }
+
   getRequestCancelledTemplate(userFirstName: string, event: RequestEvent): string {
     return this.wrapEmail({
       title: 'Request Cancelled - GoHappyGo',
@@ -568,8 +667,7 @@ export class EmailTemplatesService {
           <p><strong>Status:</strong> ${emailBadge('CANCELLED', EMAIL_BRAND.blue)}</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">💰 Refund Information</h3>
-          <p>If you had made a payment for this request, a full refund has been processed and will be credited back to your original payment method within 5-10 business days.</p>
-          <p><strong>Note:</strong> You will receive a separate confirmation email once the refund is processed.</p>`)}
+          <p>If you had made a payment for this request, a refund of the traveler amount (excluding platform fees and VAT, when applicable) has been processed and will be credited back to your original payment method within 5-10 business days.</p>`)}
         <p><strong>What can you do?</strong></p>
         <ul>
           <li>Browse other available travels or demands</li>
@@ -870,7 +968,7 @@ export class EmailTemplatesService {
     departureAirport: string;
     arrivalAirport: string;
     flightNumber: string;
-    travelDate: string;
+    travelDate: Date | string;
     demandId?: number;
     travelId?: number;
   }): string {
@@ -907,7 +1005,7 @@ export class EmailTemplatesService {
     departureAirport: string;
     arrivalAirport: string;
     flightNumber?: string | null;
-    travelDate?: string | null;
+    travelDate?: Date | string | null;
     alertId: number;
   }): string {
     const alertDetails = [
@@ -927,8 +1025,6 @@ export class EmailTemplatesService {
       title: 'Alert Created - GoHappyGo',
       headerTitle: '✅ Alert Created Successfully!',
       headerVariant: 'success',
-      ctaLabel: 'View My Alerts',
-      ctaUrl: `${this.baseUrl}/profile/favorites`,
       footerNote: 'This is an automated confirmation from GoHappyGo. If you have any questions, please contact our support team.',
       bodyHtml: `
         ${emailHeading(`Hello ${data.userName},`, EMAIL_BRAND.headerText)}
@@ -1180,28 +1276,77 @@ export class EmailTemplatesService {
           <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
           <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
         </ul>
-        ${emailButton(`${baseUrl}/requests/${requestId}/confirm-cancellation`, 'Confirm Cancellation', EMAIL_BRAND.blue)}
-        ${emailButton(`${baseUrl}/requests/${requestId}/dispute-cancellation`, 'Dispute (Service Fulfilled)', EMAIL_BRAND.blue)}
-        <p><em>You have ${process.env.CANCELLATION_CONFIRMATION_DAYS || 7} days to respond. If no response is received, our admin team will be notified.</em></p>`,
+        ${emailButton(`${baseUrl}/profile/travel-requests`, 'Respond in GoHappyGo', EMAIL_BRAND.blue)}
+        <p><em>You have ${requestData.cancellationConfirmationDays ?? process.env.CANCELLATION_CONFIRMATION_DAYS ?? 7} days to respond. If you do not respond in time, the cancellation will be <strong>automatically approved</strong> in favour of the buyer and a refund will be processed.</em></p>`,
     });
   }
 
   /**
-   * Template when seller confirms cancellation
+   * Buyer: cancellation submitted, awaiting seller (post-travel).
+   */
+  getCancellationPendingTemplate(userName: string, requestData: any): string {
+    const requestId = requestData.id || requestData.requestId || 'N/A';
+    const days = requestData.cancellationConfirmationDays ?? 7;
+    const baseUrl = this.baseUrl;
+
+    return this.wrapEmail({
+      title: 'Cancellation Submitted - GoHappyGo',
+      headerTitle: 'Cancellation submitted',
+      headerVariant: 'warning',
+      ctaLabel: 'View My Requests',
+      ctaUrl: `${baseUrl}/profile/travel-requests`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
+        <p>Your cancellation request has been received. Because the travel date has passed, the seller must confirm or dispute within <strong>${days} days</strong>.</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>
+          <p><strong>Status:</strong> ${emailBadge('AWAITING SELLER', EMAIL_BRAND.blue)}</p>`)}
+        ${emailPanel(`<p><strong>What happens next?</strong> If the seller confirms (or does not respond in time), your refund will be processed. If they dispute, our team will review the case.</p>`)}
+        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">No refund has been issued yet.</p>`,
+    });
+  }
+
+  /**
+   * Buyer or seller after post-travel cancellation is finalized (seller confirm or auto-confirm).
    */
   getCancellationConfirmedTemplate(userName: string, requestData: any): string {
     const requestId = requestData.id || requestData.requestId || 'N/A';
     const baseUrl = this.baseUrl;
+    const confirmedBy = requestData.cancellationConfirmedBy as 'seller' | 'auto' | undefined;
+    const isForOwner = Boolean(requestData.isForOwner);
+
+    if (isForOwner && confirmedBy === 'auto') {
+      return this.wrapEmail({
+        title: 'Request Auto-Cancelled - GoHappyGo',
+        headerTitle: 'Request auto-cancelled',
+        headerVariant: 'warning',
+        ctaLabel: 'View My Travels',
+        ctaUrl: `${baseUrl}/profile/travels`,
+        bodyHtml: `
+          ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
+          <p>You did not respond to a buyer's post-travel cancellation request in time. The cancellation was <strong>automatically approved</strong> and the buyer's refund is being processed.</p>
+          ${emailPanel(`
+            <h3 style="margin:0 0 8px;">Request Details:</h3>
+            <p><strong>Request ID:</strong> #${requestId}</p>`)}
+          <p style="color:${EMAIL_BRAND.muted};font-size:14px;">Respond promptly to future cancellation requests to avoid automatic approval.</p>`,
+      });
+    }
+
+    const intro =
+      confirmedBy === 'auto'
+        ? 'The seller did not respond within the allowed time. Your cancellation was <strong>automatically approved</strong>.'
+        : 'The seller has confirmed the cancellation of your request.';
 
     return this.wrapEmail({
       title: 'Cancellation Confirmed - GoHappyGo',
       headerTitle: '✅ Cancellation Confirmed',
       headerVariant: 'success',
-      ctaLabel: 'View Requests',
+      ctaLabel: 'View My Requests',
       ctaUrl: `${baseUrl}/profile/travel-requests`,
       bodyHtml: `
         ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
-        <p>The seller has confirmed the cancellation of your request.</p>
+        <p>${intro}</p>
         ${emailPanel(`<p><strong>Refund Processing:</strong> Your payment (minus platform fee) will be refunded to your original payment method within 5-10 business days.</p>`)}
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Request Details:</h3>

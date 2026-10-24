@@ -21,6 +21,10 @@ export const NotificationPushMessages = {
     title: 'Request Cancelled',
     body: 'Your request was cancelled.',
   },
+  requestCancelledDueToTravelListingForBuyer: {
+    title: 'Travel Cancelled',
+    body: 'The traveler cancelled their trip. Your request was cancelled and a full refund is being processed.',
+  },
   requestCancelledForSeller: {
     title: 'Request Cancelled',
     body: 'The buyer cancelled their request.',
@@ -61,6 +65,14 @@ export const NotificationPushMessages = {
     title: 'Travel Published Successfully',
     body: 'Your travel is now live.',
   },
+  travelCancelled: {
+    title: 'Travel Cancelled',
+    body: 'Your travel listing has been cancelled.',
+  },
+  travelCancelledWithRequests: {
+    title: 'Travel Cancelled',
+    body: 'Your travel was cancelled. Active buyer requests were cancelled and refunds were initiated.',
+  },
   demandMatched: {
     title: 'New Demand Matches Your Alert',
     body: 'A new demand matches your alert.',
@@ -88,5 +100,29 @@ export const NotificationPushMessages = {
   messageReceived: {
     title: 'New Message',
     body: 'You have a new message about your booking.',
+  },
+  cancellationConfirmationRequiredForSeller: {
+    title: 'Action required: cancellation',
+    body: 'A buyer requested to cancel after travel. Confirm or dispute in the app.',
+  },
+  cancellationPendingForBuyer: {
+    title: 'Cancellation submitted',
+    body: 'Waiting for the seller to confirm your post-travel cancellation.',
+  },
+  cancellationConfirmedForBuyer: {
+    title: 'Cancellation confirmed',
+    body: 'Your cancellation was approved. Refund processing has started.',
+  },
+  cancellationAutoConfirmedForBuyer: {
+    title: 'Cancellation automatically approved',
+    body: 'The seller did not respond in time. Your refund is being processed.',
+  },
+  cancellationAutoConfirmedForSeller: {
+    title: 'Request auto-cancelled',
+    body: 'A cancellation was auto-approved after no response. The buyer is being refunded.',
+  },
+  cancellationDisputedForBuyer: {
+    title: 'Cancellation disputed',
+    body: 'The seller disputed your cancellation. Our team will review.',
   },
 } as const satisfies Record<string, NotificationPushCopy>;

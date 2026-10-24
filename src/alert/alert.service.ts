@@ -81,9 +81,7 @@ export class AlertService {
           departureAirport: alertWithRelations.departureAirport?.name || 'Unknown',
           arrivalAirport: alertWithRelations.arrivalAirport?.name || 'Unknown',
           flightNumber: alertWithRelations.flightNumber,
-          travelDate: alertWithRelations.travelDate
-            ? new Date(alertWithRelations.travelDate).toLocaleDateString()
-            : null,
+          travelDate: alertWithRelations.travelDate ?? null,
           alertId: savedAlert.id,
         });
 
@@ -285,7 +283,6 @@ export class AlertService {
     departureAirportId: number,
     arrivalAirportId: number,
     flightNumber: string | null,
-    travelDate: Date | null,
     alertType: 'DEMAND' | 'TRAVEL',
   ): Promise<AlertEntity[]> {
     const queryBuilder = this.alertRepository
@@ -311,18 +308,7 @@ export class AlertService {
       );
     }
 
-    // If travel date is provided, match it (or if alert doesn't have travel date specified)
-    if (travelDate) {
-      const travelDateOnly = new Date(travelDate);
-      travelDateOnly.setHours(0, 0, 0, 0);
-      const nextDay = new Date(travelDateOnly);
-      nextDay.setDate(nextDay.getDate() + 1);
-
-      queryBuilder.andWhere(
-        '(alert.travelDate IS NULL OR (DATE(alert.travelDate) = DATE(:travelDate)))',
-        { travelDate },
-      );
-    }
+    // Route-only matching: alert travelDate is informational (user preference / UI) and does not filter matches.
 
     return await queryBuilder.getMany();
   }

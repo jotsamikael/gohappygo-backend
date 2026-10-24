@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import MailjetModule = require('node-mailjet');
 import type { Client, LibraryResponse, SendEmailV3_1 } from 'node-mailjet';
 import { EmailTemplatesService } from './email-templates.service';
-import { RequestEvent } from 'src/events/user-events.service';
+import { RequestEvent, TravelEvent } from 'src/events/user-events.service';
 
 type MailjetConnect = {
   apiConnect: (apiKey: string, apiSecret: string) => Client;
@@ -350,6 +350,19 @@ export class EmailService {
     });
   }
 
+  async sendTravelCancelledConfirmation(
+    userEmail: string,
+    userName: string,
+    event: TravelEvent,
+  ): Promise<boolean> {
+    const html = this.emailTemplatesService.getTravelCancelledTemplate(userName, event);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Travel Cancelled - GoHappyGo',
+      html,
+    });
+  }
+
   async sendDemandPublishedConfirmation(userEmail: string, userName: string, demandData: any): Promise<boolean> {
     const html = this.emailTemplatesService.getDemandPublishedTemplate(userName, demandData);
     return this.sendEmail({
@@ -431,6 +444,22 @@ export class EmailService {
       html,
     });
   }
+  async sendRequestCancelledDueToListingWithdrawalConfirmation(
+    userEmail: string,
+    userFirstName: string,
+    event: RequestEvent,
+  ): Promise<boolean> {
+    const html = this.emailTemplatesService.getRequestCancelledDueToListingWithdrawalTemplate(
+      userFirstName,
+      event,
+    );
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Travel Cancelled — Full Refund Initiated - GoHappyGo',
+      html,
+    });
+  }
+
   sendRequestCancelledConfirmation(userEmail: string, userFirstName: string, event: RequestEvent) {
     const html = this.emailTemplatesService.getRequestCancelledTemplate(userFirstName, event);
     return this.sendEmail({
@@ -522,11 +551,30 @@ export class EmailService {
     });
   }
 
-  async sendCancellationConfirmed(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
-    const html = this.emailTemplatesService.getCancellationConfirmedTemplate(userFirstName, requestData);
+  async sendCancellationPending(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
+    const html = this.emailTemplatesService.getCancellationPendingTemplate(userFirstName, requestData);
     return this.sendEmail({
       to: userEmail,
-      subject: 'Cancellation Confirmed - GoHappyGo',
+      subject: 'Cancellation Submitted — Awaiting Seller - GoHappyGo',
+      html,
+    });
+  }
+
+  async sendCancellationConfirmed(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
+    const html = this.emailTemplatesService.getCancellationConfirmedTemplate(userFirstName, requestData);
+    const isAutoSeller =
+      requestData.isForOwner && requestData.cancellationConfirmedBy === 'auto';
+    const isAutoBuyer =
+      !requestData.isForOwner && requestData.cancellationConfirmedBy === 'auto';
+    let subject = 'Cancellation Confirmed - GoHappyGo';
+    if (isAutoSeller) {
+      subject = 'Request Auto-Cancelled (No Response) - GoHappyGo';
+    } else if (isAutoBuyer) {
+      subject = 'Cancellation Automatically Approved - GoHappyGo';
+    }
+    return this.sendEmail({
+      to: userEmail,
+      subject,
       html,
     });
   }

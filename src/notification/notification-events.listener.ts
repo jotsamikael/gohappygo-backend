@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationService } from './notification.service';
 import { NotificationType, EntityType, NotificationPriority } from './entities/notification.entity';
-import { NotificationPushMessages } from './notification-push-messages';
+import { NotificationPushCopy, NotificationPushMessages } from './notification-push-messages';
 import { RequestEvent, DemandEvent, TravelEvent, MessageEvent } from 'src/events/user-events.service';
 import { UserEventType } from 'src/events/event-types';
 
@@ -78,14 +78,19 @@ export class NotificationEventsListener {
   @OnEvent('request.cancelled')
   async handleRequestCancelled(event: RequestEvent) {
     try {
+      if (event.cancelledDueToListingWithdrawal && event.isForOwner) {
+        return;
+      }
       const isPaymentFailure = Boolean(event.cancellationReason);
-      const copy = event.isForOwner
-        ? isPaymentFailure
-          ? NotificationPushMessages.requestCancelledPaymentFailureForSeller
-          : NotificationPushMessages.requestCancelledForSeller
-        : isPaymentFailure
-          ? NotificationPushMessages.requestCancelledPaymentFailureForBuyer
-          : NotificationPushMessages.requestCancelledForBuyer;
+      const copy = event.cancelledDueToListingWithdrawal
+        ? NotificationPushMessages.requestCancelledDueToTravelListingForBuyer
+        : event.isForOwner
+          ? isPaymentFailure
+            ? NotificationPushMessages.requestCancelledPaymentFailureForSeller
+            : NotificationPushMessages.requestCancelledForSeller
+          : isPaymentFailure
+            ? NotificationPushMessages.requestCancelledPaymentFailureForBuyer
+            : NotificationPushMessages.requestCancelledForBuyer;
 
       await this.notificationService.create({
         targetUserId: event.isForOwner ? event.ownerId : event.requesterId,
@@ -237,6 +242,33 @@ export class NotificationEventsListener {
     }
   }
 
+  @OnEvent(UserEventType.TRAVEL_CANCELLED)
+  async handleTravelCancelled(event: TravelEvent) {
+    try {
+      const cancelledCount = event.cancelledRequestCount ?? 0;
+      const copy =
+        cancelledCount > 0
+          ? NotificationPushMessages.travelCancelledWithRequests
+          : NotificationPushMessages.travelCancelled;
+
+      await this.notificationService.create({
+        targetUserId: event.userId,
+        notificationType: NotificationType.TRAVEL_CANCELLED,
+        entityType: EntityType.TRAVEL,
+        entityId: event.travelId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
+
+      this.logger.log(
+        `Notification created for travel cancellation: Travel ${event.travelId} by user ${event.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create notification for travel.cancelled: ${error.message}`);
+    }
+  }
+
   /**
    * Handle account verification success
    */
@@ -328,6 +360,121 @@ export class NotificationEventsListener {
       return normalized;
     }
     return `${normalized.slice(0, maxLength - 1)}…`;
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED)
+  async handleCancellationConfirmationRequested(event: RequestEvent) {
+    try {
+      if (!event.isForOwner) {
+        return;
+      }
+      const copy = NotificationPushMessages.cancellationConfirmationRequiredForSeller;
+      await this.notificationService.create({
+        targetUserId: event.ownerId,
+        actorUserId: event.requesterId,
+        notificationType: NotificationType.CANCELLATION_CONFIRMATION_REQUIRED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
+      this.logger.log(
+        `Notification created for cancellation confirmation required: Request ${event.requestId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create notification for cancellation confirmation requested: ${error.message}`,
+      );
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_PENDING)
+  async handleCancellationPending(event: RequestEvent) {
+    try {
+      if (event.isForOwner) {
+        return;
+      }
+      const copy = NotificationPushMessages.cancellationPendingForBuyer;
+      await this.notificationService.create({
+        targetUserId: event.requesterId,
+        actorUserId: event.ownerId,
+        notificationType: NotificationType.CANCELLATION_PENDING,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
+      this.logger.log(`Notification created for cancellation pending: Request ${event.requestId}`);
+    } catch (error) {
+      this.logger.error(`Failed to create notification for cancellation pending: ${error.message}`);
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
+  async handleCancellationConfirmed(event: RequestEvent) {
+    try {
+      const isAuto = event.cancellationConfirmedBy === 'auto';
+      let copy: NotificationPushCopy = NotificationPushMessages.cancellationConfirmedForBuyer;
+      const notificationType = NotificationType.CANCELLATION_CONFIRMED;
+      let targetUserId = event.requesterId;
+      let actorUserId = event.ownerId;
+
+      if (event.isForOwner && isAuto) {
+        copy = NotificationPushMessages.cancellationAutoConfirmedForSeller;
+        targetUserId = event.ownerId;
+        actorUserId = event.requesterId;
+      } else if (!event.isForOwner && isAuto) {
+        copy = NotificationPushMessages.cancellationAutoConfirmedForBuyer;
+        targetUserId = event.requesterId;
+        actorUserId = event.ownerId;
+      } else if (event.isForOwner) {
+        return;
+      } else {
+        targetUserId = event.requesterId;
+        actorUserId = event.ownerId;
+      }
+
+      await this.notificationService.create({
+        targetUserId,
+        actorUserId,
+        notificationType,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
+      this.logger.log(
+        `Notification created for cancellation confirmed: Request ${event.requestId} (${event.isForOwner ? 'seller' : 'buyer'})`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create notification for cancellation confirmed: ${error.message}`);
+    }
+  }
+
+  @OnEvent(UserEventType.CANCELLATION_DISPUTED)
+  async handleCancellationDisputed(event: RequestEvent) {
+    try {
+      if (event.isForOwner) {
+        return;
+      }
+      const copy = NotificationPushMessages.cancellationDisputedForBuyer;
+      await this.notificationService.create({
+        targetUserId: event.requesterId,
+        actorUserId: event.ownerId,
+        notificationType: NotificationType.CANCELLATION_DISPUTED,
+        entityType: EntityType.REQUEST,
+        entityId: event.requestId,
+        title: copy.title,
+        body: copy.body,
+        priority: NotificationPriority.HIGH,
+      });
+      this.logger.log(`Notification created for cancellation disputed: Request ${event.requestId}`);
+    } catch (error) {
+      this.logger.error(`Failed to create notification for cancellation disputed: ${error.message}`);
+    }
   }
 
   /**

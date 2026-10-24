@@ -274,6 +274,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
     @OnEvent(UserEventType.REQUEST_CANCELLED)
     @OnEvent(UserEventType.REQUEST_REJECTED)
     @OnEvent(UserEventType.CANCELLATION_CONFIRMATION_REQUESTED)
+    @OnEvent(UserEventType.CANCELLATION_PENDING)
     @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
     @OnEvent(UserEventType.CANCELLATION_DISPUTED)
     @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)

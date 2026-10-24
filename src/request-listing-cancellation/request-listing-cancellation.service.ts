@@ -11,10 +11,7 @@ import { TransactionService } from 'src/transaction/transaction.service';
 import { StripeService } from 'src/stripe/stripe.service';
 import { UserService } from 'src/user/user.service';
 import { UserEventsService } from 'src/events/user-events.service';
-import {
-  CustomBadRequestException,
-  CustomNotFoundException,
-} from 'src/common/exception/custom-exceptions';
+import { CustomNotFoundException } from 'src/common/exception/custom-exceptions';
 import { ErrorCode } from 'src/common/exception/error-codes';
 
 const TERMINAL_REQUEST_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'RESOLVED'];
@@ -39,7 +36,7 @@ export class RequestListingCancellationService {
 
   /**
    * Cancels a request when its parent travel/demand listing is cancelled.
-   * Skips terminal requests. Refunds paid transactions (partial) and releases reserved travel weight.
+   * Skips terminal requests. Refunds paid transactions in full (seller listing withdrawal) and releases reserved travel weight.
    */
   async cancelRequestForListingCancellation(
     requestId: number,
@@ -86,11 +83,18 @@ export class RequestListingCancellationService {
       await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
     });
 
+    const updatedRequest = await this.findRequestById(requestId);
     const requester = await this.userService.findOne({ id: request.requesterId });
-    if (requester) {
-      request.currentStatusId = cancelledStatus.id;
-      request.currentStatus = cancelledStatus;
-      this.userEventService.emitRequestCancelled(requester, request, false, listingOwnerUserId);
+    if (requester && updatedRequest) {
+      this.userEventService.emitRequestCancelled(
+        requester,
+        updatedRequest,
+        false,
+        listingOwnerUserId,
+        undefined,
+        undefined,
+        true,
+      );
     }
 
     await this.clearRequestListCacheForUsers([request.requesterId, listingOwnerUserId]);
@@ -120,23 +124,7 @@ export class RequestListingCancellationService {
       return;
     }
     if (transaction.status === 'paid' && transaction.stripePaymentIntentId) {
-      let travelerPaymentUSD: number;
-      if (transaction.travelerPayment !== null && transaction.travelerPayment !== undefined) {
-        travelerPaymentUSD = await this.stripeService.convertToUSD(
-          transaction.travelerPayment,
-          transaction.currencyCode || 'USD',
-        );
-      } else {
-        throw new CustomBadRequestException(
-          'Traveler payment amount not found in transaction',
-          ErrorCode.INTERNAL_ERROR,
-        );
-      }
-      await this.stripeService.refundPaymentIntentPartial(
-        transaction.stripePaymentIntentId,
-        travelerPaymentUSD,
-        `refund-request-${requestId}-traveler`,
-      );
+      await this.stripeService.refundPaymentIntent(transaction.stripePaymentIntentId);
       await this.transactionService.updateTransactionStatus(transaction.id, 'refunded');
     }
   }
