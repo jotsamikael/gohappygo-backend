@@ -56,6 +56,10 @@ export interface TravelEvent extends BaseUserEvent {
   currencySymbol?: string; // Currency symbol (e.g., $, €, £)
   /** Active requests cancelled as part of listing withdrawal (seller cancel travel). */
   cancelledRequestCount?: number;
+  /** Route/flight before an update, used to notify only newly matching alerts. */
+  previousDepartureAirportId?: number;
+  previousArrivalAirportId?: number;
+  previousFlightNumber?: string | null;
 }
 
 export interface DemandEvent extends BaseUserEvent {
@@ -284,7 +288,15 @@ export class UserEventsService {
     this.eventEmitter.emit(UserEventType.TRAVEL_PUBLISHED, event);
   }
 
-  emitTravelUpdated(user: UserEntity, travelData: any): void {
+  emitTravelUpdated(
+    user: UserEntity,
+    travelData: any,
+    previousRoute?: {
+      departureAirportId: number;
+      arrivalAirportId: number;
+      flightNumber: string | null;
+    },
+  ): void {
     const event: TravelEvent = {
       userId: user.id,
       userFirstName: this.commonService.userGreetingName(user),
@@ -298,6 +310,9 @@ export class UserEventsService {
       weightAvailable: travelData.weightAvailable,
       pricePerKg: travelData.pricePerKg || 0,
       currencySymbol: travelData.currency?.symbol || '$',
+      previousDepartureAirportId: previousRoute?.departureAirportId,
+      previousArrivalAirportId: previousRoute?.arrivalAirportId,
+      previousFlightNumber: previousRoute?.flightNumber ?? null,
     };
     this.eventEmitter.emit(UserEventType.TRAVEL_UPDATED, event);
   }

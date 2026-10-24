@@ -779,6 +779,12 @@ export class TravelService {
       }
     }
 
+    const previousRoute = {
+      departureAirportId: travel.departureAirportId,
+      arrivalAirportId: travel.arrivalAirportId,
+      flightNumber: travel.flightNumber ?? null,
+    };
+
     // 13. Update the travel
     Object.assign(travel, updateData);
     travel.updatedBy = user.id;
@@ -796,9 +802,9 @@ export class TravelService {
           where: { id: updatedTravel.id },
           relations: ['departureAirport', 'arrivalAirport', 'currency'],
         });
-        this.userEventService.emitTravelUpdated(user, travelWithRelations || updatedTravel);
+        this.userEventService.emitTravelUpdated(user, travelWithRelations || updatedTravel, previousRoute);
       } catch {
-        this.userEventService.emitTravelUpdated(user, updatedTravel);
+        this.userEventService.emitTravelUpdated(user, updatedTravel, previousRoute);
       }
 
       return updatedTravel;

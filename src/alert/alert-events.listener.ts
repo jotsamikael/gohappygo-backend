@@ -12,6 +12,7 @@ import { EmailService } from 'src/email/email.service';
 import { EmailTemplatesService } from 'src/email/email-templates.service';
 import { DemandEntity } from 'src/demand/demand.entity';
 import { TravelEntity } from 'src/travel/travel.entity';
+import { AlertEntity } from './entities/alert.entity';
 import { CommonService } from 'src/common/service/common.service';
 
 @Injectable()
@@ -134,7 +135,6 @@ export class AlertEventsListener {
         return;
       }
 
-      // Find matching alerts
       const matchingAlerts = await this.alertService.findMatchingAlerts(
         travel.departureAirportId,
         travel.arrivalAirportId,
@@ -142,59 +142,131 @@ export class AlertEventsListener {
         'TRAVEL',
       );
 
-      if (matchingAlerts.length === 0) {
-        this.logger.log(`No matching alerts found for travel ${event.travelId}`);
+      await this.notifyTravelAlertMatches(event, travel, matchingAlerts);
+    } catch (error) {
+      this.logger.error(`Error handling travel published event: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * When a travel's route or flight changes, email users whose alerts newly match.
+   * Edits that do not change the route or flight do not resend match emails.
+   */
+  @OnEvent(UserEventType.TRAVEL_UPDATED)
+  async handleTravelUpdated(event: TravelEvent): Promise<void> {
+    try {
+      if (event.previousDepartureAirportId == null || event.previousArrivalAirportId == null) {
         return;
       }
 
-      this.logger.log(`Found ${matchingAlerts.length} matching alerts for travel ${event.travelId}`);
+      const travel = await this.travelRepository.findOne({
+        where: { id: event.travelId },
+        relations: ['departureAirport', 'arrivalAirport'],
+      });
 
-      // Process each matching alert
-      for (const alert of matchingAlerts) {
-        // Skip if alert owner is the same as travel creator
-        if (alert.userId === event.userId) {
-          continue;
-        }
-
-        try {
-          // Create notification
-          const copy = NotificationPushMessages.travelMatched;
-
-          await this.notificationService.create({
-            targetUserId: alert.userId,
-            actorUserId: event.userId,
-            notificationType: NotificationType.TRAVEL_MATCHED,
-            entityType: EntityType.TRAVEL,
-            entityId: event.travelId,
-            title: copy.title,
-            body: copy.body,
-            priority: NotificationPriority.HIGH,
-          });
-
-          // Send email
-          const emailTemplate = this.emailTemplatesService.getAlertMatchedEmailTemplate({
-            userName: this.commonService.userGreetingName(alert.user, 'User'),
-            alertType: 'Travel',
-            departureAirport: travel.departureAirport?.name || 'Unknown',
-            arrivalAirport: travel.arrivalAirport?.name || 'Unknown',
-            flightNumber: travel.flightNumber || 'N/A',
-            travelDate: ((travel as any).travelDate ?? travel.departureDatetime) ?? 'N/A',
-            travelId: event.travelId,
-          });
-
-          await this.emailService.sendEmail({
-            to: alert.user.email,
-            subject: 'New Travel Matches Your Alert - GoHappyGo',
-            html: emailTemplate,
-          });
-
-          this.logger.log(`Alert notification and email sent to user ${alert.userId} for travel ${event.travelId}`);
-        } catch (error) {
-          this.logger.error(`Failed to process alert ${alert.id} for travel ${event.travelId}: ${error.message}`);
-        }
+      if (!travel || travel.status === 'cancelled') {
+        this.logger.warn(`Travel ${event.travelId} not found or cancelled, skipping alert check`);
+        return;
       }
+
+      const previousFlight = this.normalizeFlightNumber(event.previousFlightNumber);
+      const currentFlight = this.normalizeFlightNumber(travel.flightNumber);
+      const routeUnchanged =
+        event.previousDepartureAirportId === travel.departureAirportId &&
+        event.previousArrivalAirportId === travel.arrivalAirportId &&
+        previousFlight === currentFlight;
+
+      if (routeUnchanged) {
+        this.logger.log(
+          `Travel ${event.travelId} updated without route or flight change; skipping alert match`,
+        );
+        return;
+      }
+
+      const [currentMatches, previousMatches] = await Promise.all([
+        this.alertService.findMatchingAlerts(
+          travel.departureAirportId,
+          travel.arrivalAirportId,
+          currentFlight,
+          'TRAVEL',
+        ),
+        this.alertService.findMatchingAlerts(
+          event.previousDepartureAirportId,
+          event.previousArrivalAirportId,
+          previousFlight,
+          'TRAVEL',
+        ),
+      ]);
+
+      const previouslyMatchedIds = new Set(previousMatches.map((alert) => alert.id));
+      const newlyMatched = currentMatches.filter((alert) => !previouslyMatchedIds.has(alert.id));
+
+      this.logger.log(
+        `Travel ${event.travelId} update produced ${newlyMatched.length} newly matching alert(s)`,
+      );
+
+      await this.notifyTravelAlertMatches(event, travel, newlyMatched);
     } catch (error) {
-      this.logger.error(`Error handling travel published event: ${error.message}`, error.stack);
+      this.logger.error(`Error handling travel updated event: ${error.message}`, error.stack);
+    }
+  }
+
+  private normalizeFlightNumber(flightNumber: string | null | undefined): string | null {
+    const trimmed = flightNumber?.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  private async notifyTravelAlertMatches(
+    event: TravelEvent,
+    travel: TravelEntity,
+    matchingAlerts: AlertEntity[],
+  ): Promise<void> {
+    if (matchingAlerts.length === 0) {
+      this.logger.log(`No matching alerts found for travel ${event.travelId}`);
+      return;
+    }
+
+    this.logger.log(`Found ${matchingAlerts.length} matching alerts for travel ${event.travelId}`);
+
+    for (const alert of matchingAlerts) {
+      if (alert.userId === event.userId) {
+        continue;
+      }
+
+      try {
+        const copy = NotificationPushMessages.travelMatched;
+
+        await this.notificationService.create({
+          targetUserId: alert.userId,
+          actorUserId: event.userId,
+          notificationType: NotificationType.TRAVEL_MATCHED,
+          entityType: EntityType.TRAVEL,
+          entityId: event.travelId,
+          title: copy.title,
+          body: copy.body,
+          priority: NotificationPriority.HIGH,
+        });
+
+        const emailTemplate = this.emailTemplatesService.getAlertMatchedEmailTemplate({
+          userName: this.commonService.userGreetingName(alert.user, 'User'),
+          alertType: 'Travel',
+          departureAirport: travel.departureAirport?.name || 'Unknown',
+          arrivalAirport: travel.arrivalAirport?.name || 'Unknown',
+          flightNumber: travel.flightNumber || 'N/A',
+          travelDate: ((travel as any).travelDate ?? travel.departureDatetime) ?? 'N/A',
+          travelId: event.travelId,
+        });
+
+        await this.emailService.sendEmail({
+          to: alert.user.email,
+          subject: 'New Travel Matches Your Alert - GoHappyGo',
+          html: emailTemplate,
+        });
+
+        this.logger.log(`Alert notification and email sent to user ${alert.userId} for travel ${event.travelId}`);
+      } catch (error) {
+        this.logger.error(`Failed to process alert ${alert.id} for travel ${event.travelId}: ${error.message}`);
+      }
     }
   }
 }
