@@ -46,8 +46,12 @@ export class ReviewService implements OnModuleInit {
       throw new CustomNotFoundException(`Request with id ${reviewDto.requestId} not found`, ErrorCode.REQUEST_NOT_FOUND);
     }
 
-    if (request.currentStatus.status !== 'COMPLETED') {
-      throw new CustomRequestNotCompletedException('Request is not completed, you can only review completed requests', ErrorCode.REQUEST_NOT_COMPLETED);
+    const reviewableStatuses = ['COMPLETED', 'RESOLVED'];
+    if (!reviewableStatuses.includes(request.currentStatus?.status ?? '')) {
+      throw new CustomRequestNotCompletedException(
+        'Request is not completed or resolved, you can only review completed or resolved requests',
+        ErrorCode.REQUEST_NOT_COMPLETED,
+      );
     }
 
     // Determine the reviewee based on the request type and who is reviewing

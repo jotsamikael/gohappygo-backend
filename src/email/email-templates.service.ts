@@ -972,6 +972,10 @@ export class EmailTemplatesService {
     demandId?: number;
     travelId?: number;
   }): string {
+    const route = `${data.departureAirport} to ${data.arrivalAirport}`;
+    const flightLabel = String(data.flightNumber).trim().toUpperCase() || 'N/A';
+    const travelDateLabel = this.formatEmailDateFlexible(data.travelDate);
+
     return this.wrapEmail({
       title: 'Alert Matched - GoHappyGo',
       headerTitle: '🔔 Alert Matched!',
@@ -984,15 +988,13 @@ export class EmailTemplatesService {
         <p>Great news! A new <strong>${data.alertType}</strong> has been published that matches your alert criteria.</p>
         ${emailPanel(`
           <h3 style="margin:0 0 8px;">Matched ${data.alertType} Details:</h3>
-          <p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>
-          <p><strong>Flight Number:</strong> ${String(data.flightNumber).toUpperCase()}</p>
-          <p><strong>Travel Date:</strong> ${this.formatEmailDateFlexible(data.travelDate)}</p>`)}
+          <p><strong>Route:</strong> ${route}</p>
+          <p><strong>Flight Number:</strong> ${flightLabel}</p>
+          <p><strong>Travel Date:</strong> ${travelDateLabel}</p>`)}
         ${emailPanel(`
           <p><strong>✨ This ${data.alertType.toLowerCase()} matches your alert preferences!</strong></p>
           <p>Don't miss out - check it out now and see if it meets your needs.</p>`)}
-        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
-          If you're no longer interested in this type of alert, you can manage your alerts in your account settings.
-        </p>`,
+        `,
     });
   }
 
@@ -1008,8 +1010,9 @@ export class EmailTemplatesService {
     travelDate?: Date | string | null;
     alertId: number;
   }): string {
+    const route = `${data.departureAirport} to ${data.arrivalAirport}`;
     const alertDetails = [
-      `<p><strong>Route:</strong> ${data.departureAirport} → ${data.arrivalAirport}</p>`,
+      `<p><strong>Route:</strong> ${route}</p>`,
       `<p><strong>Alert Type:</strong> ${data.alertType}</p>`,
     ];
 
@@ -1036,9 +1039,7 @@ export class EmailTemplatesService {
         ${emailPanel(`
           <p><strong>📧 What happens next?</strong></p>
           <p>You'll receive an email notification whenever a ${data.alertType.toLowerCase()} matching your criteria is published on GoHappyGo.</p>`)}
-        <p style="color:${EMAIL_BRAND.muted};font-size:14px;">
-          You can manage or delete your alerts anytime from your account settings.
-        </p>`,
+       `,
     });
   }
 
@@ -1276,7 +1277,7 @@ export class EmailTemplatesService {
           <li><strong>If service was NOT fulfilled:</strong> Confirm cancellation to refund the buyer (platform fee will be deducted)</li>
           <li><strong>If service WAS fulfilled:</strong> Dispute the cancellation - our admin team will review</li>
         </ul>
-        ${emailButton(`${baseUrl}/profile/travel-requests`, 'Respond in GoHappyGo', EMAIL_BRAND.blue)}
+        ${emailButton(`${baseUrl}/profile/reservations`, 'Respond in GoHappyGo', EMAIL_BRAND.blue)}
         <p><em>You have ${requestData.cancellationConfirmationDays ?? process.env.CANCELLATION_CONFIRMATION_DAYS ?? 7} days to respond. If you do not respond in time, the cancellation will be <strong>automatically approved</strong> in favour of the buyer and a refund will be processed.</em></p>`,
     });
   }
@@ -1294,7 +1295,7 @@ export class EmailTemplatesService {
       headerTitle: 'Cancellation submitted',
       headerVariant: 'warning',
       ctaLabel: 'View My Requests',
-      ctaUrl: `${baseUrl}/profile/travel-requests`,
+      ctaUrl: `${baseUrl}/profile/reservations`,
       bodyHtml: `
         ${emailHeading(`Hello ${userName},`, EMAIL_BRAND.headerText)}
         <p>Your cancellation request has been received. Because the travel date has passed, the seller must confirm or dispute within <strong>${days} days</strong>.</p>
@@ -1352,6 +1353,37 @@ export class EmailTemplatesService {
           <h3 style="margin:0 0 8px;">Request Details:</h3>
           <p><strong>Request ID:</strong> #${requestId}</p>`)}
         <p>You can create a new request when you're ready to try again.</p>`,
+    });
+  }
+
+  /**
+   * Sent to buyer and seller after an admin marks a cancellation dispute as RESOLVED.
+   */
+  getDisputeResolvedTemplate(userName: string, requestData: RequestEvent, isForOwner: boolean): string {
+    const requestId = this.escapeHtml(requestData.requestId);
+    const note = requestData.disputeResolutionNote?.trim();
+    const notePanel = note
+      ? emailPanel(`<p><strong>Note from our team:</strong> ${this.escapeHtml(note)}</p>`)
+      : '';
+    const intro = isForOwner
+      ? 'Our team has reviewed the cancellation dispute on a request for your listing and marked it as resolved.'
+      : 'Our team has reviewed your cancellation dispute and marked it as resolved.';
+
+    return this.wrapEmail({
+      title: 'Cancellation Dispute Resolved - GoHappyGo',
+      headerTitle: 'Dispute Resolved',
+      headerVariant: 'success',
+      ctaLabel: 'View Request',
+      ctaUrl: `${this.baseUrl}/profile/travel-requests`,
+      bodyHtml: `
+        ${emailHeading(`Hello ${this.escapeHtml(userName)},`)}
+        <p>${intro}</p>
+        ${emailPanel(`
+          <h3 style="margin:0 0 8px;">Request Details:</h3>
+          <p><strong>Request ID:</strong> #${requestId}</p>
+          <p><strong>Status:</strong> ${emailBadge('RESOLVED', EMAIL_BRAND.blue)}</p>`)}
+        ${notePanel}
+        <p>You can open the request in the app for the latest status. Contact support if you still have questions.</p>`,
     });
   }
 

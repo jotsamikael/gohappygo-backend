@@ -579,6 +579,20 @@ export class EmailService {
     });
   }
 
+  async sendDisputeResolved(
+    userEmail: string,
+    userFirstName: string,
+    requestData: RequestEvent,
+    isForOwner: boolean,
+  ): Promise<boolean> {
+    const html = this.emailTemplatesService.getDisputeResolvedTemplate(userFirstName, requestData, isForOwner);
+    return this.sendEmail({
+      to: userEmail,
+      subject: 'Cancellation Dispute Resolved - GoHappyGo',
+      html,
+    });
+  }
+
   async sendCancellationDisputed(userEmail: string, userFirstName: string, requestData: any): Promise<boolean> {
     const html = this.emailTemplatesService.getCancellationDisputedTemplate(userFirstName, requestData);
     return this.sendEmail({

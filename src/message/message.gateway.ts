@@ -277,6 +277,7 @@ import { DemandEvent, RequestEvent, TravelEvent } from 'src/events/user-events.s
     @OnEvent(UserEventType.CANCELLATION_PENDING)
     @OnEvent(UserEventType.CANCELLATION_CONFIRMED)
     @OnEvent(UserEventType.CANCELLATION_DISPUTED)
+    @OnEvent(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN)
     @OnEvent(UserEventType.REQUEST_AUTO_COMPLETED)
     @OnEvent(UserEventType.MEETING_PROOF_UPLOADED)
     handleRequestUpdateEvent(event: RequestEvent) {

@@ -117,7 +117,7 @@ export class RequestResponseDto {
   lastMessageDateTime?: Date | null;
 
   @ApiProperty({ 
-    description: 'Whether the connected user can review this request. True if request is COMPLETED and user has not yet reviewed it', 
+    description: 'Whether the connected user can review this request. True if request is COMPLETED or RESOLVED and user has not yet reviewed it', 
     example: true 
   })
   canReview: boolean;

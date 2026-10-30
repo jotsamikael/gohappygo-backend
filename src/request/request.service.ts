@@ -1025,12 +1025,7 @@ export class RequestService {
       );
     });
 
-    this.userEventService['eventEmitter'].emit(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN, {
-      requestId,
-      adminId: admin.id,
-      note: resolutionNote,
-      timestamp: resolvedAt,
-    });
+    this.userEventService.emitDisputeResolvedByAdmin(admin, request, resolutionNote);
 
     await this.clearRequestListCache();
 
@@ -2307,9 +2302,10 @@ export class RequestService {
       };
     }
 
-    // Calculate canReview: true if request is COMPLETED and user hasn't reviewed it yet
+    // Calculate canReview: true if request is COMPLETED or RESOLVED and user hasn't reviewed it yet
     let canReview = false;
-    if (currentUser && request.currentStatus?.status === 'COMPLETED') {
+    const reviewableStatuses = ['COMPLETED', 'RESOLVED'];
+    if (currentUser && reviewableStatuses.includes(request.currentStatus?.status ?? '')) {
       // Check if user has already reviewed this request
       const existingReview = await this.reviewRepository.findOne({
         where: {

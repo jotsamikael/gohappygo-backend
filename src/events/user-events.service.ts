@@ -94,6 +94,16 @@ export interface RequestEvent extends BaseUserEvent {
   cancellationConfirmationDays?: number;
   /** Buyer request cancelled because seller withdrew the travel/demand listing (full refund). */
   cancelledDueToListingWithdrawal?: boolean;
+  /** Admin who resolved a cancellation dispute. */
+  adminId?: number;
+  /** Optional admin note stored when a cancellation dispute is resolved. */
+  disputeResolutionNote?: string | null;
+  /** Buyer address for dispute-resolved emails (event user is the admin). */
+  buyerEmail?: string;
+  buyerFirstName?: string;
+  /** Seller address for dispute-resolved emails. */
+  sellerEmail?: string;
+  sellerFirstName?: string;
 }
 
 export interface TransactionEvent extends BaseUserEvent {
@@ -753,6 +763,39 @@ export class UserEventsService {
       isForOwner: false,
     };
     this.eventEmitter.emit(UserEventType.CANCELLATION_DISPUTED, event);
+  }
+
+  emitDisputeResolvedByAdmin(
+    admin: UserEntity,
+    requestData: RequestEntity,
+    note: string | null,
+  ): void {
+    const requesterName = this.requesterDisplayNameFromEntity(requestData.requester);
+    const ownerId = requestData.travel?.userId || requestData.demand?.userId || 0;
+    const seller = requestData.travel?.user ?? requestData.demand?.user;
+
+    const event: RequestEvent = {
+      userId: admin.id,
+      userFirstName: this.commonService.userGreetingName(admin),
+      userEmail: admin.email,
+      timestamp: new Date(),
+      requesterId: requestData.requesterId,
+      requesterName,
+      ownerId,
+      requestId: requestData.id,
+      requestType: requestData.requestType,
+      weight: requestData.weight,
+      isForOwner: false,
+      adminId: admin.id,
+      disputeResolutionNote: note,
+      buyerEmail: requestData.requester?.email,
+      buyerFirstName: requestData.requester
+        ? this.commonService.userGreetingName(requestData.requester)
+        : requesterName,
+      sellerEmail: seller?.email,
+      sellerFirstName: seller ? this.commonService.userGreetingName(seller) : undefined,
+    };
+    this.eventEmitter.emit(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN, event);
   }
 
   emitRequestAutoCompleted(user: UserEntity, requestData: RequestEntity, isForOwner: boolean, ownerId: number): void {

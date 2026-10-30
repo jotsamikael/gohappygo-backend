@@ -373,14 +373,40 @@ export class AllEventsListener {
   }
 
   @OnEvent(UserEventType.REQUEST_DISPUTE_RESOLVED_BY_ADMIN)
-  async handleRequestDisputeResolvedByAdmin(event: {
-    requestId: number;
-    adminId: number;
-    note?: string | null;
-  }): Promise<void> {
+  async handleRequestDisputeResolvedByAdmin(event: RequestEvent): Promise<void> {
     this.logger.log(
       `Request ${event.requestId} dispute resolved by admin ${event.adminId}`,
     );
+
+    if (event.buyerEmail) {
+      await this.sendEmailOrWarn(
+        `dispute resolved (buyer) requestId=${event.requestId} to=${event.buyerEmail}`,
+        () =>
+          this.emailService.sendDisputeResolved(
+            event.buyerEmail!,
+            event.buyerFirstName || event.requesterName || 'there',
+            event,
+            false,
+          ),
+      );
+    } else {
+      this.logger.warn(`Dispute resolved for request ${event.requestId}: buyer email missing, skipping buyer email`);
+    }
+
+    if (event.sellerEmail) {
+      await this.sendEmailOrWarn(
+        `dispute resolved (seller) requestId=${event.requestId} to=${event.sellerEmail}`,
+        () =>
+          this.emailService.sendDisputeResolved(
+            event.sellerEmail!,
+            event.sellerFirstName || 'there',
+            event,
+            true,
+          ),
+      );
+    } else {
+      this.logger.warn(`Dispute resolved for request ${event.requestId}: seller email missing, skipping seller email`);
+    }
   }
 
   /**
