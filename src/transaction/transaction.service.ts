@@ -408,13 +408,21 @@ export class TransactionService {
    //This can be triggered by:
    //1. Payer when marking request as completed (automatic flow)
    //2. Payee as a fallback to retry transfer after completing onboarding (manual retry)
-   async releaseFundsFromStripe(transactionId: number, user: UserEntity): Promise<void> {
+   async releaseFundsFromStripe(
+    transactionId: number,
+    user: UserEntity,
+    options?: { allowPlatformStaff?: boolean },
+  ): Promise<void> {
     const transaction = await this.getTransactionById(transactionId);
     if (!transaction) {
         throw new NotFoundException('Transaction not found');
     }
-    //check if user is either payer or payee (payer can trigger during completion, payee can retry after onboarding)
-    if (transaction.payerId !== user.id && transaction.payeeId !== user.id) {
+    const isParty = transaction.payerId === user.id || transaction.payeeId === user.id;
+    const staffRole = user.role?.code;
+    const isPlatformStaff =
+      options?.allowPlatformStaff === true &&
+      (staffRole === UserRole.ADMIN || staffRole === UserRole.OPERATOR);
+    if (!isParty && !isPlatformStaff) {
         throw new ForbiddenException('You are not authorized to release funds for this transaction. Only the payer or payee can release funds.');
     }
     //check if transaction status is 'paid', 'awaiting_transfer', or 'awaiting_available_funds' (funds are already collected)

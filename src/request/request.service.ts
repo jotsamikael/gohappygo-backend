@@ -204,14 +204,20 @@ export class RequestService {
     return outcome;
   }
 
-  private async releaseFundsForRequest(requestId: number, actingUser: UserEntity): Promise<void> {
+  private async releaseFundsForRequest(
+    requestId: number,
+    actingUser: UserEntity,
+    allowPlatformStaff = false,
+  ): Promise<void> {
     const transaction = await this.transactionService.getTransactionByRequestId(requestId);
     if (!transaction) {
       throw new CustomNotFoundException('Transaction not found', ErrorCode.TRANSACTION_NOT_FOUND);
     }
 
     const tryRelease = async () => {
-      await this.transactionService.releaseFundsFromStripe(transaction.id, actingUser);
+      await this.transactionService.releaseFundsFromStripe(transaction.id, actingUser, {
+        allowPlatformStaff,
+      });
     };
 
     if (
@@ -370,13 +376,13 @@ export class RequestService {
   async releaseFundsAndMarkCompleted(
     requestId: number,
     actingUser: UserEntity,
-    options: { autoComplete?: boolean } = {},
+    options: { autoComplete?: boolean; allowPlatformStaff?: boolean } = {},
   ): Promise<RequestEntity> {
     const request = await this.getRequestById(requestId);
     if (!request) {
       throw new CustomNotFoundException('Request not found', ErrorCode.REQUEST_NOT_FOUND);
     }
-    await this.releaseFundsForRequest(requestId, actingUser);
+    await this.releaseFundsForRequest(requestId, actingUser, options.allowPlatformStaff === true);
     return this.markRequestCompleted(requestId, request, actingUser, options);
   }
 
@@ -896,7 +902,7 @@ export class RequestService {
       );
     }
 
-    if (request.settledAt) {
+    if (request.settledAt && request.currentStatusId !== missedStatus.id) {
       throw new CustomBadRequestException('Request has already been settled by an admin', ErrorCode.REQUEST_NOT_FOUND);
     }
 
@@ -905,16 +911,13 @@ export class RequestService {
         ? 'CANCEL_AND_REFUND'
         : 'COMPLETE_AND_RELEASE_FUNDS';
 
-    request.settledAt = new Date();
-    request.settledByUserId = admin.id;
-    request.settleAction = settleAction;
-    request.settleNote = dto.note ?? null;
-    await this.updateRequestFields(requestId, {
-      settledAt: request.settledAt,
-      settledByUserId: request.settledByUserId,
-      settleAction: request.settleAction,
-      settleNote: request.settleNote,
-    });
+    const settledAt = new Date();
+    const settlementFields = {
+      settledAt,
+      settledByUserId: admin.id,
+      settleAction,
+      settleNote: dto.note ?? null,
+    };
 
     let result: RequestEntity;
 
@@ -936,10 +939,10 @@ export class RequestService {
         }
         lockedRequest.currentStatusId = cancelledStatus.id;
         lockedRequest.currentStatus = cancelledStatus;
-        lockedRequest.settledAt = request.settledAt;
-        lockedRequest.settledByUserId = request.settledByUserId;
-        lockedRequest.settleAction = request.settleAction;
-        lockedRequest.settleNote = request.settleNote;
+        lockedRequest.settledAt = settlementFields.settledAt;
+        lockedRequest.settledByUserId = settlementFields.settledByUserId;
+        lockedRequest.settleAction = settlementFields.settleAction;
+        lockedRequest.settleNote = settlementFields.settleNote;
         await transactionalEntityManager.save(RequestEntity, lockedRequest);
         await this.requestStatusHistoryService.record(requestId, cancelledStatus.id, transactionalEntityManager);
         await this.releaseReservedTravelWeightIfNeeded(requestId, transactionalEntityManager);
@@ -952,13 +955,8 @@ export class RequestService {
         this.userEventService.emitRequestCancelled(requester, result, false, ownerId);
       }
     } else if (dto.action === SettleRequestAction.COMPLETE_AND_RELEASE_FUNDS) {
-      result = await this.releaseFundsAndMarkCompleted(requestId, admin);
-      await this.updateRequestFields(requestId, {
-        settledAt: request.settledAt,
-        settledByUserId: request.settledByUserId,
-        settleAction: request.settleAction,
-        settleNote: request.settleNote,
-      });
+      result = await this.releaseFundsAndMarkCompleted(requestId, admin, { allowPlatformStaff: true });
+      await this.updateRequestFields(requestId, settlementFields);
       result = (await this.getRequestById(requestId))!;
     } else {
       throw new CustomBadRequestException('Invalid settle action', ErrorCode.SETTLE_ACTION_INVALID);
