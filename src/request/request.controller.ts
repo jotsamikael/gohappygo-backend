@@ -133,7 +133,8 @@ export class RequestController {
   })
   @ApiParam({ name: 'id', description: 'Request ID' })
   @ApiResponse({ status: 200, type: RequestResponseDto })
-  @ApiConsumes('multipart/form-data')
+  @ApiConsumes('application/json')
+  @ApiBody({ type: SettleRequestDto })
   async settleRequest(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SettleRequestDto,
