@@ -45,6 +45,11 @@ export interface CreateDemandDto {
   image3: Blob;
 
   /**
+   * Package kind
+   */
+  packageKind: 'FRAGILE' | 'URGENT' | 'STANDARD' | 'MORE_THAN_3000';
+
+  /**
    * Price per kg
    */
   pricePerKg: number;

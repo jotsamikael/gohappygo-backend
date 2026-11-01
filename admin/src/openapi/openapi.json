@@ -255,7 +255,7 @@
     },
     "/api/user/update-phone": {
       "put": {
-        "description": "Update the phone number of the currently authenticated user",
+        "description": "Update the phone number of the currently authenticated user. Blocked after identity verification (isVerified=true).",
         "operationId": "UserController_updatePhoneNumber",
         "parameters": [],
         "requestBody": {
@@ -411,7 +411,7 @@
     },
     "/api/user/update-profile": {
       "patch": {
-        "description": "Update the profile of the currently authenticated user. Optionally upload a profile picture.",
+        "description": "Update the profile of the currently authenticated user. Phone can be changed only while isVerified is false. Optionally upload a profile picture.",
         "operationId": "UserController_updateProfile",
         "parameters": [],
         "requestBody": {
@@ -436,7 +436,7 @@
             }
           },
           "400": {
-            "description": "Bad request - validation failed"
+            "description": "Bad request - validation failed or name change blocked after KYC verification"
           },
           "401": {
             "description": "Unauthorized"
@@ -1880,22 +1880,26 @@
     },
     "/api/auth/delete": {
       "delete": {
-        "description": "Soft delete the authenticated user account. Sets deleted_at so the user can no longer log in.",
+        "description": "Anonymizes personal data, revokes access, and soft-deletes the account while retaining marketplace records required for legal and operational integrity.",
         "operationId": "AuthController_deleteAccount",
         "parameters": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Account deleted successfully",
+            "description": "Account deleted and anonymized",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Account deleted successfully"
-                    }
-                  }
+                  "$ref": "#/components/schemas/DeleteAccountResponseDto"
                 }
               }
             }
@@ -1909,7 +1913,45 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Delete current user account",
+        "summary": "Delete current user account (GDPR anonymization)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/user": {
+      "delete": {
+        "description": "Alias for DELETE /api/auth/delete.",
+        "operationId": "AuthController_deleteAccountAlias",
+        "parameters": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account deleted and anonymized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAccountResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete current user account (alias)",
         "tags": [
           "auth"
         ]
@@ -3444,22 +3486,6 @@
             "schema": {
               "example": 2,
               "type": "number"
-            }
-          },
-          {
-            "name": "packageKind",
-            "required": false,
-            "in": "query",
-            "description": "Filter by package kind",
-            "schema": {
-              "example": "FRAGILE",
-              "type": "string",
-              "enum": [
-                "FRAGILE",
-                "URGENT",
-                "STANDARD",
-                "MORE_THAN_3000"
-              ]
             }
           },
           {
@@ -5054,6 +5080,405 @@
         ]
       }
     },
+    "/api/notification": {
+      "get": {
+        "description": "Get paginated list of notifications for the authenticated user with optional filters",
+        "operationId": "NotificationController_getUserNotifications",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number for pagination",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by notification type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUEST_SUBMITTED",
+                "REQUEST_ACCEPTED",
+                "REQUEST_REJECTED",
+                "REQUEST_COMPLETED",
+                "REQUEST_CANCELLED",
+                "REQUEST_DELIVERED",
+                "CANCELLATION_CONFIRMATION_REQUIRED",
+                "CANCELLATION_PENDING",
+                "CANCELLATION_CONFIRMED",
+                "CANCELLATION_DISPUTED",
+                "REVIEW_RECEIVED",
+                "MESSAGE_RECEIVED",
+                "TRAVEL_PUBLISHED",
+                "TRAVEL_CANCELLED",
+                "DEMAND_PUBLISHED",
+                "TRAVEL_MATCHED",
+                "DEMAND_MATCHED",
+                "PAYMENT_RECEIVED",
+                "PAYMENT_COMPLETED",
+                "TRANSACTION_CREATED",
+                "ACCOUNT_VERIFIED",
+                "ACCOUNT_VERIFICATION_FAILED",
+                "VERIFICATION_DOCUMENTS_RECEIVED",
+                "SYSTEM_ANNOUNCEMENT"
+              ]
+            }
+          },
+          {
+            "name": "unreadOnly",
+            "required": false,
+            "in": "query",
+            "description": "Filter to show only unread notifications",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "priority",
+            "required": false,
+            "in": "query",
+            "description": "Filter by priority level",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "NORMAL",
+                "HIGH",
+                "URGENT"
+              ]
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter notifications from this date (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter notifications until this date (ISO 8601)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifications retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedNotificationsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get current user notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/counts": {
+      "get": {
+        "description": "Get count of unread and total notifications for the authenticated user",
+        "operationId": "NotificationController_getNotificationCounts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Counts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get notification counts",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/{id}/read": {
+      "patch": {
+        "description": "Mark a single notification as read for the authenticated user",
+        "operationId": "NotificationController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Notification ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - not your notification"
+          },
+          "404": {
+            "description": "Notification not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/clear-read": {
+      "delete": {
+        "description": "Delete all read notifications for the authenticated user",
+        "operationId": "NotificationController_clearReadNotifications",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Read notifications cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "affected": {
+                      "type": "number",
+                      "description": "Number of notifications cleared"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Clear all read notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/mark-all-read": {
+      "patch": {
+        "description": "Mark all unread notifications as read for the authenticated user",
+        "operationId": "NotificationController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "affected": {
+                      "type": "number",
+                      "description": "Number of notifications marked as read"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/{id}": {
+      "delete": {
+        "description": "Soft delete a single notification for the authenticated user",
+        "operationId": "NotificationController_deleteNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Notification ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Notification deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - not your notification"
+          },
+          "404": {
+            "description": "Notification not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notification/device-token": {
+      "put": {
+        "description": "Register or refresh the current device FCM token for push notifications",
+        "operationId": "NotificationController_registerDeviceToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device token registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterDeviceTokenResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Register FCM device token",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "delete": {
+        "description": "Remove the device FCM token on logout",
+        "operationId": "NotificationController_unregisterDeviceToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterDeviceTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Device token unregistered successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Unregister FCM device token",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/api/quotes": {
       "post": {
         "operationId": "QuoteController_create",
@@ -5689,7 +6114,7 @@
     },
     "/api/demand-and-travel": {
       "get": {
-        "description": "\n        Retrieve demands and travels with various filter options:\n        - No filters: Returns all demands and travels\n        - If accessed by visitor, can only see upcoming demands/travels and demands and travels under MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE \n        - If user is connected as user, can see same as visitor + all his previous demands/travels even very old OnfidoKycService\n        - If user is connected as admin, can see every user's demands and travels irrespective of date.\n        - userId: Returns demands and travels for specific user\n        - flightNumber: Returns demands and travels for specific flight\n        - originAirportId: Returns demands and travels from specific airport\n        - destinationAirportId: Returns demands and travels to specific airport\n        - status: Returns demands and travels with specific status\n        - type: Filter by type (demand or travel)\n        - minWeight/maxWeight: Filter by weight range\n        - minPricePerKg/maxPricePerKg: Filter by price range\n        - weightAvailable: Search by available weight (travels only)\n        - travelDate: Filter by delivery date\n        - packageKind: Filter by package kind\n        Supports pagination and sorting by createdAt, travelDate, description, flightNumber, pricePerKg, and weight.\n        ",
+        "description": "\n        Retrieve demands and travels with various filter options:\n        - No filters: Returns all demands and travels\n        - If accessed by visitor, can only see upcoming demands/travels and demands and travels under MAX_DISPLAY_DAYS_AFTER_TRAVEL_DATE \n        - If user is connected as user, can see same as visitor + all his previous demands/travels even very old OnfidoKycService\n        - If user is connected as admin, can see every user's demands and travels irrespective of date.\n        - userId: Returns demands and travels for specific user\n        - flightNumber: Returns demands and travels for specific flight\n        - originAirportId: Returns demands and travels from specific airport\n        - destinationAirportId: Returns demands and travels to specific airport\n        - status: Returns demands and travels with specific status\n        - type: Filter by type (demand or travel)\n        - minWeight/maxWeight: Filter by weight range\n        - minPricePerKg/maxPricePerKg: Filter by price range\n        - weightAvailable: Search by available weight (travels only)\n        - travelDate: Filter by delivery date\n        Supports pagination and sorting by createdAt, travelDate, description, flightNumber, pricePerKg, and weight.\n        ",
         "operationId": "DemandAndTravelController_getDemandsAndTravels",
         "parameters": [
           {
@@ -6031,7 +6456,7 @@
             "name": "client",
             "required": false,
             "in": "query",
-            "description": "Client platform starting KYC (controls Didit return_url)",
+            "description": "Client platform starting KYC (controls Didit callback / user return URL)",
             "schema": {
               "default": "web",
               "type": "string",
@@ -6075,16 +6500,7 @@
       "post": {
         "description": "Receives status updates from Didit about KYC verification progress. This is called by Didit, not by your application.",
         "operationId": "KycDiditController_handleWebhook",
-        "parameters": [
-          {
-            "name": "x-didit-signature",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "Webhook processed successfully"
@@ -6615,399 +7031,6 @@
         "summary": "Remove bookmark by item",
         "tags": [
           "bookmarks"
-        ]
-      }
-    },
-    "/api/notification": {
-      "get": {
-        "description": "Get paginated list of notifications for the authenticated user with optional filters",
-        "operationId": "NotificationController_getUserNotifications",
-        "parameters": [
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number for pagination",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "example": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Number of items per page",
-            "schema": {
-              "minimum": 1,
-              "maximum": 2000,
-              "default": 10,
-              "example": 10,
-              "type": "number"
-            }
-          },
-          {
-            "name": "type",
-            "required": false,
-            "in": "query",
-            "description": "Filter by notification type",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "REQUEST_SUBMITTED",
-                "REQUEST_ACCEPTED",
-                "REQUEST_REJECTED",
-                "REQUEST_COMPLETED",
-                "REQUEST_CANCELLED",
-                "REQUEST_DELIVERED",
-                "REVIEW_RECEIVED",
-                "TRAVEL_PUBLISHED",
-                "DEMAND_PUBLISHED",
-                "TRAVEL_MATCHED",
-                "DEMAND_MATCHED",
-                "PAYMENT_RECEIVED",
-                "PAYMENT_COMPLETED",
-                "TRANSACTION_CREATED",
-                "ACCOUNT_VERIFIED",
-                "ACCOUNT_VERIFICATION_FAILED",
-                "VERIFICATION_DOCUMENTS_RECEIVED",
-                "SYSTEM_ANNOUNCEMENT"
-              ]
-            }
-          },
-          {
-            "name": "unreadOnly",
-            "required": false,
-            "in": "query",
-            "description": "Filter to show only unread notifications",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "priority",
-            "required": false,
-            "in": "query",
-            "description": "Filter by priority level",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "LOW",
-                "NORMAL",
-                "HIGH",
-                "URGENT"
-              ]
-            }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Filter notifications from this date (ISO 8601)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "Filter notifications until this date (ISO 8601)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Notifications retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedNotificationsResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Get current user notifications",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/counts": {
-      "get": {
-        "description": "Get count of unread and total notifications for the authenticated user",
-        "operationId": "NotificationController_getNotificationCounts",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Counts retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationCountResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Get notification counts",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/{id}/read": {
-      "patch": {
-        "description": "Mark a single notification as read for the authenticated user",
-        "operationId": "NotificationController_markAsRead",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Notification ID",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Notification marked as read",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden - not your notification"
-          },
-          "404": {
-            "description": "Notification not found"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Mark notification as read",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/mark-all-read": {
-      "patch": {
-        "description": "Mark all unread notifications as read for the authenticated user",
-        "operationId": "NotificationController_markAllAsRead",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "All notifications marked as read",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "affected": {
-                      "type": "number",
-                      "description": "Number of notifications marked as read"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Mark all notifications as read",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/{id}": {
-      "delete": {
-        "description": "Soft delete a single notification for the authenticated user",
-        "operationId": "NotificationController_deleteNotification",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Notification ID",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Notification deleted successfully"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden - not your notification"
-          },
-          "404": {
-            "description": "Notification not found"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Delete notification",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/clear-read": {
-      "delete": {
-        "description": "Delete all read notifications for the authenticated user",
-        "operationId": "NotificationController_clearReadNotifications",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Read notifications cleared",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "affected": {
-                      "type": "number",
-                      "description": "Number of notifications cleared"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Clear all read notifications",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/notification/device-token": {
-      "put": {
-        "description": "Register or refresh the current device FCM token for push notifications",
-        "operationId": "NotificationController_registerDeviceToken",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterDeviceTokenDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device token registered successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterDeviceTokenResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Register FCM device token",
-        "tags": [
-          "Notifications"
-        ]
-      },
-      "delete": {
-        "description": "Remove the device FCM token on logout",
-        "operationId": "NotificationController_unregisterDeviceToken",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UnregisterDeviceTokenDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Device token unregistered successfully"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Unregister FCM device token",
-        "tags": [
-          "Notifications"
         ]
       }
     },
@@ -7649,8 +7672,8 @@
   ],
   "servers": [
     {
-      "url": "http://localhost:3000",
-      "description": "Development server"
+      "url": "https://api.gohappygo.fr",
+      "description": "Production server"
     },
     {
       "url": "http://localhost:3000",
@@ -8034,14 +8057,14 @@
         "properties": {
           "firstName": {
             "type": "string",
-            "description": "First name",
+            "description": "First name. Cannot be changed after Didit KYC verification (isVerified=true).",
             "example": "John",
             "minLength": 2,
             "maxLength": 40
           },
           "lastName": {
             "type": "string",
-            "description": "Last name",
+            "description": "Last name. Cannot be changed after Didit KYC verification (isVerified=true).",
             "example": "Doe",
             "minLength": 2,
             "maxLength": 40
@@ -8051,6 +8074,11 @@
             "description": "User bio/description",
             "example": "Frequent traveler who loves helping others",
             "maxLength": 500
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number in international format. Can only be changed before Didit KYC verification (isVerified=false).",
+            "example": "+33612345678"
           }
         }
       },
@@ -8062,14 +8090,14 @@
             "description": "Current password",
             "example": "OldPassword123!",
             "minLength": 6,
-            "maxLength": 32
+            "maxLength": 128
           },
           "newPassword": {
             "type": "string",
             "description": "New password - must contain at least one uppercase letter, one lowercase letter, one number",
             "example": "NewPassword123!",
             "minLength": 8,
-            "maxLength": 32
+            "maxLength": 128
           }
         },
         "required": [
@@ -8375,7 +8403,7 @@
             "description": "User password",
             "example": "password123",
             "minLength": 6,
-            "maxLength": 32
+            "maxLength": 128
           },
           "countryCode": {
             "description": "Country code for Stripe Connect account (ISO 3166-1 alpha-2)",
@@ -8494,7 +8522,7 @@
             "description": "User password",
             "example": "password123",
             "minLength": 6,
-            "maxLength": 32
+            "maxLength": 128
           }
         },
         "required": [
@@ -8516,7 +8544,7 @@
             "description": "User password",
             "example": "password123",
             "minLength": 6,
-            "maxLength": 16
+            "maxLength": 128
           }
         },
         "required": [
@@ -9022,7 +9050,7 @@
             "description": "New password",
             "example": "newpassword123",
             "minLength": 6,
-            "maxLength": 16
+            "maxLength": 128
           }
         },
         "required": [
@@ -9057,6 +9085,75 @@
         "required": [
           "access_token",
           "message"
+        ]
+      },
+      "DeleteAccountDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Optional reason for account deletion"
+          },
+          "confirmEmail": {
+            "type": "string",
+            "description": "Must match the authenticated user email when provided",
+            "example": "user@example.com"
+          }
+        }
+      },
+      "DeleteAccountResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Account deleted and personal data anonymized successfully"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-08-27T12:00:00.000Z"
+          },
+          "dataCategoriesRemoved": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "profile_identity",
+                "contact_details",
+                "authentication_credentials",
+                "kyc_documents",
+                "profile_picture",
+                "device_tokens",
+                "alerts",
+                "bookmarks",
+                "verification_codes",
+                "password_reset_tokens",
+                "message_content",
+                "firebase_auth"
+              ]
+            }
+          },
+          "dataCategoriesRetained": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "transactions",
+                "requests",
+                "reviews",
+                "published_listings",
+                "delivery_proof_metadata",
+                "stripe_account_references",
+                "support_tickets_redacted"
+              ]
+            }
+          }
+        },
+        "required": [
+          "message",
+          "deletedAt",
+          "dataCategoriesRemoved",
+          "dataCategoriesRetained"
         ]
       },
       "CreateCurrencyDto": {
@@ -10699,17 +10796,6 @@
             "description": "Currency ID associated with this demand",
             "example": 1
           },
-          "packageKind": {
-            "type": "string",
-            "description": "Package kind",
-            "example": "FRAGILE",
-            "enum": [
-              "FRAGILE",
-              "URGENT",
-              "STANDARD",
-              "MORE_THAN_3000"
-            ]
-          },
           "image1": {
             "type": "string",
             "format": "binary",
@@ -10735,7 +10821,6 @@
           "weight",
           "pricePerKg",
           "currencyId",
-          "packageKind",
           "image1",
           "image2",
           "image3"
@@ -11082,16 +11167,6 @@
             "type": "string",
             "example": "active"
           },
-          "packageKind": {
-            "type": "string",
-            "example": "FRAGILE",
-            "enum": [
-              "FRAGILE",
-              "URGENT",
-              "STANDARD",
-              "MORE_THAN_3000"
-            ]
-          },
           "departureAirport": {
             "$ref": "#/components/schemas/DemandListAirportDto"
           },
@@ -11140,7 +11215,6 @@
           "pricePerKg",
           "currencyId",
           "status",
-          "packageKind",
           "departureAirport",
           "arrivalAirport",
           "user",
@@ -11662,10 +11736,6 @@
             "example": 1,
             "nullable": true
           },
-          "packageKind": {
-            "type": "string",
-            "example": "STANDARD"
-          },
           "requests": {
             "example": [],
             "type": "array",
@@ -11701,7 +11771,6 @@
           "arrivalAirportId",
           "travelDate",
           "currencyId",
-          "packageKind",
           "requests"
         ]
       },
@@ -11751,17 +11820,6 @@
             "type": "number",
             "description": "Currency ID associated with this demand",
             "example": 1
-          },
-          "packageKind": {
-            "type": "string",
-            "description": "Package kind",
-            "example": "FRAGILE",
-            "enum": [
-              "FRAGILE",
-              "URGENT",
-              "STANDARD",
-              "MORE_THAN_3000"
-            ]
           }
         }
       },
@@ -13007,6 +13065,222 @@
           }
         }
       },
+      "NotificationActorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "profilePictureUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "publicId",
+          "fullName"
+        ]
+      },
+      "NotificationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "publicId": {
+            "type": "string",
+            "example": "nt_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+          },
+          "notificationType": {
+            "type": "string",
+            "enum": [
+              "REQUEST_SUBMITTED",
+              "REQUEST_ACCEPTED",
+              "REQUEST_REJECTED",
+              "REQUEST_COMPLETED",
+              "REQUEST_CANCELLED",
+              "REQUEST_DELIVERED",
+              "CANCELLATION_CONFIRMATION_REQUIRED",
+              "CANCELLATION_PENDING",
+              "CANCELLATION_CONFIRMED",
+              "CANCELLATION_DISPUTED",
+              "REVIEW_RECEIVED",
+              "MESSAGE_RECEIVED",
+              "TRAVEL_PUBLISHED",
+              "TRAVEL_CANCELLED",
+              "DEMAND_PUBLISHED",
+              "TRAVEL_MATCHED",
+              "DEMAND_MATCHED",
+              "PAYMENT_RECEIVED",
+              "PAYMENT_COMPLETED",
+              "TRANSACTION_CREATED",
+              "ACCOUNT_VERIFIED",
+              "ACCOUNT_VERIFICATION_FAILED",
+              "VERIFICATION_DOCUMENTS_RECEIVED",
+              "SYSTEM_ANNOUNCEMENT"
+            ]
+          },
+          "targetUserId": {
+            "type": "number"
+          },
+          "actorUserId": {
+            "type": "number"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/NotificationActorDto"
+          },
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "REVIEW",
+              "TRAVEL",
+              "DEMAND",
+              "TRANSACTION",
+              "USER"
+            ]
+          },
+          "entityId": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "NORMAL",
+              "HIGH",
+              "URGENT"
+            ]
+          },
+          "readAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "publicId",
+          "notificationType",
+          "targetUserId",
+          "title",
+          "priority",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedNotificationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponseDto"
+            }
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ]
+      },
+      "NotificationCountResponseDto": {
+        "type": "object",
+        "properties": {
+          "unreadCount": {
+            "type": "number",
+            "description": "Count of unread notifications"
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "Count of total notifications"
+          }
+        },
+        "required": [
+          "unreadCount",
+          "totalCount"
+        ]
+      },
+      "RegisterDeviceTokenDto": {
+        "type": "object",
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "description": "FCM device token from Firebase SDK",
+            "minLength": 20,
+            "maxLength": 512
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ],
+            "description": "Device platform"
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "Optional stable device identifier from client",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "fcmToken",
+          "platform"
+        ]
+      },
+      "RegisterDeviceTokenResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-05-30T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "success",
+          "registeredAt"
+        ]
+      },
+      "UnregisterDeviceTokenDto": {
+        "type": "object",
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "description": "FCM device token to unregister",
+            "minLength": 20,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "fcmToken"
+        ]
+      },
       "CreateQuoteDto": {
         "type": "object",
         "properties": {
@@ -13872,10 +14146,6 @@
             "type": "boolean",
             "description": "Whether the item is deactivated"
           },
-          "packageKind": {
-            "type": "string",
-            "description": "Package kind (demands only)"
-          },
           "isSharedWeight": {
             "type": "boolean",
             "description": "Whether weight is shared (travels only)"
@@ -14286,6 +14556,28 @@
           "demandImageUrl"
         ]
       },
+      "BookmarkCurrencyResponseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "EUR"
+          },
+          "name": {
+            "type": "string",
+            "example": "EURO"
+          },
+          "symbol": {
+            "type": "string",
+            "example": "€"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "symbol"
+        ]
+      },
       "BookmarkItemResponseDto": {
         "type": "object",
         "properties": {
@@ -14346,6 +14638,14 @@
                 "$ref": "#/components/schemas/DemandImageResponseDto"
               }
             ]
+          },
+          "currency": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookmarkCurrencyResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -14360,7 +14660,8 @@
           "travel",
           "demand",
           "airline",
-          "demandImage"
+          "demandImage",
+          "currency"
         ]
       },
       "BookmarkListResponseDto": {
@@ -14390,216 +14691,6 @@
             "example": "Good price and convenient timing"
           }
         }
-      },
-      "NotificationActorDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "publicId": {
-            "type": "string",
-            "example": "us_01ARZ3NDEKTSV4RRFFQ69G5FAV"
-          },
-          "fullName": {
-            "type": "string"
-          },
-          "profilePictureUrl": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "publicId",
-          "fullName"
-        ]
-      },
-      "NotificationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "number"
-          },
-          "publicId": {
-            "type": "string",
-            "example": "nt_01ARZ3NDEKTSV4RRFFQ69G5FAV"
-          },
-          "notificationType": {
-            "type": "string",
-            "enum": [
-              "REQUEST_SUBMITTED",
-              "REQUEST_ACCEPTED",
-              "REQUEST_REJECTED",
-              "REQUEST_COMPLETED",
-              "REQUEST_CANCELLED",
-              "REQUEST_DELIVERED",
-              "REVIEW_RECEIVED",
-              "TRAVEL_PUBLISHED",
-              "DEMAND_PUBLISHED",
-              "TRAVEL_MATCHED",
-              "DEMAND_MATCHED",
-              "PAYMENT_RECEIVED",
-              "PAYMENT_COMPLETED",
-              "TRANSACTION_CREATED",
-              "ACCOUNT_VERIFIED",
-              "ACCOUNT_VERIFICATION_FAILED",
-              "VERIFICATION_DOCUMENTS_RECEIVED",
-              "SYSTEM_ANNOUNCEMENT"
-            ]
-          },
-          "targetUserId": {
-            "type": "number"
-          },
-          "actorUserId": {
-            "type": "number"
-          },
-          "actor": {
-            "$ref": "#/components/schemas/NotificationActorDto"
-          },
-          "entityType": {
-            "type": "string",
-            "enum": [
-              "REQUEST",
-              "REVIEW",
-              "TRAVEL",
-              "DEMAND",
-              "TRANSACTION",
-              "USER"
-            ]
-          },
-          "entityId": {
-            "type": "number"
-          },
-          "title": {
-            "type": "string"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "NORMAL",
-              "HIGH",
-              "URGENT"
-            ]
-          },
-          "readAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "publicId",
-          "notificationType",
-          "targetUserId",
-          "title",
-          "priority",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PaginatedNotificationsResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/NotificationResponseDto"
-            }
-          },
-          "meta": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "items",
-          "meta"
-        ]
-      },
-      "NotificationCountResponseDto": {
-        "type": "object",
-        "properties": {
-          "unreadCount": {
-            "type": "number",
-            "description": "Count of unread notifications"
-          },
-          "totalCount": {
-            "type": "number",
-            "description": "Count of total notifications"
-          }
-        },
-        "required": [
-          "unreadCount",
-          "totalCount"
-        ]
-      },
-      "RegisterDeviceTokenDto": {
-        "type": "object",
-        "properties": {
-          "fcmToken": {
-            "type": "string",
-            "description": "FCM device token from Firebase SDK",
-            "minLength": 20,
-            "maxLength": 512
-          },
-          "platform": {
-            "type": "string",
-            "enum": [
-              "ios",
-              "android"
-            ],
-            "description": "Device platform"
-          },
-          "deviceId": {
-            "type": "string",
-            "description": "Optional stable device identifier from client",
-            "maxLength": 128
-          }
-        },
-        "required": [
-          "fcmToken",
-          "platform"
-        ]
-      },
-      "RegisterDeviceTokenResponseDto": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
-          },
-          "registeredAt": {
-            "format": "date-time",
-            "type": "string",
-            "example": "2026-05-30T12:00:00.000Z"
-          }
-        },
-        "required": [
-          "success",
-          "registeredAt"
-        ]
-      },
-      "UnregisterDeviceTokenDto": {
-        "type": "object",
-        "properties": {
-          "fcmToken": {
-            "type": "string",
-            "description": "FCM device token to unregister",
-            "minLength": 20,
-            "maxLength": 512
-          }
-        },
-        "required": [
-          "fcmToken"
-        ]
       },
       "SupportRequesterType": {
         "type": "string",

@@ -28,6 +28,7 @@ export interface DemandDetailResponseDto {
   id: number;
   images: Array<DemandDetailImageDto>;
   isDeactivated: boolean;
+  packageKind: string;
   pricePerKg: string;
   publicId: string;
   requests: Array<string>;

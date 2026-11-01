@@ -15,7 +15,7 @@ export interface KycStatusResponseDto {
   kycProvider: string | null;
 
   /**
-   * Current KYC verification status
+   * Current KYC verification status. in_review means the user finished Didit and a human must approve or reject.
    */
   kycStatus: 'uninitiated' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'failed';
 
