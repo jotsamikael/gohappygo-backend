@@ -906,13 +906,16 @@ export class RequestService {
       throw new CustomBadRequestException('Request has already been settled by an admin', ErrorCode.REQUEST_NOT_FOUND);
     }
 
-    const settleAction =
+    const settleAction: 'CANCEL_AND_REFUND' | 'COMPLETE_AND_RELEASE_FUNDS' =
       dto.action === SettleRequestAction.CANCEL_AND_REFUND
         ? 'CANCEL_AND_REFUND'
         : 'COMPLETE_AND_RELEASE_FUNDS';
 
     const settledAt = new Date();
-    const settlementFields = {
+    const settlementFields: Pick<
+      RequestEntity,
+      'settledAt' | 'settledByUserId' | 'settleAction' | 'settleNote'
+    > = {
       settledAt,
       settledByUserId: admin.id,
       settleAction,
